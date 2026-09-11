@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVIMA · Living Lab Educativo, Laboratorios Vivos de Matemática y Arte</title>
 <meta name="description" content="Repositorio de simuladores interactivos LIVIMA para los grados 6°, 8° y 10°: geometría, proporción y arte del Sinú, Córdoba.">
+
+<!-- PWA: permite "Agregar a pantalla de inicio" y uso sin conexión -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B3A6B">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LIVIMA">
+
 <style>
   :root{
     --navy:#1B3A6B; --teal:#1F8A8A; --green:#4A9B2E; --orange:#D9701A; --purple:#6B3FA0;
@@ -94,7 +105,7 @@
     aspect-ratio:16/8.4;
     background-size:cover;
     background-position:22% center;
-    display:flex;align-items:center;
+    display:flex;align-items:flex-end;
     overflow:hidden;
   }
   .grade-banner::after{
@@ -103,7 +114,7 @@
     pointer-events:none;
   }
   .grade-textpanel{
-    position:relative;z-index:1;margin-left:auto;margin-right:5%;max-width:420px;
+    position:relative;z-index:1;margin-left:auto;margin-right:5%;margin-bottom:28px;max-width:420px;
     background:rgba(255,252,242,.95);backdrop-filter:blur(3px);
     border-radius:16px;padding:22px 26px;border-left:6px solid var(--accent);
     box-shadow:0 20px 40px -20px rgba(0,0,0,.35);
@@ -623,6 +634,15 @@
   }
   animate();
 })();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch((err) => {
+      console.warn("No se pudo registrar el service worker:", err);
+    });
+  });
+}
 </script>
 </body>
 </html>
