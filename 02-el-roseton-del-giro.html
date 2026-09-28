@@ -123,6 +123,16 @@
     background:#fff;border:1px solid var(--line);border-radius:999px}
   .fibo-medal img{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 0 0 2px var(--teal)}
   .fibo-medal span{font-family:var(--serif);font-weight:700;color:var(--navy);font-size:14px}
+
+  /* ---------- Ajustes para celular (revisión de 10°) ---------- */
+  /* los tres botones de vista no cabían en una fila */
+  #vistaRow{flex-wrap:wrap}
+  @media(max-width:600px){ #vistaRow .btn.btnsm{min-height:40px;font-size:13px} }
+
+  @media(max-width:600px){
+    /* deslizadores: la barra se ve igual, pero el dedo la atrapa en 44 px de alto */
+    input[type=range]{min-height:44px;margin-top:0;margin-bottom:0;touch-action:pan-y}
+  }
 </style>
 </head>
 <body>

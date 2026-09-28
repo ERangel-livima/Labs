@@ -193,6 +193,32 @@
   .fibo-medal span{font-family:var(--serif);font-weight:700;color:var(--navy);font-size:14px}
   footer .lema{font-family:var(--serif);font-style:italic;color:var(--navy);font-size:19px;margin:0 0 10px}
   footer .cred{color:var(--grey);font-size:13px;margin-top:8px;line-height:1.7}
+
+  /* ---------- Ajustes para celular (revisión de 10°) ---------- */
+  @media(max-width:600px){
+    /* la tabla de doble entrada se ajusta al ancho del celular */
+    table.xtab{font-size:12px}
+    table.xtab th,table.xtab td{padding:6px 3px}
+    table.xtab th{font-size:11px;overflow-wrap:anywhere}
+    table.xtab div.count{min-width:0 !important;width:auto !important}
+    table.xtab td.colorcell{gap:4px}
+    table.xtab td.colorcell .dot{width:12px;height:12px}
+  }
+
+  @media(max-width:600px){
+    /* deslizadores: la barra se ve igual, pero el dedo la atrapa en 44 px de alto */
+    input[type=range]{min-height:44px;margin-top:0;margin-bottom:0;touch-action:pan-y}
+  }
+
+  /* Mi Torre de Colores en celular: las tres torres lado a lado, justo debajo de las fichas */
+  .chip{touch-action:none}
+  .chip.sel{border-color:var(--purple);box-shadow:0 0 0 3px rgba(107,63,160,.3);background:#F3ECFB}
+  @media(max-width:760px){
+    .towers-wrap{grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:6px}
+    .tower-drop{height:290px}
+    .tower-inner{transform:scale(.7);transform-origin:50% 100%}
+    .tower-label{font-size:12.5px}
+  }
 </style>
 </head>
 <body>
@@ -239,7 +265,7 @@
   <section>
     <span class="step" style="background:var(--orange)">ETAPA 3</span>
     <h2>Probabilidad: de la tabla al azar</h2>
-    <div class="sub">Contar y sacar porcentaje ya lo hiciste. Ahora esos números se convierten en probabilidades — y las vas a poner a prueba con simulaciones de verdad, no solo mirarlas quietas en una tabla.</div>
+    <div class="sub">Contar y sacar porcentaje ya lo hiciste. Ahora esos números se convierten en probabilidades, y las vas a poner a prueba con simulaciones de verdad, no solo mirarlas quietas en una tabla.</div>
 
     <div class="prob-part">
       <h3>Parte 1 · Probabilidad marginal, conjunta y condicional</h3>
@@ -271,7 +297,7 @@
 
     <div class="prob-part">
       <h3>Parte 3 · Expediciones sin repetir: ¿importa cómo elijo?</h3>
-      <div class="sub-small">Si armo un grupo de <b>3 sitios distintos, sin repetir ninguno</b>, para una expedición real, ¿qué probabilidad hay de que los 3 caigan en la misma categoría? Esto ya no es una simple fracción — es combinatoria.</div>
+      <div class="sub-small">Si armo un grupo de <b>3 sitios distintos, sin repetir ninguno</b>, para una expedición real, ¿qué probabilidad hay de que los 3 caigan en la misma categoría? Esto ya no es una simple fracción: es combinatoria.</div>
       <div class="prob-controls">
         <label>Categoría objetivo<select id="hyperCat"></select></label>
       </div>
@@ -288,7 +314,7 @@
   <section>
     <span class="step" style="background:var(--green)">ETAPA 4</span>
     <h2>Mi Torre de Colores</h2>
-    <div class="sub">Arrastra cada sitio hacia la torre de su categoría. Cada uno se convierte en un bloque 3D de su color real. Toca cualquier bloque ya colocado para verlo girar. Este es tu borrador digital: la versión final la vas a construir a mano en tu Pasaporte.</div>
+    <div class="sub">Arrastra cada sitio hacia la torre de su categoría (o tócalo y luego toca la torre). Cada uno se convierte en un bloque 3D de su color real. Toca cualquier bloque ya colocado para verlo girar. Este es tu borrador digital: la versión final la vas a construir a mano en tu Pasaporte.</div>
     <div class="progress" id="prog3">Bloques colocados: 0 de 11</div>
     <div id="chipTray" class="chip-tray"></div>
     <div class="towers-wrap">
@@ -324,7 +350,7 @@
   </div>
 
   <div class="reflect">
-    <b>Para pensar:</b> con los once sitios reales que catalogaste, ningún color domina en ningún sector — Cultural, Deportivo y Comercial se reparten en partes iguales entre sus colores, sin repetición. Eso no significa que Montería no tenga identidad cromática: significa que once sitios pueden ser una muestra demasiado pequeña para verla. ¿Cuántos sitios más habría que contar para confiar en un patrón? Esa pregunta es tan matemática como la tabla misma.
+    <b>Para pensar:</b> con los once sitios reales que catalogaste, ningún color domina en ningún sector: Cultural, Deportivo y Comercial se reparten en partes iguales entre sus colores, sin repetición. Eso no significa que Montería no tenga identidad cromática: significa que once sitios pueden ser una muestra demasiado pequeña para verla. ¿Cuántos sitios más habría que contar para confiar en un patrón? Esa pregunta es tan matemática como la tabla misma.
   </div>
 
   <footer>
@@ -418,9 +444,9 @@ function buildCards(){
           card.querySelector(".sampleSwatch").style.background = "rgb("+sampled.join(",")+")";
           let verdict;
           if(d < 45) verdict = "¡Muy cerca del color oficial!";
-          else if(d < 100) verdict = "Cerca — hay zonas más representativas.";
-          else verdict = "Lejos — prueba otra zona de la foto.";
-          card.querySelector(".sampleTxt").textContent = "Tu muestra: rgb("+sampled.join(",")+") — "+verdict;
+          else if(d < 100) verdict = "Cerca: hay zonas más representativas.";
+          else verdict = "Lejos: prueba otra zona de la foto.";
+          card.querySelector(".sampleTxt").textContent = "Tu muestra: rgb("+sampled.join(",")+"). "+verdict;
           card.querySelector(".officialRow").style.display = "flex";
           card.querySelector(".pipetteHint").style.display = "none";
           if(!revealed[i]) revealSite(i);
@@ -433,7 +459,7 @@ function buildCards(){
           '<div class="swatch" style="--sw:'+s.hex+'">'+(revealed[i]?"":"?")+'</div>'+
           '<div class="info"><div class="name">'+s.name+'</div>'+
           '<div class="colorlabel">Color dominante: <b>'+s.color+'</b></div>'+
-          '<div class="taplabel">Sin foto disponible — toca para revelar</div></div>';
+          '<div class="taplabel">Sin foto disponible: toca para revelar</div></div>';
         if(revealed[i]) card.classList.add("revealed");
         card.onclick = ()=>{ revealSite(i); };
         col.appendChild(card);
@@ -493,7 +519,7 @@ function renderTable(){
     const isTie = winners.length > 1;
     const d = document.createElement("div");
     d.className = "box";
-    let winLabel = "—", pctLabel = "revela sitios de esta categoría";
+    let winLabel = "-", pctLabel = "revela sitios de esta categoría";
     if(catTotals[cat]>0){
       winLabel = isTie ? "Empate ("+winners.length+" colores)" : winners[0];
       pctLabel = fmt(pct,0)+"% "+(isTie?"cada uno":"de "+catTotals[cat]+" sitios");
@@ -563,9 +589,9 @@ function updateProb(){
   if(jointCount===0){
     verdict = "En "+cat+" no hay ningún sitio "+color+". P("+color+"|"+cat+") = 0%, aunque P("+color+") en toda la ciudad es "+fmtPct(pColor)+". Estar en esta categoría cambió por completo la probabilidad de ese color.";
   } else if(diff < 6){
-    verdict = "P("+color+") = "+fmtPct(pColor)+" y P("+color+"|"+cat+") = "+fmtPct(pCondCatGivenColor)+" son muy parecidas. Saber que el sitio es "+cat+" casi no cambia la probabilidad de que sea "+color+" — parecen comportarse como sucesos <b>independientes</b>.";
+    verdict = "P("+color+") = "+fmtPct(pColor)+" y P("+color+"|"+cat+") = "+fmtPct(pCondCatGivenColor)+" son muy parecidas. Saber que el sitio es "+cat+" casi no cambia la probabilidad de que sea "+color+": parecen comportarse como sucesos <b>independientes</b>.";
   } else {
-    verdict = "P("+color+") = "+fmtPct(pColor)+" pero P("+color+"|"+cat+") = "+fmtPct(pCondCatGivenColor)+". Saber que el sitio es "+cat+" sí cambió bastante la probabilidad de que fuera "+color+" — estos dos sucesos <b>no son independientes</b> en esta muestra.";
+    verdict = "P("+color+") = "+fmtPct(pColor)+" pero P("+color+"|"+cat+") = "+fmtPct(pCondCatGivenColor)+". Saber que el sitio es "+cat+" sí cambió bastante la probabilidad de que fuera "+color+": estos dos sucesos <b>no son independientes</b> en esta muestra.";
   }
   document.getElementById("probVerdict").innerHTML = verdict;
 }
@@ -630,7 +656,7 @@ function updateLgnStats(){
   document.getElementById("lgnStats").innerHTML =
     "<span>Sorteos: <b>"+n+"</b></span>"+
     "<span>Aciertos: <b>"+hits+"</b></span>"+
-    "<span>Frecuencia observada: <b>"+(n>0?fmtPct(freq):"—")+"</b></span>"+
+    "<span>Frecuencia observada: <b>"+(n>0?fmtPct(freq):"-")+"</b></span>"+
     "<span>Probabilidad teórica: <b>"+fmtPct(P)+"</b></span>";
   drawLGN();
 }
@@ -667,7 +693,7 @@ function updateHyperFormula(){
     '<div class="eq">Sin reposición (correcto para una expedición real):<br>'+
     'P(los 3 sean '+cat+') = C('+catCount+',3) / C(11,3) = '+favorable+' / '+total+' = <b>'+fmtPct(pHyper)+'</b></div>'+
     '<div class="eq" style="margin-top:8px;color:#888">Si fuera CON reposición (pudiendo repetir el mismo sitio):<br>'+
-    'P = ('+catCount+'/11)³ = <b>'+fmtPct(pWithReplacement)+'</b> — distinto, porque repetir un sitio no es lo mismo que visitar tres reales.</div>';
+    'P = ('+catCount+'/11)³ = <b>'+fmtPct(pWithReplacement)+'</b>, distinto porque repetir un sitio no es lo mismo que visitar tres reales.</div>';
   hyperTrials = 0; hyperHits = 0;
   updateHyperStats();
 }
@@ -678,7 +704,7 @@ function updateHyperStats(){
   document.getElementById("hyperStats").innerHTML =
     "<span>Expediciones simuladas: <b>"+hyperTrials+"</b></span>"+
     "<span>Las 3 fueron "+cat+": <b>"+hyperHits+"</b></span>"+
-    "<span>Frecuencia observada: <b>"+(hyperTrials>0?fmtPct(hyperHits/hyperTrials):"—")+"</b></span>"+
+    "<span>Frecuencia observada: <b>"+(hyperTrials>0?fmtPct(hyperHits/hyperTrials):"-")+"</b></span>"+
     "<span>Probabilidad teórica: <b>"+fmtPct(pHyper)+"</b></span>";
 }
 function drawThreeWithoutReplacement(){
@@ -735,7 +761,7 @@ function makeCube(site){
     if(side==="front") f.textContent = label;
     cube.appendChild(f);
   });
-  cube.title = site.name+" — "+site.color;
+  cube.title = site.name+", "+site.color;
   cube.onclick = ()=>{
     cube.classList.remove("spin");
     void cube.offsetWidth; // reinicia la animación
@@ -754,6 +780,7 @@ function attachDrag(chip, idx){
     document.body.appendChild(ghost);
     chip.classList.add("dragging");
     moveGhost(e.clientX, e.clientY);
+    const x0 = e.clientX, y0 = e.clientY;
 
     function moveGhost(x,y){ ghost.style.left=x+"px"; ghost.style.top=y+"px"; }
 
@@ -790,11 +817,34 @@ function attachDrag(chip, idx){
           }
         }
       });
+      // un toque sin arrastrar elige la ficha; luego se toca la torre (más fácil con el dedo)
+      if(!dropped && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) elegirFicha(idx, chip);
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
   });
 }
+
+let fichaElegida = null;
+function elegirFicha(idx, chip){
+  document.querySelectorAll(".chip.sel").forEach(c=>c.classList.remove("sel"));
+  if(fichaElegida === idx){ fichaElegida = null; return; }
+  fichaElegida = idx; chip.classList.add("sel");
+}
+document.querySelectorAll(".tower-drop").forEach(td=>{
+  td.addEventListener("click", ()=>{
+    if(fichaElegida === null) return;
+    const idx = fichaElegida, site = SITES[idx];
+    if(td.dataset.cat === site.cat){
+      fichaElegida = null; placed[idx] = true;
+      document.getElementById("tower" + td.dataset.cat + "Inner").appendChild(makeCube(site));
+      buildChips(); checkBadge3();
+    } else {
+      td.style.borderColor = "#C0392B";
+      setTimeout(()=>{ td.style.borderColor = ""; }, 400);
+    }
+  });
+});
 
 document.getElementById("btnResetTorres").onclick = ()=>{
   placed = new Array(SITES.length).fill(false);

@@ -191,6 +191,18 @@
   .fibo-medal span{font-family:var(--serif);font-weight:700;color:var(--navy);font-size:14px}
   footer .lema{font-family:var(--serif);font-style:italic;color:var(--navy);font-size:19px;margin:0 0 10px}
   footer .cred{color:var(--grey);font-size:13px;margin-top:8px;line-height:1.7}
+
+  /* ---------- Ajustes para celular (revisión de 10°) ---------- */
+  @media(max-width:600px){
+    /* deslizadores: la barra se ve igual, pero el dedo la atrapa en 44 px de alto */
+    input[type=range]{min-height:44px;margin-top:0;margin-bottom:0;touch-action:pan-y}
+  }
+
+  @media(max-width:600px){
+    /* las seis categorías de la auditoría en dos columnas: menos desplazamiento */
+    .catgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important}
+    .catcard{padding:10px 6px !important}
+  }
 </style>
 </head>
 <body>
@@ -262,17 +274,17 @@
 
     <table class="xtab" id="statsTable"></table>
 
-    <canvas id="chartCv" width="560" height="300"></canvas>
+    <canvas data-lw="560" id="chartCv" width="560" height="300"></canvas>
 
     <div class="compare-row">
       <div class="compbox">
         <div class="t">Tu % aprovechable</div>
-        <div class="v" id="miPct">—</div>
+        <div class="v" id="miPct">-</div>
         <div class="d">(vidrio + papel/cartón + otro plástico reciclable, sobre tu total)</div>
       </div>
       <div class="compbox">
         <div class="t">La brecha con la meta</div>
-        <div class="v" id="miBrecha">—</div>
+        <div class="v" id="miBrecha">-</div>
         <div class="d">tu % aprovechable frente al 20% que se propuso la ciudad</div>
       </div>
     </div>
@@ -299,7 +311,7 @@
   </div>
 
   <div class="reflect">
-    <b>Fase 5 · Socializo — antes de presentar tu instalación</b>
+    <b>Fase 5, Socializo: antes de presentar tu instalación</b>
     <label for="r1">¿Qué descubrí que no sabía?</label>
     <textarea id="r1" rows="2" placeholder="Tu respuesta"></textarea>
     <label for="r2">¿Dónde más veo esta misma brecha (entre una meta y la realidad) en mi entorno?</label>
@@ -319,6 +331,39 @@
   <div class="cred">Expedición Montería en Cifras, 10&deg;, con Arte y Fibo. 2026</div>
 </footer>
 
+<script>
+// Letra mínima legible en los lienzos (canvas con data-lw = ancho lógico)
+(function(){
+  var MIN_PX = 10, MAX_FACTOR = 2.4, BORDE = 8;
+  function escala(c){ var lw = c && c.dataset ? +c.dataset.lw : 0; return lw && c.clientWidth ? c.clientWidth/lw : 1; }
+  // true cuando el tablero se ve reducido (celular): los juegos lo usan para acortar textos
+  window.LIVIMA_COMPACTO = function(c){ return escala(c) < 0.8; };
+  var P = CanvasRenderingContext2D.prototype, d = Object.getOwnPropertyDescriptor(P, "font");
+  if(!d || !d.set) return;
+  Object.defineProperty(P, "font", {
+    configurable: true,
+    get: function(){ return d.get.call(this); },
+    set: function(v){
+      var s = escala(this.canvas);
+      if(s < 0.8) v = String(v).replace(/(\d+(?:\.\d+)?)px/, function(m, n){ n = +n; return Math.min(n*MAX_FACTOR, Math.max(n, MIN_PX/s)).toFixed(1) + "px"; });
+      d.set.call(this, v);
+    }
+  });
+  // con letra más grande, ningún texto puede salirse por los bordes del tablero
+  var fill = P.fillText;
+  P.fillText = function(t, x, y, maxW){
+    var c = this.canvas;
+    if(escala(c) < 0.8 && maxW === undefined){
+      var lw = +c.dataset.lw, a = this.textAlign, m;
+      if(a === "center") m = 2*Math.min(x - BORDE, lw - BORDE - x);
+      else if(a === "right" || a === "end") m = x - BORDE;
+      else m = lw - BORDE - x;
+      if(m > 20) return fill.call(this, t, x, y, m);
+    }
+    return maxW === undefined ? fill.call(this, t, x, y) : fill.call(this, t, x, y, maxW);
+  };
+})();
+</script>
 <script>
 /**
  * @license
@@ -1578,7 +1623,7 @@ class ARButton {
 
 </script>
 <script>
-/* ===== Montería en Cifras — lógica de auditoría, estadística y gráfico ===== */
+/* ===== Montería en Cifras: lógica de auditoría, estadística y gráfico ===== */
 
 const CATEGORIES = [
   {id:'papel',        name:'Papel y cartón',           icon:'📄', color:'#8a6d3b', hint:'Hojas, cajas, periódico',              aprovechable:true},
@@ -1726,11 +1771,13 @@ function drawChart(){
 
     ctx.fillStyle = '#555';
     ctx.font = '10.5px Segoe UI, Arial, sans-serif';
-    const words = c.name.split(' ');
+    // en celular un rótulo corto por barra: los nombres largos se montaban sobre la barra vecina
+    const CORTO = {'Papel y cartón':'Papel', 'Plástico de un solo uso':'Un solo uso', 'Otro plástico':'Otro plást.'};
+    const words = LIVIMA_COMPACTO(ctx.canvas) ? [CORTO[c.name] || c.name] : c.name.split(' ');
     let line1 = words.slice(0, Math.ceil(words.length/2)).join(' ');
     let line2 = words.slice(Math.ceil(words.length/2)).join(' ');
-    ctx.fillText(line1, x + barW/2, padT + chartH + 16);
-    if (line2) ctx.fillText(line2, x + barW/2, padT + chartH + 29);
+    ctx.fillText(line1, x + barW/2, padT + chartH + 16, barW*1.35);
+    if (line2) ctx.fillText(line2, x + barW/2, padT + chartH + 29, barW*1.35);
   });
 }
 
@@ -1740,9 +1787,9 @@ function updateCompare(){
   const aprovechable = CATEGORIES.filter(c => c.aprovechable).reduce((s,c) => s + counts[c.id], 0);
   const pct = total > 0 ? (aprovechable / total * 100) : 0;
 
-  document.getElementById('miPct').textContent = total > 0 ? pct.toFixed(1) + '%' : '—';
+  document.getElementById('miPct').textContent = total > 0 ? pct.toFixed(1) + '%' : '-';
   const brechaEl = document.getElementById('miBrecha');
-  if (total === 0) { brechaEl.textContent = '—'; return; }
+  if (total === 0) { brechaEl.textContent = '-'; return; }
   const diff = pct - META_RECICLAJE;
   brechaEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' pts';
   brechaEl.style.color = diff >= 0 ? 'var(--green)' : 'var(--orange)';
@@ -1772,7 +1819,7 @@ updateAll();
 
 </script>
 <script>
-/* ===== Montería en Cifras — instalación 3D + realidad aumentada (WebXR) ===== */
+/* ===== Montería en Cifras: instalación 3D + realidad aumentada (WebXR) ===== */
 (function () {
   const canvas = document.getElementById('install3d');
   const wrap = document.getElementById('install3dWrap');

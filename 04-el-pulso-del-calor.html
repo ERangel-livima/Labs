@@ -104,6 +104,12 @@
   .fibo-medal span{font-family:var(--serif);font-weight:700;color:var(--navy);font-size:14px}
   footer .lema{font-family:var(--serif);font-style:italic;color:var(--navy);font-size:19px;margin:0 0 10px}
   footer .cred{color:var(--grey);font-size:13px;margin-top:8px;line-height:1.7}
+
+  /* ---------- Ajustes para celular (revisión de 10°) ---------- */
+  @media(max-width:600px){
+    /* deslizadores: la barra se ve igual, pero el dedo la atrapa en 44 px de alto */
+    input[type=range]{min-height:44px;margin-top:0;margin-bottom:0;touch-action:pan-y}
+  }
 </style>
 </head>
 <body>
@@ -132,7 +138,7 @@
     <span class="step">ETAPA 1</span>
     <h2>El vaivén de tu temperatura</h2>
     <div class="sub">Mueve los controles y observa cómo tu temperatura sube y baja a lo largo de un día completo (0 a 24 horas).</div>
-    <canvas id="cv" width="820" height="280"></canvas>
+    <canvas data-lw="820" id="cv" width="820" height="280"></canvas>
     <div class="panel">
       <div class="box">
         <div class="t">Amplitud (A): cuánto sube y baja</div>
@@ -146,8 +152,8 @@
         <div class="t">Hora de tu pico (φ)</div>
         <input type="range" id="phiSlider" min="12" max="22" step="0.5" value="18">
         <div class="readout">φ = <b id="phiTxt">18,0</b> h</div>
-        <div class="readout" style="margin-top:10px">Pico: <b id="picoTxt">—</b></div>
-        <div class="readout">Valle: <b id="valleTxt">—</b></div>
+        <div class="readout" style="margin-top:10px">Pico: <b id="picoTxt">-</b></div>
+        <div class="readout">Valle: <b id="valleTxt">-</b></div>
       </div>
     </div>
   </section>
@@ -157,7 +163,7 @@
     <h2>Adivina el reloj misterioso</h2>
     <div class="sub">Esta es la curva de temperatura de una persona misteriosa (línea punteada). Ajusta tu curva (línea sólida) hasta que coincida todo el día.</div>
     <div class="progress" id="prog">Relojes adivinados: 0 de 4</div>
-    <canvas id="cvTarget" width="820" height="280"></canvas>
+    <canvas data-lw="820" id="cvTarget" width="820" height="280"></canvas>
     <div class="panel">
       <div class="box">
         <div class="t">Tu amplitud</div>
@@ -183,7 +189,7 @@
   <section>
     <span class="step" style="background:var(--green)">ETAPA 3</span>
     <h2>Mi Reloj Biológico Personal (borrador digital)</h2>
-    <div class="sub">Escribe tres horas reales de tu día. El simulador arranca tu reloj a partir de ellas — luego ajústalo hasta que se parezca de verdad a ti. Cada uno de los 48 rayos es una hora del día: entre más caliente esa hora, más largo y más cálido su color. Este dibujo es tu borrador: la versión final la vas a construir a mano en tu Pasaporte.</div>
+    <div class="sub">Escribe tres horas reales de tu día. El simulador arranca tu reloj a partir de ellas; luego ajústalo hasta que se parezca de verdad a ti. Cada uno de los 48 rayos es una hora del día: entre más caliente esa hora, más largo y más cálido su color. Este dibujo es tu borrador: la versión final la vas a construir a mano en tu Pasaporte.</div>
     <div class="panel">
       <div class="box">
         <div class="t">Hora en que te despiertas</div>
@@ -203,8 +209,8 @@
 
     <div class="t" style="margin-top:14px;font-weight:700;color:var(--navy);font-size:13.5px">Marca tus horas tocando el mandala:</div>
     <div class="tgrow" id="markBtns"></div>
-    <div class="clockwrap" style="margin-top:6px"><canvas id="cvReloj" width="560" height="560"></canvas></div>
-    <div class="cap">Mueve el cursor sobre el mandala: gira en vivo siguiéndolo, y se queda donde lo dejes. Toca el centro para cambiar de paleta. Paleta actual: <b id="paletteNombre">Atardecer</b>.</div>
+    <div class="clockwrap" style="margin-top:6px"><canvas data-lw="560" id="cvReloj" width="560" height="560"></canvas></div>
+    <div class="cap">Mueve el cursor o desliza el dedo sobre el mandala: gira en vivo siguiéndolo, y se queda donde lo dejes. Toca el centro para cambiar de paleta. Paleta actual: <b id="paletteNombre">Atardecer</b>.</div>
 
     <div class="panel">
       <div class="box">
@@ -227,7 +233,7 @@
     </div>
 
     <div class="chronocard" id="chronoCard">
-      <div class="ic" id="chronoIc">—</div>
+      <div class="ic" id="chronoIc">-</div>
       <div class="name" id="chronoName">Ajusta tu reloj para descubrir tu cronotipo</div>
       <div class="desc" id="chronoDesc"></div>
     </div>
@@ -250,6 +256,39 @@
   </footer>
 </div>
 
+<script>
+// Letra mínima legible en los lienzos (canvas con data-lw = ancho lógico)
+(function(){
+  var MIN_PX = 10, MAX_FACTOR = 2.4, BORDE = 8;
+  function escala(c){ var lw = c && c.dataset ? +c.dataset.lw : 0; return lw && c.clientWidth ? c.clientWidth/lw : 1; }
+  // true cuando el tablero se ve reducido (celular): los juegos lo usan para acortar textos
+  window.LIVIMA_COMPACTO = function(c){ return escala(c) < 0.8; };
+  var P = CanvasRenderingContext2D.prototype, d = Object.getOwnPropertyDescriptor(P, "font");
+  if(!d || !d.set) return;
+  Object.defineProperty(P, "font", {
+    configurable: true,
+    get: function(){ return d.get.call(this); },
+    set: function(v){
+      var s = escala(this.canvas);
+      if(s < 0.8) v = String(v).replace(/(\d+(?:\.\d+)?)px/, function(m, n){ n = +n; return Math.min(n*MAX_FACTOR, Math.max(n, MIN_PX/s)).toFixed(1) + "px"; });
+      d.set.call(this, v);
+    }
+  });
+  // con letra más grande, ningún texto puede salirse por los bordes del tablero
+  var fill = P.fillText;
+  P.fillText = function(t, x, y, maxW){
+    var c = this.canvas;
+    if(escala(c) < 0.8 && maxW === undefined){
+      var lw = +c.dataset.lw, a = this.textAlign, m;
+      if(a === "center") m = 2*Math.min(x - BORDE, lw - BORDE - x);
+      else if(a === "right" || a === "end") m = x - BORDE;
+      else m = lw - BORDE - x;
+      if(m > 20) return fill.call(this, t, x, y, m);
+    }
+    return maxW === undefined ? fill.call(this, t, x, y) : fill.call(this, t, x, y, maxW);
+  };
+})();
+</script>
 <script>
 const NAVY="#1B3A6B", TEAL="#1F8A8A", GREEN="#4A9B2E", ORANGE="#D9701A", PURPLE="#6B3FA0";
 function fmt(x,d=1){return x.toFixed(d).replace('.',',');}

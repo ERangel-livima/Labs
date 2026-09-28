@@ -108,6 +108,12 @@
   .fibo-medal span{font-family:var(--serif);font-weight:700;color:var(--navy);font-size:14px}
   footer .lema{font-family:var(--serif);font-style:italic;color:var(--navy);font-size:19px;margin:0 0 10px}
   footer .cred{color:var(--grey);font-size:13px;margin-top:8px;line-height:1.7}
+
+  /* ---------- Ajustes para celular (revisión de 10°) ---------- */
+  @media(max-width:600px){
+    /* deslizadores: la barra se ve igual, pero el dedo la atrapa en 44 px de alto */
+    input[type=range]{min-height:44px;margin-top:0;margin-bottom:0;touch-action:pan-y}
+  }
 </style>
 </head>
 <body>
@@ -136,7 +142,7 @@
     <span class="step">ETAPA 1</span>
     <h2>El osciloscopio: amplitud y frecuencia</h2>
     <div class="sub">Mueve los controles y observa cómo cambia la curva. Prueba llegar a la frecuencia exacta de cada nota.</div>
-    <canvas id="cv" width="820" height="260"></canvas>
+    <canvas data-lw="820" id="cv" width="820" height="260"></canvas>
     <div class="panel">
       <div class="box">
         <div class="t">Amplitud (A): qué tan fuerte suena</div>
@@ -162,7 +168,7 @@
     <h2>Adivina la onda</h2>
     <div class="sub">Esta es la onda de un sonido misterioso (línea punteada). Ajusta tu onda (línea sólida) hasta que coincida.</div>
     <div class="progress" id="prog">Ondas adivinadas: 0 de 4</div>
-    <canvas id="cvTarget" width="820" height="260"></canvas>
+    <canvas data-lw="820" id="cvTarget" width="820" height="260"></canvas>
     <div class="panel">
       <div class="box">
         <div class="t">Tu amplitud</div>
@@ -188,7 +194,7 @@
     <span class="step" style="background:var(--teal)">ETAPA 3</span>
     <h2>El timbre: la misma nota, otro dibujo</h2>
     <div class="sub">Esta onda suena siempre a la misma nota (misma frecuencia). Activa el interruptor y mira cómo cambia su forma sin cambiar de nota.</div>
-    <canvas id="cvTimbre" width="820" height="220"></canvas>
+    <canvas data-lw="820" id="cvTimbre" width="820" height="220"></canvas>
     <div class="toggle-row">
       <div class="switch" id="harmSwitch"><div class="knob"></div></div>
       <span id="harmLabel" style="font-weight:700;color:var(--navy)">Instrumento simple (un solo seno)</span>
@@ -199,7 +205,7 @@
   <section>
     <span class="step" style="background:var(--green)">ETAPA 4</span>
     <h2>Mi Partitura de Ondas (borrador digital)</h2>
-    <div class="sub">Escribe tu nombre completo (letras y espacios). Cada letra ya trae su propia nota y amplitud —hasta el espacio tiene la suya—, y puedes tocar una onda para cambiarle el color y ver tu melodía dibujada, tal como la vas a llevar al papel.</div>
+    <div class="sub">Escribe tu nombre completo (letras y espacios). Cada letra ya trae su propia nota y amplitud (hasta el espacio tiene la suya), y puedes tocar una onda para cambiarle el color y ver tu melodía dibujada, tal como la vas a llevar al papel.</div>
     <div class="panel">
       <div class="box">
         <div class="t">Mi nombre completo</div>
@@ -211,7 +217,7 @@
       </div>
     </div>
     <div class="lettergrid" id="letterGrid"></div>
-    <canvas id="cvWord" width="820" height="220"></canvas>
+    <canvas data-lw="820" id="cvWord" width="820" height="220"></canvas>
     <div class="sub" style="margin-top:8px;margin-bottom:0">Toca una onda en el dibujo para cambiarle el color.</div>
     <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn sound" id="playWord"><span class="ic">&#128266;</span> Reproducir mi Partitura de Ondas</button>
@@ -236,6 +242,39 @@
   </footer>
 </div>
 
+<script>
+// Letra mínima legible en los lienzos (canvas con data-lw = ancho lógico)
+(function(){
+  var MIN_PX = 10, MAX_FACTOR = 2.4, BORDE = 8;
+  function escala(c){ var lw = c && c.dataset ? +c.dataset.lw : 0; return lw && c.clientWidth ? c.clientWidth/lw : 1; }
+  // true cuando el tablero se ve reducido (celular): los juegos lo usan para acortar textos
+  window.LIVIMA_COMPACTO = function(c){ return escala(c) < 0.8; };
+  var P = CanvasRenderingContext2D.prototype, d = Object.getOwnPropertyDescriptor(P, "font");
+  if(!d || !d.set) return;
+  Object.defineProperty(P, "font", {
+    configurable: true,
+    get: function(){ return d.get.call(this); },
+    set: function(v){
+      var s = escala(this.canvas);
+      if(s < 0.8) v = String(v).replace(/(\d+(?:\.\d+)?)px/, function(m, n){ n = +n; return Math.min(n*MAX_FACTOR, Math.max(n, MIN_PX/s)).toFixed(1) + "px"; });
+      d.set.call(this, v);
+    }
+  });
+  // con letra más grande, ningún texto puede salirse por los bordes del tablero
+  var fill = P.fillText;
+  P.fillText = function(t, x, y, maxW){
+    var c = this.canvas;
+    if(escala(c) < 0.8 && maxW === undefined){
+      var lw = +c.dataset.lw, a = this.textAlign, m;
+      if(a === "center") m = 2*Math.min(x - BORDE, lw - BORDE - x);
+      else if(a === "right" || a === "end") m = x - BORDE;
+      else m = lw - BORDE - x;
+      if(m > 20) return fill.call(this, t, x, y, m);
+    }
+    return maxW === undefined ? fill.call(this, t, x, y) : fill.call(this, t, x, y, maxW);
+  };
+})();
+</script>
 <script>
 const TAU=Math.PI*2;
 const NAVY="#1B3A6B", TEAL="#1F8A8A", GREEN="#4A9B2E", ORANGE="#D9701A", PURPLE="#6B3FA0";
@@ -480,7 +519,8 @@ function renderWord(){
     }
     gW.stroke();
     gW.fillStyle=cfg.color; gW.font="700 13px Segoe UI";
-    gW.fillText(dispCh(cfg.ch)+" ("+cfg.note+")", i*seg+6, H-8);
+    // en celular solo la letra: la nota completa no cabe bajo cada onda
+    gW.fillText(LIVIMA_COMPACTO(gW.canvas) ? dispCh(cfg.ch) : dispCh(cfg.ch)+" ("+cfg.note+")", i*seg+6, H-8, seg-10);
     letterSlots.push({i, x0:i*seg, x1:(i+1)*seg});
   });
   const titulo=partituraTitulo.value.trim();

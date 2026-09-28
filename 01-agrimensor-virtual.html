@@ -112,6 +112,18 @@
   .fibo-medal span{font-family:var(--serif);font-weight:700;color:var(--navy);font-size:14px}
   footer .lema{font-family:var(--serif);font-style:italic;color:var(--navy);font-size:19px;margin:0 0 10px}
   footer .cred{color:var(--grey);font-size:13px;margin-top:8px;line-height:1.7}
+
+  /* ---------- Ajustes para celular (revisión de 10°) ---------- */
+  @media(max-width:600px){
+    /* la tabla de tangentes tiene 14 columnas: en celular se desliza de lado sin ensanchar la página */
+    table.tan{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    #btnReset{min-height:40px}
+  }
+
+  @media(max-width:600px){
+    /* deslizadores: la barra se ve igual, pero el dedo la atrapa en 44 px de alto */
+    input[type=range]{min-height:44px;margin-top:0;margin-bottom:0;touch-action:pan-y}
+  }
 </style>
 </head>
 <body>
@@ -144,7 +156,7 @@
     <button class="btn sec" id="btnReset" style="background:#fff;color:var(--navy);border:1px solid var(--line);margin-left:8px;padding:6px 14px;font-size:12.5px">Nuevos objetivos (reiniciar)</button>
 
     <div class="targets" id="targets"></div>
-    <canvas id="cv" width="820" height="430"></canvas>
+    <canvas data-lw="820" id="cv" width="820" height="430"></canvas>
 
     <div class="panel">
       <div class="box">
@@ -212,7 +224,7 @@
     <span class="step" style="background:var(--orange)">ETAPA 3</span>
     <h2>Mi Perfil del Territorio (borrador digital)</h2>
     <div class="sub">Con las alturas que ya mediste, arma tu panorama artístico. Elige el ambiente, el color de cada silueta y los detalles. Este es tu borrador antes de pintarlo a mano en la guía.</div>
-    <canvas id="cvPerfil" width="820" height="300" style="width:100%;max-width:820px;background:var(--cream);border:1px solid #d9cdaf;border-radius:12px;display:block"></canvas>
+    <canvas data-lw="820" id="cvPerfil" width="820" height="300" style="width:100%;max-width:820px;background:var(--cream);border:1px solid #d9cdaf;border-radius:12px;display:block"></canvas>
     <div class="panel">
       <div class="box">
         <div class="t">Ambiente</div>
@@ -247,6 +259,39 @@
   </footer>
 </div>
 
+<script>
+// Letra mínima legible en los lienzos (canvas con data-lw = ancho lógico)
+(function(){
+  var MIN_PX = 10, MAX_FACTOR = 2.4, BORDE = 8;
+  function escala(c){ var lw = c && c.dataset ? +c.dataset.lw : 0; return lw && c.clientWidth ? c.clientWidth/lw : 1; }
+  // true cuando el tablero se ve reducido (celular): los juegos lo usan para acortar textos
+  window.LIVIMA_COMPACTO = function(c){ return escala(c) < 0.8; };
+  var P = CanvasRenderingContext2D.prototype, d = Object.getOwnPropertyDescriptor(P, "font");
+  if(!d || !d.set) return;
+  Object.defineProperty(P, "font", {
+    configurable: true,
+    get: function(){ return d.get.call(this); },
+    set: function(v){
+      var s = escala(this.canvas);
+      if(s < 0.8) v = String(v).replace(/(\d+(?:\.\d+)?)px/, function(m, n){ n = +n; return Math.min(n*MAX_FACTOR, Math.max(n, MIN_PX/s)).toFixed(1) + "px"; });
+      d.set.call(this, v);
+    }
+  });
+  // con letra más grande, ningún texto puede salirse por los bordes del tablero
+  var fill = P.fillText;
+  P.fillText = function(t, x, y, maxW){
+    var c = this.canvas;
+    if(escala(c) < 0.8 && maxW === undefined){
+      var lw = +c.dataset.lw, a = this.textAlign, m;
+      if(a === "center") m = 2*Math.min(x - BORDE, lw - BORDE - x);
+      else if(a === "right" || a === "end") m = x - BORDE;
+      else m = lw - BORDE - x;
+      if(m > 20) return fill.call(this, t, x, y, m);
+    }
+    return maxW === undefined ? fill.call(this, t, x, y) : fill.call(this, t, x, y, maxW);
+  };
+})();
+</script>
 <script>
 const D2R=Math.PI/180, TAU=Math.PI*2;
 const NAVY="#1B3A6B", TEAL="#1F8A8A", GREEN="#4A9B2E", ORANGE="#D9701A", PURPLE="#6B3FA0";
