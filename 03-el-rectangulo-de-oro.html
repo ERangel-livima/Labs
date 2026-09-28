@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>El Número de Oro — LIVIMA</title>
+<title>LIVIMA, El Rectángulo de Oro</title>
 <style>
   :root{
     --navy:#1B3A6B; --teal:#1F8A8A; --green:#4A9B2E; --orange:#D9701A; --purple:#6B3FA0; --grey:#555;
@@ -128,6 +128,13 @@
 
   .badge{display:none;text-align:center;background:linear-gradient(135deg,#FFF6DA,#DCEFEE);border:2px dashed var(--teal);border-radius:14px;padding:16px;margin-top:16px;font-weight:700;color:var(--navy)}
   .badge.on{display:block}
+
+  /* en columna, la base de 300 px de los textos se volvía alto y dejaba un hueco enorme */
+  @media(max-width:700px){ .y-tip .msg, .y-tip .curio{flex:none} }
+  /* a 320 px los controles de la espiral no cabían */
+  .studio > div{min-width:0}
+  #colors{grid-template-columns:repeat(6,minmax(0,1fr)) !important}
+
 </style>
 </head>
 <body>

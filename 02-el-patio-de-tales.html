@@ -98,6 +98,10 @@
     border:2px solid #fff;box-shadow:0 0 0 2px var(--teal)}
   .fibo-medal span{font-size:13px;color:var(--grey);text-align:left;line-height:1.35}
   .fibo-medal b{color:var(--purple);font-family:Georgia,serif;display:block;font-size:14px}
+
+  /* celular: deslizadores con zona táctil de 44 px */
+  input[type=range]{min-height:44px;margin:0;touch-action:pan-y}
+
 </style>
 </head>
 <body>
@@ -522,7 +526,7 @@ document.getElementById("sellar").onclick=()=>{
   }
 };
 
-updateLbl(); updateSPalo(); renderMeds(); draw(); draw2(); draw3();
+updateLbl(); updateSPalo(); renderMeds(); draw(); draw2();
 </script>
 </body>
 </html>

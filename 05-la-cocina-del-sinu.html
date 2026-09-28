@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>La Receta del Sinú · LIVIMA</title>
+<title>LIVIMA, La Cocina del Sinú</title>
 <style>
   :root{
     --navy:#1B3A6B; --teal:#1F8A8A; --green:#4A9B2E; --orange:#D9701A; --purple:#6B3FA0; --grey:#555;
@@ -84,6 +84,27 @@
 
   .badge{display:none;text-align:center;background:linear-gradient(135deg,#FFF6DA,#DCEFEE);border:2px dashed var(--teal);border-radius:14px;padding:16px;margin-top:16px;font-weight:700;color:var(--navy)}
   .badge.on{display:block}
+
+  /* celular: deslizadores con zona táctil de 44 px */
+  input[type=range]{min-height:44px;margin:0;touch-action:pan-y}
+
+  #recipeTabs .btn{min-height:44px}
+  table.recipe td:nth-child(3) input{width:110px}
+  #targetSlider{accent-color:var(--teal)}
+  .addRow{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
+  /* celular: cada ingrediente es una ficha; la tabla de cuatro columnas no cabe */
+  @media(max-width:560px){
+    table.recipe thead{display:none}
+    table.recipe, table.recipe tbody{display:block;width:100%}
+    table.recipe tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;padding:12px 0;border-bottom:1px solid var(--line)}
+    table.recipe td{display:block;padding:0;border:none;min-width:0}
+    table.recipe td.name, table.recipe td.result{grid-column:1 / -1}
+    table.recipe td[data-label]::before{content:attr(data-label);display:block;font-size:12.5px;font-weight:600;color:var(--grey);font-style:normal;margin-bottom:3px}
+    table.recipe td input{width:100%;min-height:42px;font-size:16px;box-sizing:border-box}
+    table.recipe td.result{font-size:16px}
+    #recipeTabs .btn{flex:1 1 auto !important}
+  }
+
 </style>
 </head>
 <body>
@@ -288,20 +309,30 @@ function fmt(n){
   return r.toString().replace(".", ",");
 }
 
-function renderTable(){
-  const tbody = document.getElementById("recipeBody");
+function porciones(){
   const basePor = parseFloat(document.getElementById("basePor").value) || 1;
   const targetPor = parseFloat(document.getElementById("targetSlider").value) || 1;
+  return {basePor, targetPor};
+}
+
+function textoEscalado(ing){
+  const {basePor, targetPor} = porciones();
+  if(ing.fixed) return "no escala ("+fmt(ing.qty)+" "+ing.unit+")";
+  return fmt((ing.qty*targetPor)/basePor)+" "+ing.unit;
+}
+
+function renderTable(){
+  const tbody = document.getElementById("recipeBody");
+  const {targetPor} = porciones();
   tbody.innerHTML = "";
   ingredients.forEach((ing, i)=>{
     const tr = document.createElement("tr");
     if(ing.fixed) tr.className = "fixed";
-    const scaled = ing.fixed ? ing.qty : (ing.qty*targetPor)/basePor;
     tr.innerHTML = `
-      <td class="name"><input value="${ing.name}" data-i="${i}" data-f="name"></td>
-      <td><input type="number" step="0.1" value="${ing.qty}" data-i="${i}" data-f="qty"></td>
-      <td><input value="${ing.unit}" data-i="${i}" data-f="unit"></td>
-      <td class="result">${ing.fixed ? "no escala ("+fmt(ing.qty)+" "+ing.unit+")" : fmt(scaled)+" "+ing.unit}</td>
+      <td class="name" data-label="Ingrediente"><input value="${ing.name}" data-i="${i}" data-f="name" aria-label="Ingrediente"></td>
+      <td data-label="Cantidad base"><input type="number" inputmode="decimal" step="0.1" value="${ing.qty}" data-i="${i}" data-f="qty" aria-label="Cantidad base"></td>
+      <td data-label="Unidad"><input value="${ing.unit}" data-i="${i}" data-f="unit" aria-label="Unidad"></td>
+      <td class="result" data-label="Cantidad escalada">${textoEscalado(ing)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -309,7 +340,8 @@ function renderTable(){
     inp.addEventListener("input", e=>{
       const i = +e.target.dataset.i, f = e.target.dataset.f;
       ingredients[i][f] = f==="qty" ? (parseFloat(e.target.value)||0) : e.target.value;
-      renderTable();
+      // solo se actualiza el resultado de esa fila, así el campo conserva el foco
+      e.target.closest("tr").querySelector("td.result").textContent = textoEscalado(ingredients[i]);
     });
   });
   document.getElementById("targetVal").textContent = targetPor;
@@ -369,7 +401,7 @@ function renderCartilla(){
   ctx.font = "bold 11px Georgia, serif";
   ctx.fillStyle = "#1B3A6B";
   ctx.textAlign = "left";
-  ctx.fillText("LIVIMA · La Receta del Sinú", 26, bandH+26);
+  ctx.fillText("LIVIMA, La Receta del Sinú", 26, bandH+26);
 
   // titulo
   const name = document.getElementById("oname").value.trim() || "Mi receta escalada";
