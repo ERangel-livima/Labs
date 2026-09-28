@@ -1,11 +1,11 @@
 {
   "name": "LIVIMA · Living Lab Educativo",
   "short_name": "LIVIMA",
-  "description": "Laboratorios Vivos de Matemática y Arte — Institución Educativa Juan XXIII, Montería",
+  "description": "Laboratorios Vivos de Matemática y Arte, Institución Educativa Juan XXIII, Montería",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#FBFAF6",
   "theme_color": "#1B3A6B",
   "lang": "es-CO",
@@ -28,5 +28,9 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "id": "./index.html",
+  "categories": [
+    "education"
   ]
 }

@@ -1,10 +1,10 @@
 // Service Worker de LIVIMA
 // Estrategia: el "cascaron" (index + manifest + iconos) se descarga de una vez al instalar.
 // Cada simulador se guarda en cache la primera vez que un estudiante lo abre (no se
-// fuerza la descarga de los 18 de entrada, para no pesar el primer uso). Una vez
-// visitado un simulador, queda disponible sin conexion de ahi en adelante.
+// fuerza la descarga de los 18 de entrada, para no pesar el primer uso). Con internet
+// siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v1";
+const CACHE_NAME = "livima-v14";
 
 const APP_SHELL = [
   "./",
@@ -79,30 +79,68 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return; // no tocar peticiones externas
   if (event.request.method !== "GET") return;
 
-  // cascaron de la app: cache primero, sin ir a red si ya esta guardado
+  // cascaron de la app: red primero (asi el index siempre llega actualizado)
+  // y, si no hay internet, se usa la copia guardada.
   if (esCascaron(url.pathname)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
+      caches.open(CACHE_NAME).then((cache) =>
+        fetch(event.request)
+          .then((response) => {
+            if (response && response.ok) cache.put(event.request, response.clone());
+            return response;
+          })
+          .catch(() => cache.match(event.request, { ignoreSearch: true }))
+      )
     );
     return;
   }
 
-  // simuladores: cache-primero-luego-actualiza (stale-while-revalidate).
-  // Se sirve al instante lo que ya haya guardado (incluso sin internet), y en
-  // paralelo se pide una copia fresca para la proxima vez.
+  // simuladores: red primero, para que siempre se vea la version mas reciente
+  // que se haya subido. La copia guardada solo se usa si no hay internet.
   if (esSimulador(url.pathname)) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
-        cache.match(event.request).then((cached) => {
-          const fetchPromise = fetch(event.request)
-            .then((response) => {
-              if (response && response.ok) cache.put(event.request, response.clone());
-              return response;
-            })
-            .catch(() => cached); // sin internet y sin cache previo: no hay nada mas que hacer
-          return cached || fetchPromise;
-        })
+        fetch(event.request)
+          .then((response) => {
+            if (response && response.ok) cache.put(event.request, response.clone());
+            return response;
+          })
+          .catch(() => cache.match(event.request, { ignoreSearch: true }))
       )
     );
+  }
+});
+
+// Mensajes desde el index:
+//  "estado"        responde cuantos simuladores ya estan guardados en este equipo
+//  "descargar-todo" descarga los que falten y va avisando el progreso
+self.addEventListener("message", (event) => {
+  const data = event.data || {};
+  const cliente = event.source;
+  const avisar = (msg) => { if (cliente) cliente.postMessage(msg); };
+  if (data.tipo === "estado") {
+    event.waitUntil(
+      caches.open(CACHE_NAME).then((cache) =>
+        Promise.all(SIMULADORES.map((f) => cache.match(new URL(f, self.registration.scope).href)))
+      ).then((r) => avisar({ tipo: "estado", guardados: r.filter(Boolean).length, total: SIMULADORES.length }))
+    );
+  }
+  if (data.tipo === "descargar-todo") {
+    event.waitUntil((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(APP_SHELL).catch(() => {});
+      let listos = 0, fallos = 0;
+      for (const f of SIMULADORES) {
+        const url = new URL(f, self.registration.scope).href;
+        try {
+          const resp = await fetch(url, { cache: "reload" });
+          if (!resp.ok) throw new Error(resp.status);
+          await cache.put(url, resp);
+          listos++;
+        } catch (e) { fallos++; }
+        avisar({ tipo: "progreso", listos, fallos, total: SIMULADORES.length });
+      }
+      avisar({ tipo: "fin", listos, fallos, total: SIMULADORES.length });
+    })());
   }
 });
