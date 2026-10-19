@@ -4,7 +4,7 @@
 // fuerza la descarga de los 18 de entrada, para no pesar el primer uso). Con internet
 // siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v32";
+const CACHE_NAME = "livima-v33";
 
 const APP_SHELL = [
   "./",
@@ -79,12 +79,13 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return; // no tocar peticiones externas
   if (event.request.method !== "GET") return;
 
-  // cascaron de la app: red primero (asi el index siempre llega actualizado)
+  // cascaron de la app: red primero (asi el index siempre llega actualizado).
+  // "no-cache" obliga a preguntarle a GitHub si hay version nueva, sin esperar los 10 minutos de su cache.
   // y, si no hay internet, se usa la copia guardada.
   if (esCascaron(url.pathname)) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
-        fetch(event.request)
+        fetch(new Request(event.request.url, { cache: "no-cache", credentials: "same-origin" }))
           .then((response) => {
             if (response && response.ok) cache.put(event.request, response.clone());
             return response;
@@ -100,7 +101,7 @@ self.addEventListener("fetch", (event) => {
   if (esSimulador(url.pathname)) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
-        fetch(event.request)
+        fetch(new Request(event.request.url, { cache: "no-cache", credentials: "same-origin" }))
           .then((response) => {
             if (response && response.ok) cache.put(event.request, response.clone());
             return response;
