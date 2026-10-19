@@ -2001,11 +2001,11 @@ window.ESPEJOS = {
 </script>
 <script>// Movimiento LIVIMA (Anime.js): la misma capa en todos los simuladores.
 // Se engancha a las clases comunes de la plantilla (hero, tabpanel, overlay, ovbox, stars, big, pctbars, lv, badge, album),
-// así que no cambia la lógica de ningún juego. Con "reducir movimiento" activado todo se vuelve un desvanecido suave.
+// así que no cambia la lógica de ningún juego. Las animaciones se ven completas siempre, también con "reducir movimiento" activado en el equipo (decisión del proyecto).
 (function(){
 var A = window.anime;
 if(!A) return;
-var suave = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+var suave = false;
 var $$ = function(sel, root){ return [].slice.call((root || document).querySelectorAll(sel)); };
 var resorte = function(rebote, ms){ return A.spring({ bounce: rebote, duration: ms }); };
 
@@ -2122,7 +2122,13 @@ if(!suave){
   }, { passive: true });
 }
 
-window.LIVIMA_MOV = { mover: mover, suave: suave, resorte: resorte };
+// respuesta equivocada: un "no" con la cabeza, corto
+function sacudir(el){
+  if(!el || suave) return;
+  A.animate(el, { translateX: [0, -9, 8, -6, 4, 0], duration: 420, ease: "linear", onComplete: function(){ el.style.transform = ""; } });
+}
+
+window.LIVIMA_MOV = { mover: mover, suave: suave, resorte: resorte, sacudir: sacudir };
 })();
 </script>
 <script>// Espejos Vivos: al cambiar el número de ejes, cada eje nuevo se traza sobre el lienzo como un espejo que se abre

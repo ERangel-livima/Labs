@@ -1960,11 +1960,11 @@ requestAnimationFrame(loop);
 </script>
 <script>// Movimiento LIVIMA (Anime.js): la misma capa en todos los simuladores.
 // Se engancha a las clases comunes de la plantilla (hero, tabpanel, overlay, ovbox, stars, big, pctbars, lv, badge, album),
-// así que no cambia la lógica de ningún juego. Con "reducir movimiento" activado todo se vuelve un desvanecido suave.
+// así que no cambia la lógica de ningún juego. Las animaciones se ven completas siempre, también con "reducir movimiento" activado en el equipo (decisión del proyecto).
 (function(){
 var A = window.anime;
 if(!A) return;
-var suave = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+var suave = false;
 var $$ = function(sel, root){ return [].slice.call((root || document).querySelectorAll(sel)); };
 var resorte = function(rebote, ms){ return A.spring({ bounce: rebote, duration: ms }); };
 
