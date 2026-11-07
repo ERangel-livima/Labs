@@ -1,10 +1,10 @@
 // Service Worker de LIVIMA
 // Estrategia: el "cascaron" (index + manifest + iconos) se descarga de una vez al instalar.
 // Cada simulador se guarda en cache la primera vez que un estudiante lo abre (no se
-// fuerza la descarga de los 18 de entrada, para no pesar el primer uso). Con internet
+// fuerza la descarga de los 19 de entrada, para no pesar el primer uso). Con internet
 // siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v41";
+const CACHE_NAME = "livima-v44";
 
 const APP_SHELL = [
   "./",
@@ -15,7 +15,7 @@ const APP_SHELL = [
   "./icon-maskable-512.png",
 ];
 
-// Lista de los 18 simuladores, para que el navegador pueda distinguirlos de
+// Lista de los 19 simuladores, para que el navegador pueda distinguirlos de
 // otro tipo de peticiones (imagenes externas, fuentes, etc.) y aplicarles la
 // estrategia de cache-primero-luego-actualiza.
 const SIMULADORES = [
@@ -25,6 +25,7 @@ const SIMULADORES = [
   "04-tejedor-de-pintas-hilo-de-los-zenu.html",
   "05-detector-de-simetrias.html",
   "06-arbol-fractal-bosque-infinito.html",
+  "07-el-jardin-de-las-espirales.html",
   "01-a-escala-humana.html",
   "02-el-patio-de-tales.html",
   "03-el-rectangulo-de-oro.html",
