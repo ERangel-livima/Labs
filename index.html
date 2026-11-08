@@ -836,9 +836,76 @@ function iniciar(){
   })();
 
   /* ---------- las paradas del grado ---------- */
+  let horaBrillo=0;
   let capa=null, animG=[], marcas=[], paradaDe=new Map(), gruposParada=[], ALTO_MARCA=[], colorG="#8BD46A";
   const ESCALAS={g6:1.25,g8:1.5,g10:1.5}; let ESCALA_PARADA=1.25;
-  function base(p){ const g=new THREE.Group(); g.position.set(p.x,p.h,p.z); g.scale.setScalar(ESCALA_PARADA); capa.add(g); gruposParada.push(g); return g; }
+  let gradoG=null;
+  const bordesStand=[], carteles=[];
+  // cartel del stand: franja del color del grado, nombre del lugar a mano y la franja de cinco colores de LIVIMA
+  // franja diagonal de luz, transparente en los bordes, que se desliza sobre cada cartel
+  const texBrillo=(()=>{ const c=document.createElement("canvas"); c.width=256; c.height=64; const x=c.getContext("2d");
+    const gr=x.createLinearGradient(0,0,256,0); gr.addColorStop(0,"rgba(255,255,255,0)"); gr.addColorStop(0.42,"rgba(255,255,255,0)"); gr.addColorStop(0.5,"rgba(255,255,255,.9)"); gr.addColorStop(0.58,"rgba(255,255,255,0)"); gr.addColorStop(1,"rgba(255,255,255,0)");
+    x.setTransform(1,0,-0.6,1,20,0); x.fillStyle=gr; x.fillRect(-60,0,380,64);
+    const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; })();
+  function pintarCartel(cnv,p,G){
+    const x=cnv.getContext("2d"), W=cnv.width, H=cnv.height, acento=p.expo?"#D9701A":G.tinta;
+    x.clearRect(0,0,W,H);
+    x.fillStyle="#FBF6EC"; x.beginPath(); x.roundRect(6,6,W-12,H-12,34); x.fill();
+    x.fillStyle=acento; x.beginPath(); x.roundRect(6,6,W-12,96,[34,34,0,0]); x.fill();
+    x.fillStyle="#fff"; x.font="800 54px 'Segoe UI',Arial,sans-serif"; x.textBaseline="middle"; x.textAlign="left";
+    x.fillText(p.expo?"ExpoLIVIMA":"Parada "+p.n,48,56);
+    x.textAlign="right"; x.fillText(G.num+", con "+G.guia,W-48,56);
+    x.fillStyle="#1B3A6B"; x.textAlign="center"; let tam=118;
+    do{ x.font="700 "+tam+"px Caveat, 'Segoe Print', cursive"; tam-=6; } while(x.measureText(p.lugar).width>W-90 && tam>60);
+    x.fillText(p.lugar,W/2,198);
+    ["#4A9B2E","#1F8A8A","#1B3A6B","#D9701A","#6B3FA0"].forEach((c,k)=>{ x.fillStyle=c; x.fillRect(40+k*(W-80)/5,H-44,(W-80)/5,16); });
+  }
+  function base(p){
+    const g=new THREE.Group(); g.position.set(p.x,p.h,p.z); g.scale.setScalar(ESCALA_PARADA); capa.add(g); gruposParada.push(g);
+    const G=gradoG, color=p.expo?"#D9701A":G.color, tinta=p.expo?"#B85C12":G.tinta, R=8.2;
+    // piso hexagonal, como el emblema de LIVIMA: borde del color del grado y centro de papel
+    const borde=new THREE.MeshStandardMaterial({color,roughness:0.6,emissive:color,emissiveIntensity:0}); bordesStand.push(borde);
+    const hexB=malla(new THREE.CylinderGeometry(R,R+0.25,1.2,6),borde,0,-0.48,0,g); hexB.rotation.y=Math.PI/6;
+    const hexC=malla(new THREE.CylinderGeometry(R-0.9,R-0.9,1.2,6),M("#F3EAD6",{roughness:0.9}),0,-0.46,0,g); hexC.rotation.y=Math.PI/6;
+    const zoc=malla(new THREE.CylinderGeometry(R+0.55,R+0.75,0.8,6),M(tinta),0,-0.7,0,g); zoc.rotation.y=Math.PI/6;
+    // cartel de frente al camino
+    const cnv=document.createElement("canvas"); cnv.width=1024; cnv.height=300; pintarCartel(cnv,p,G);
+    const tex=new THREE.CanvasTexture(cnv); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4; carteles.push({cnv,p,G,tex});
+    const cartel=new THREE.Group(); cartel.position.set(-R*0.5,0,R*0.8); cartel.rotation.y=0.3; cartel.scale.setScalar(1.45); g.add(cartel);
+    [-2.3,2.3].forEach(x=>malla(new THREE.CylinderGeometry(0.11,0.13,3.6,6),M("#3b3530"),x,1.8,-0.32,cartel));
+    malla(new THREE.BoxGeometry(5.4,1.66,0.12),M(tinta),0,2.95,-0.12,cartel);
+    const panel=malla(new THREE.PlaneGeometry(5.2,1.52),new THREE.MeshStandardMaterial({map:tex,transparent:true,roughness:0.7,emissive:"#ffffff",emissiveMap:tex,emissiveIntensity:0}),0,2.95,0,cartel);
+    panel.castShadow=false; bordesStand.push(panel.material);
+    // brillo que cruza el cartel de lado a lado
+    const brillo=texBrillo.clone(); brillo.needsUpdate=true;
+    const capaBrillo=malla(new THREE.PlaneGeometry(5.2,1.52),new THREE.MeshBasicMaterial({map:brillo,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.55}),0,2.95,0.012,cartel);
+    capaBrillo.castShadow=capaBrillo.receiveShadow=false;
+    // bombillos alrededor del cartel que se encienden en cadena, como una marquesina de feria
+    const grupos=[0,1,2].map(()=>new THREE.MeshStandardMaterial({color:"#FFF3C4",emissive:"#FFC85A",emissiveIntensity:0.2,roughness:0.4}));
+    const bombGeo=new THREE.SphereGeometry(0.075,8,6); let nb=0;
+    const ponerBombillo=(x,y)=>{ const b=malla(bombGeo,grupos[nb%3],x,y,0.03,cartel); b.castShadow=false; nb++; };
+    for(let k=0;k<=12;k++){ const x=-2.6+k*5.2/12; ponerBombillo(x,3.74); ponerBombillo(x,2.16); }
+    for(let k=1;k<4;k++){ const y=2.16+k*1.58/4; ponerBombillo(-2.62,y); ponerBombillo(2.62,y); }
+    const fase=Math.random()*3;
+    animG.push((t,dt)=>{
+      const activo=(seleccion>=0 && P[seleccion]===p);
+      const vel=activo?9:3.5, paso=Math.floor(t*vel+fase)%3;
+      grupos.forEach((mt,k)=>mt.emissiveIntensity=(k===paso?(activo?2.6:1.4):0.15)+horaBrillo*0.6);
+      brillo.offset.x=1.2-((t*0.32+fase)%2.6);
+      cartel.rotation.z=Math.sin(t*1.3+fase)*0.025;
+      const pop=activo?1+Math.max(0,Math.sin(t*5))*0.05:1;
+      cartel.scale.setScalar(1.45*pop);
+    });
+    // banderines del grado en las esquinas de atrás
+    [[-R*0.75,-R*0.55],[R*0.75,-R*0.55]].forEach(([x,z],k)=>{
+      malla(new THREE.CylinderGeometry(0.08,0.1,5.2,6),M("#3b3530"),x,2.6,z,g);
+      const ban=new THREE.Group(); ban.position.set(x,4.55,z); g.add(ban);
+      const tri=new THREE.Shape(); tri.moveTo(0,0.55); tri.lineTo(2.1,0); tri.lineTo(0,-0.55); tri.closePath();
+      malla(new THREE.ShapeGeometry(tri),M(color,{side:THREE.DoubleSide}),0.05,0,0,ban).castShadow=false;
+      animG.push(t=>{ ban.rotation.y=(k?Math.PI:0)+Math.sin(t*2.2+k+p.x)*0.35; });
+    });
+    return g;
+  }
   function marcarParada(g,i){ g.traverse(o=>{ if(o.isMesh) paradaDe.set(o,i); }); }
   // sombrero vueltiao de franjas negras, girando despacio
   function sombrero(padre,x,y,z,s){
@@ -1256,7 +1323,7 @@ function iniciar(){
     cieloMat.uniforms.abajo.value.copy(mezclar(A.abajo,B.abajo,f));
     scene.fog.color.copy(cieloMat.uniforms.abajo.value);   // la niebla toma el color del horizonte para que el borde del terreno no se vea
     sol.color.copy(mezclar(A.sol,B.sol,f)); sol.intensity=L(A.isol,B.isol); hemi.intensity=L(A.ihemi,B.ihemi);
-    renderer.toneMappingExposure=L(A.expo,B.expo); estMat.opacity=L(A.est,B.est); bombMat.emissiveIntensity=L(A.bomb,B.bomb);
+    renderer.toneMappingExposure=L(A.expo,B.expo); estMat.opacity=L(A.est,B.est); bombMat.emissiveIntensity=L(A.bomb,B.bomb); horaBrillo=L(A.bomb,B.bomb); bordesStand.forEach(mt=>mt.emissiveIntensity=horaBrillo*(mt.map?0.35:0.45));
     const elev=L(A.elev,B.elev), az=-0.9+v*2.2;
     sol.position.set(Math.cos(az)*160,40+elev*150,Math.sin(az)*70+60); sol.target.position.set(0,0,0);
     aguaMat.color.copy(mezclar("#4F8C86","#22385A",Math.max(0,(v-0.72)/0.28)));
@@ -1318,11 +1385,13 @@ function iniciar(){
     }
     capa=new THREE.Group(); scene.add(capa);
     animG=[]; paradaDe=new Map(); gruposParada=[]; seleccion=-1;
-    const G=window.GRADOS[gid]; colorG=G.color; ALTO_MARCA=ALTOS[gid]; ESCALA_PARADA=ESCALAS[gid];
+    const G=window.GRADOS[gid]; gradoG=G; bordesStand.length=0; carteles.length=0; colorG=G.color; ALTO_MARCA=ALTOS[gid]; ESCALA_PARADA=ESCALAS[gid];
     P=G.paradas; P.forEach((p,i)=>{ const s=SLOTS[p.expo?(gid==="g6"?7:6):i]; p.x=s.x; p.z=s.z; p.h=s.h; });
     caminoDe(capa);
     ({g6:construir6,g8:construir8,g10:construir10})[gid]();
     marcas=crearMarcas();
+    bordesStand.forEach(mt=>mt.emissiveIntensity=horaBrillo*(mt.map?0.35:0.45));
+    if(document.fonts) document.fonts.load("700 80px Caveat").then(()=>carteles.forEach(c=>{ pintarCartel(c.cnv,c.p,c.G); c.tex.needsUpdate=true; }));
     ajustar();
     $("etiqueta").style.display="none";
   }

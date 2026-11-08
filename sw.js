@@ -4,7 +4,7 @@
 // fuerza la descarga de los 19 de entrada, para no pesar el primer uso). Con internet
 // siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v46";
+const CACHE_NAME = "livima-v47";
 
 const APP_SHELL = [
   "./",
