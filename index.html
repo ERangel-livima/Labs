@@ -1047,23 +1047,26 @@ function iniciar(){
       });
       // escultura: aro vertical con un engranaje que rueda adentro y deja su rastro
       const esc=new THREE.Group(); esc.position.set(0,0,-0.5); g.add(esc);
-      const RA=3.2, RE=1.6, DIENTES_E=16;
-      [-2.6,2.6].forEach(x=>malla(new THREE.BoxGeometry(0.4,4.2,0.4),M("#3b3530"),x,2.1,0,esc));
+      // aro de 32 y engranaje de 12: MCD 4, así que la flor sale con 32 ÷ 4 = 8 pétalos en 12 ÷ 4 = 3 vueltas
+      const RA=3.2, RE=1.2, DIENTES_E=12, BRAZO=0.75;
+      // patas que sostienen el aro desde abajo: llegan justo a su borde y no lo atraviesan
+      malla(new THREE.BoxGeometry(3.6,0.35,1.2),M("#3b3530"),0,0.62,0,esc);
+      [-1.3,1.3].forEach(x=>{ const alto=4.6-Math.sqrt(3.45*3.45-x*x)+0.05; malla(new THREE.BoxGeometry(0.35,alto,0.35),M("#3b3530"),x,alto/2,0,esc); });
       const aro=malla(new THREE.TorusGeometry(RA+0.25,0.25,8,64),M("#1B3A6B",{metalness:0.2,roughness:0.5}),0,4.6,0,esc);
       const eng=new THREE.Group(); esc.add(eng);
       const sh=new THREE.Shape();
       for(let i=0;i<DIENTES_E*2;i++){ const a=i/(DIENTES_E*2)*Math.PI*2, r=i%2?RE-0.12:RE+0.08; i?sh.lineTo(Math.cos(a)*r,Math.sin(a)*r):sh.moveTo(Math.cos(a)*r,Math.sin(a)*r); }
       const hueco=new THREE.Path(); hueco.absarc(0,0,0.25,0,Math.PI*2,true); sh.holes.push(hueco);
       const engM=malla(new THREE.ExtrudeGeometry(sh,{depth:0.18,bevelEnabled:false}),M("#D9701A"),0,0,0,eng);
-      const lapiz=malla(new THREE.SphereGeometry(0.14,8,6),M("#1B3A6B"),RE*0.6,0,0.2,engM);
-      const NP=900, rastroPos=new Float32Array(NP*3);
+      const lapiz=malla(new THREE.SphereGeometry(0.14,8,6),M("#1B3A6B"),RE*BRAZO,0,0.2,engM);
+      const NP=1500, rastroPos=new Float32Array(NP*3);
       const vueltasTot=RE*10/(function m(a,b){return b?m(b,a%b):a})(Math.round(RA*10),Math.round(RE*10));
-      for(let i=0;i<NP;i++){ const t=i/(NP-1)*Math.PI*2*vueltasTot, x=(RA-RE)*Math.cos(t)+RE*0.6*Math.cos((RA-RE)/RE*t), y=(RA-RE)*Math.sin(t)-RE*0.6*Math.sin((RA-RE)/RE*t); rastroPos.set([x,4.6+y,0.25],i*3); }
+      for(let i=0;i<NP;i++){ const t=i/(NP-1)*Math.PI*2*vueltasTot, x=(RA-RE)*Math.cos(t)+RE*BRAZO*Math.cos((RA-RE)/RE*t), y=(RA-RE)*Math.sin(t)-RE*BRAZO*Math.sin((RA-RE)/RE*t); rastroPos.set([x,4.6+y,0.25],i*3); }
       const rastroGeo=new THREE.BufferGeometry(); rastroGeo.setAttribute("position",new THREE.BufferAttribute(rastroPos,3));
       const rastro=new THREE.Line(rastroGeo,new THREE.LineBasicMaterial({color:"#D9533B"})); esc.add(rastro);
       let avance=0;
       animG.push((t,dt)=>{
-        avance+=dt*0.035; if(avance>1.15) avance=0;
+        avance+=dt*0.085; if(avance>1.3) avance=0;   // unos 12 s para dibujar la flor completa y una pausa para verla
         const u=Math.min(1,avance), ang=u*Math.PI*2*vueltasTot;
         eng.position.set((RA-RE)*Math.cos(ang),4.6+(RA-RE)*Math.sin(ang),0.05);
         engM.rotation.z=-(RA-RE)/RE*ang;
