@@ -71,12 +71,10 @@
   @media(max-width:980px){.escena{height:clamp(360px,62vh,580px)}}
   .escena canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
   .escena.pantalla{position:fixed;inset:0;height:auto;border-radius:0;z-index:50}
-  .modo{position:absolute;left:12px;top:12px;display:flex;background:rgba(9,22,48,.82);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:3px;gap:3px}
-  .modo button{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:#C9D6EA;font:700 14px var(--sans);cursor:pointer}
-  .modo button[aria-pressed="true"]{background:var(--papel);color:var(--noche)}
-  .modo svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .pista{position:absolute;left:12px;top:62px;background:rgba(9,22,48,.82);color:var(--papel);font-size:13.5px;font-weight:600;padding:7px 13px;border-radius:12px;pointer-events:none;max-width:calc(100% - 84px);transition:opacity .5s;line-height:1.35}
+  .pista{position:absolute;left:12px;top:12px;background:rgba(9,22,48,.82);color:var(--papel);font-size:13.5px;font-weight:600;padding:7px 13px;border-radius:12px;pointer-events:none;max-width:calc(100% - 84px);transition:opacity .5s;line-height:1.35}
   .pista.fuera{opacity:0}
+  .pista .tactil{display:none}
+  @media (hover:none) and (pointer:coarse){.pista .raton{display:none}.pista .tactil{display:inline}}
   .ctl{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
   .ctl button,.full{width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(9,22,48,.82);color:var(--papel);display:grid;place-items:center;cursor:pointer;padding:0}
   .ctl svg,.full svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
@@ -205,19 +203,12 @@
     <canvas id="cv" tabindex="0" aria-label="Mapa 3D. Las flechas mueven el mapa; Q y E lo giran; W y S lo inclinan."></canvas>
     <div class="cargando" id="cargando"><div class="gota"></div>Preparando el río…</div>
     <div class="aviso3d" id="aviso3d">Este equipo no pudo abrir el mapa en 3D. Las paradas siguen disponibles en la lista.</div>
-    <div class="modo" role="group" aria-label="Qué hace el arrastre">
-      <button type="button" id="mMover" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg>Mover</button>
-      <button type="button" id="mGirar" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/><circle cx="12" cy="12" r="1.6"/></svg>Girar</button>
-    </div>
-    <div class="pista" id="pista">Arrastra para moverte por la ronda. Con Girar, el mapa da vueltas alrededor del centro. Toca dos veces un lugar para girar alrededor de él.</div>
+        <div class="pista" id="pista"><span class="raton">Arrastra para girar, clic derecho para moverte y rueda para acercar. Doble clic en un lugar para girar alrededor de él.</span><span class="tactil">Un dedo gira el mapa; dos dedos lo mueven y lo acercan. Toca dos veces un lugar para girar alrededor de él.</span></div>
     <div class="etiqueta" id="etiqueta"></div>
     <button class="full" id="bFull" type="button" aria-label="Pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <div class="ctl">
       <button type="button" id="bMas" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
       <button type="button" id="bMenos" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-      <span class="sep"></span>
-      <button type="button" id="bGiraI" aria-label="Girar el mapa a la izquierda"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
-      <button type="button" id="bGiraD" aria-label="Girar el mapa a la derecha"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/></svg></button>
       <span class="sep"></span>
       <button type="button" id="bCasa" aria-label="Ver todo el mapa"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M6 9.5V20h12V9.5"/></svg></button>
     </div>
@@ -511,9 +502,9 @@ function iniciar(){
   controls.enableDamping=true; controls.dampingFactor=0.08;
   controls.minDistance=12; controls.maxDistance=280; controls.minPolarAngle=0.08; controls.maxPolarAngle=1.42;
   controls.screenSpacePanning=false;
-  // como un mapa: un dedo (o clic izquierdo) arrastra el terreno; dos dedos (o clic derecho) giran y acercan
-  controls.mouseButtons={LEFT:THREE.MOUSE.PAN,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.ROTATE};
-  controls.touches={ONE:THREE.TOUCH.PAN,TWO:THREE.TOUCH.DOLLY_ROTATE};
+  // como en cualquier visor 3D: clic izquierdo gira, clic derecho (o Shift) mueve, la rueda acerca; en pantalla táctil, un dedo gira y dos mueven y acercan
+  controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
+  controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
   controls.panSpeed=1.1; controls.keyPanSpeed=18;
   controls.listenToKeyEvents(cv);
 
@@ -1453,22 +1444,10 @@ function iniciar(){
   function zoom(f){ const d=camera.position.clone().sub(controls.target); const L=Math.min(controls.maxDistance,Math.max(controls.minDistance,d.length()*f)); volarA(controls.target.clone().add(d.setLength(L)),controls.target.clone(),350); }
   $("bMas").onclick=()=>zoom(0.7); $("bMenos").onclick=()=>zoom(1.4);
   function girar(ang){ const d=camera.position.clone().sub(controls.target); d.applyAxisAngle(new THREE.Vector3(0,1,0),ang); volarA(controls.target.clone().add(d),controls.target.clone(),500); }
-  $("bGiraI").onclick=()=>girar(0.5); $("bGiraD").onclick=()=>girar(-0.5);
   controls.addEventListener("start",()=>{ vuelo=null; $("pista").classList.add("fuera"); centroVisible=1; });
   controls.addEventListener("end",()=>{ centroVisible=0; });
 
-  /* modo del arrastre: Mover desliza el mapa; Girar le da vueltas alrededor del centro y lo inclina */
-  let modo="mover";
-  function ponerModo(m){
-    modo=m;
-    $("mMover").setAttribute("aria-pressed",m==="mover"); $("mGirar").setAttribute("aria-pressed",m==="girar");
-    controls.mouseButtons = m==="mover" ? {LEFT:THREE.MOUSE.PAN,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.ROTATE} : {LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
-    controls.touches = m==="mover" ? {ONE:THREE.TOUCH.PAN,TWO:THREE.TOUCH.DOLLY_ROTATE} : {ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
-    centroVisible = m==="girar" ? 1 : 0;
-  }
-  $("mMover").onclick=()=>ponerModo("mover"); $("mGirar").onclick=()=>ponerModo("girar");
-
-  // marca del centro de giro: aparece mientras se gira y en el modo Girar
+  // marca del centro de giro: aparece mientras se gira o se mueve el mapa
   let centroVisible=0;
   const centro=new THREE.Group(); scene.add(centro);
   const anilloCentro=new THREE.Mesh(new THREE.RingGeometry(1.4,1.9,40),new THREE.MeshBasicMaterial({color:"#F4B26A",transparent:true,opacity:0,depthWrite:false,depthTest:false}));
@@ -1499,7 +1478,7 @@ function iniciar(){
     const h=ray.intersectObjects(afuera?[terreno,afuera]:[terreno],false)[0]; if(!h) return false;
     const destino=h.point.clone(); destino.y=Math.max(0,destino.y);
     volarA(camera.position.clone().add(destino.clone().sub(controls.target)),destino,600);
-    centroVisible=1; setTimeout(()=>{ if(modo!=="girar") centroVisible=0; },1800);
+    centroVisible=1; setTimeout(()=>{ centroVisible=0; },1800);
     return true;
   }
   cv.addEventListener("pointerup",e=>{
