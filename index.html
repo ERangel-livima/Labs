@@ -71,7 +71,11 @@
   @media(max-width:980px){.escena{height:clamp(360px,62vh,580px)}}
   .escena canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
   .escena.pantalla{position:fixed;inset:0;height:auto;border-radius:0;z-index:50}
-  .pista{position:absolute;left:12px;top:12px;background:rgba(9,22,48,.82);color:var(--papel);font-size:13.5px;font-weight:600;padding:7px 13px;border-radius:12px;pointer-events:none;max-width:calc(100% - 84px);transition:opacity .5s;line-height:1.35}
+  .modo{position:absolute;left:12px;top:12px;display:flex;background:rgba(9,22,48,.82);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:3px;gap:3px}
+  .modo button{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:#C9D6EA;font:700 14px var(--sans);cursor:pointer}
+  .modo button[aria-pressed="true"]{background:var(--papel);color:var(--noche)}
+  .modo svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .pista{position:absolute;left:12px;top:62px;background:rgba(9,22,48,.82);color:var(--papel);font-size:13.5px;font-weight:600;padding:7px 13px;border-radius:12px;pointer-events:none;max-width:calc(100% - 84px);transition:opacity .5s;line-height:1.35}
   .pista.fuera{opacity:0}
   .ctl{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
   .ctl button,.full{width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(9,22,48,.82);color:var(--papel);display:grid;place-items:center;cursor:pointer;padding:0}
@@ -198,10 +202,14 @@
 
 <main class="wrap mapa">
   <section class="escena" id="escena" aria-label="Mapa 3D de la ronda del Sinú con las paradas del grado">
-    <canvas id="cv" tabindex="0" aria-label="Mapa 3D. Usa las flechas del teclado para moverte."></canvas>
+    <canvas id="cv" tabindex="0" aria-label="Mapa 3D. Las flechas mueven el mapa; Q y E lo giran; W y S lo inclinan."></canvas>
     <div class="cargando" id="cargando"><div class="gota"></div>Preparando el río…</div>
     <div class="aviso3d" id="aviso3d">Este equipo no pudo abrir el mapa en 3D. Las paradas siguen disponibles en la lista.</div>
-    <div class="pista" id="pista">Arrastra con un dedo para moverte. Con dos dedos giras y acercas. Toca una parada para visitarla.</div>
+    <div class="modo" role="group" aria-label="Qué hace el arrastre">
+      <button type="button" id="mMover" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg>Mover</button>
+      <button type="button" id="mGirar" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/><circle cx="12" cy="12" r="1.6"/></svg>Girar</button>
+    </div>
+    <div class="pista" id="pista">Arrastra para moverte por la ronda. Con Girar, el mapa da vueltas alrededor del centro. Toca dos veces un lugar para girar alrededor de él.</div>
     <div class="etiqueta" id="etiqueta"></div>
     <button class="full" id="bFull" type="button" aria-label="Pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <div class="ctl">
@@ -501,7 +509,7 @@ function iniciar(){
   const controls=new OrbitControls(camera,cv);
   controls.target.copy(VISTA_INICIAL.tgt);
   controls.enableDamping=true; controls.dampingFactor=0.08;
-  controls.minDistance=14; controls.maxDistance=280; controls.maxPolarAngle=1.36;
+  controls.minDistance=12; controls.maxDistance=280; controls.minPolarAngle=0.08; controls.maxPolarAngle=1.42;
   controls.screenSpacePanning=false;
   // como un mapa: un dedo (o clic izquierdo) arrastra el terreno; dos dedos (o clic derecho) giran y acercan
   controls.mouseButtons={LEFT:THREE.MOUSE.PAN,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.ROTATE};
@@ -572,6 +580,7 @@ function iniciar(){
   scene.fog=new THREE.Fog("#cfe3e6",150,380);
 
   /* ---------- el borde del mapa ---------- */
+  let afuera=null;
   const colorSuelo=(x,z,y)=>{ const d=Math.abs(z-rioZ(x)), ruido=(Math.sin(x*0.37)*Math.cos(z*0.29)+Math.sin(x*0.11+z*0.17))*0.5+0.5;
     c.copy(cPasto[0]).lerp(cPasto[ruido>0.5?2:1],Math.abs(ruido-0.5)*1.6); if(d<11) c.lerp(cArena,1-suave(7,11,d)); if(y<NIVEL_AGUA+0.1) c.copy(cLodo); return c; };
   {
@@ -584,7 +593,7 @@ function iniciar(){
       p2.setY(i,y); const k=colorSuelo(x,z,y); col.push(k.r,k.g,k.b);
     }
     geo.setAttribute("color",new THREE.Float32BufferAttribute(col,3)); geo.computeVertexNormals();
-    const afuera=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,flatShading:true})); afuera.receiveShadow=true; scene.add(afuera);
+    afuera=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,flatShading:true})); afuera.receiveShadow=true; scene.add(afuera);
     const aguaLejos=new THREE.Mesh(new THREE.PlaneGeometry(LEJOS,LEJOS).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:"#4F8C86",roughness:0.25,metalness:0.1})); aguaLejos.position.y=NIVEL_AGUA-0.05; scene.add(aguaLejos);
     // árboles sueltos afuera, más ralos a medida que se alejan
     const N=320, tr=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35,0.55,1,5),new THREE.MeshStandardMaterial({color:"#6E4E2E",flatShading:true}),N);
@@ -1445,14 +1454,60 @@ function iniciar(){
   $("bMas").onclick=()=>zoom(0.7); $("bMenos").onclick=()=>zoom(1.4);
   function girar(ang){ const d=camera.position.clone().sub(controls.target); d.applyAxisAngle(new THREE.Vector3(0,1,0),ang); volarA(controls.target.clone().add(d),controls.target.clone(),500); }
   $("bGiraI").onclick=()=>girar(0.5); $("bGiraD").onclick=()=>girar(-0.5);
-  controls.addEventListener("start",()=>{ vuelo=null; $("pista").classList.add("fuera"); });
+  controls.addEventListener("start",()=>{ vuelo=null; $("pista").classList.add("fuera"); centroVisible=1; });
+  controls.addEventListener("end",()=>{ centroVisible=0; });
+
+  /* modo del arrastre: Mover desliza el mapa; Girar le da vueltas alrededor del centro y lo inclina */
+  let modo="mover";
+  function ponerModo(m){
+    modo=m;
+    $("mMover").setAttribute("aria-pressed",m==="mover"); $("mGirar").setAttribute("aria-pressed",m==="girar");
+    controls.mouseButtons = m==="mover" ? {LEFT:THREE.MOUSE.PAN,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.ROTATE} : {LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
+    controls.touches = m==="mover" ? {ONE:THREE.TOUCH.PAN,TWO:THREE.TOUCH.DOLLY_ROTATE} : {ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
+    centroVisible = m==="girar" ? 1 : 0;
+  }
+  $("mMover").onclick=()=>ponerModo("mover"); $("mGirar").onclick=()=>ponerModo("girar");
+
+  // marca del centro de giro: aparece mientras se gira y en el modo Girar
+  let centroVisible=0;
+  const centro=new THREE.Group(); scene.add(centro);
+  const anilloCentro=new THREE.Mesh(new THREE.RingGeometry(1.4,1.9,40),new THREE.MeshBasicMaterial({color:"#F4B26A",transparent:true,opacity:0,depthWrite:false,depthTest:false}));
+  anilloCentro.rotation.x=-Math.PI/2; anilloCentro.renderOrder=9; centro.add(anilloCentro);
+  const puntoCentro=new THREE.Mesh(new THREE.CircleGeometry(0.45,20),new THREE.MeshBasicMaterial({color:"#F4B26A",transparent:true,opacity:0,depthWrite:false,depthTest:false}));
+  puntoCentro.rotation.x=-Math.PI/2; puntoCentro.renderOrder=9; centro.add(puntoCentro);
+
+  // teclado: Q y E giran, W y S inclinan (las flechas ya mueven el mapa)
+  function inclinar(delta){
+    const off=camera.position.clone().sub(controls.target), sph=new THREE.Spherical().setFromVector3(off);
+    sph.phi=Math.min(controls.maxPolarAngle,Math.max(controls.minPolarAngle,sph.phi+delta));
+    volarA(controls.target.clone().add(new THREE.Vector3().setFromSpherical(sph)),controls.target.clone(),300);
+  }
+  cv.addEventListener("keydown",e=>{
+    const k=e.key.toLowerCase();
+    if(k==="q") girar(0.25); else if(k==="e") girar(-0.25); else if(k==="w") inclinar(-0.12); else if(k==="s") inclinar(0.12); else return;
+    e.preventDefault();
+  });
 
   // toque o clic sobre una parada (sin arrastre)
   const ray=new THREE.Raycaster(), ptr=new THREE.Vector2(); let abajo=null;
   cv.addEventListener("pointerdown",e=>{ abajo={x:e.clientX,y:e.clientY,t:performance.now()}; });
+  let ultimoToque=null;
+  // dos toques sobre el terreno: ese punto pasa a ser el centro de giro
+  function centrarEn(e){
+    const r=cv.getBoundingClientRect(); ptr.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+    ray.setFromCamera(ptr,camera);
+    const h=ray.intersectObjects(afuera?[terreno,afuera]:[terreno],false)[0]; if(!h) return false;
+    const destino=h.point.clone(); destino.y=Math.max(0,destino.y);
+    volarA(camera.position.clone().add(destino.clone().sub(controls.target)),destino,600);
+    centroVisible=1; setTimeout(()=>{ if(modo!=="girar") centroVisible=0; },1800);
+    return true;
+  }
   cv.addEventListener("pointerup",e=>{
     if(!abajo) return; const mov=Math.hypot(e.clientX-abajo.x,e.clientY-abajo.y), dur=performance.now()-abajo.t; abajo=null;
     if(mov>8||dur>600) return;
+    const ahora=performance.now();
+    if(ultimoToque && ahora-ultimoToque.t<400 && Math.hypot(e.clientX-ultimoToque.x,e.clientY-ultimoToque.y)<30){ ultimoToque=null; if(centrarEn(e)) return; }
+    ultimoToque={t:ahora,x:e.clientX,y:e.clientY};
     const r=cv.getBoundingClientRect(); ptr.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
     ray.setFromCamera(ptr,camera);
     let hit=ray.intersectObjects(marcas,false)[0];
@@ -1471,7 +1526,7 @@ function iniciar(){
 
   /* ---------- bucle ---------- */
   const reloj=new THREE.Clock(), aguaArr=aguaGeo.attributes.position.array, v3=new THREE.Vector3();
-  const LIM=TAM/2-20;
+  const LIM=240;   // el centro puede recorrer la ronda y el territorio que la rodea
   function cuadro(){
     const dt=Math.min(0.05,reloj.getDelta()), t=reloj.elapsedTime;
     if(vuelo){
@@ -1481,6 +1536,9 @@ function iniciar(){
     }
     controls.target.x=Math.max(-LIM,Math.min(LIM,controls.target.x)); controls.target.z=Math.max(-LIM,Math.min(LIM,controls.target.z)); controls.target.y=Math.max(0,Math.min(20,controls.target.y));
     controls.update();
+    { const suelo=Math.max(NIVEL_AGUA,alturaBase(camera.position.x,camera.position.z))+3; if(camera.position.y<suelo) camera.position.y=suelo; }   // la cámara nunca se mete bajo el suelo ni el agua
+    centro.position.set(controls.target.x,controls.target.y+0.3,controls.target.z);
+    { const objetivo=centroVisible?0.85:0; anilloCentro.material.opacity+=(objetivo-anilloCentro.material.opacity)*Math.min(1,dt*8); puntoCentro.material.opacity=anilloCentro.material.opacity; const s=1+Math.sin(t*4)*0.08; anilloCentro.scale.set(s,s,s); }
     for(let i=0;i<aguaArr.length;i+=3){ const x=aguaBase[i], z=aguaBase[i+2]; aguaArr[i+1]=Math.sin(x*0.18+t*1.3)*0.09+Math.cos(z*0.23+t*1.1)*0.07; }
     aguaGeo.attributes.position.needsUpdate=true;
     animados.forEach(f=>f(t,dt)); animG.forEach(f=>f(t,dt));
