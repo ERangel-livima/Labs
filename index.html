@@ -570,6 +570,42 @@ function iniciar(){
   scene.add(new THREE.Points(estGeo,estMat));
 
   scene.fog=new THREE.Fog("#cfe3e6",150,380);
+
+  /* ---------- el borde del mapa ---------- */
+  const colorSuelo=(x,z,y)=>{ const d=Math.abs(z-rioZ(x)), ruido=(Math.sin(x*0.37)*Math.cos(z*0.29)+Math.sin(x*0.11+z*0.17))*0.5+0.5;
+    c.copy(cPasto[0]).lerp(cPasto[ruido>0.5?2:1],Math.abs(ruido-0.5)*1.6); if(d<11) c.lerp(cArena,1-suave(7,11,d)); if(y<NIVEL_AGUA+0.1) c.copy(cLodo); return c; };
+  {
+    // el territorio sigue más allá del mapa y se pierde en la neblina, con lomas lejanas en el horizonte
+    const LEJOS=1300, geo=new THREE.PlaneGeometry(LEJOS,LEJOS,130,130); geo.rotateX(-Math.PI/2);
+    const p2=geo.attributes.position, col=[];
+    for(let i=0;i<p2.count;i++){
+      const x=p2.getX(i), z=p2.getZ(i), r=Math.max(Math.abs(x),Math.abs(z));
+      let y=alturaBase(x,z)-0.7*(1-suave(TAM/2,TAM/2+14,r));
+      p2.setY(i,y); const k=colorSuelo(x,z,y); col.push(k.r,k.g,k.b);
+    }
+    geo.setAttribute("color",new THREE.Float32BufferAttribute(col,3)); geo.computeVertexNormals();
+    const afuera=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,flatShading:true})); afuera.receiveShadow=true; scene.add(afuera);
+    const aguaLejos=new THREE.Mesh(new THREE.PlaneGeometry(LEJOS,LEJOS).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:"#4F8C86",roughness:0.25,metalness:0.1})); aguaLejos.position.y=NIVEL_AGUA-0.05; scene.add(aguaLejos);
+    // árboles sueltos afuera, más ralos a medida que se alejan
+    const N=320, tr=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35,0.55,1,5),new THREE.MeshStandardMaterial({color:"#6E4E2E",flatShading:true}),N);
+    const cp=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshStandardMaterial({color:"#4E8E36",flatShading:true}),N);
+    const o=new THREE.Object3D(); let n=0, tries=0;
+    while(n<N && tries<8000){ tries++;
+      const a=Math.random()*Math.PI*2, r=TAM/2+8+Math.pow(Math.random(),1.6)*360, x=Math.cos(a)*r, z=Math.sin(a)*r;
+      if(Math.max(Math.abs(x),Math.abs(z))<TAM/2+6 || Math.abs(z-rioZ(x))<14) continue;
+      const y=alturaBase(x,z), s=1.4+Math.random()*1.6, alto=3.4*s;
+      o.position.set(x,y+alto/2,z); o.scale.set(s*0.8,alto,s*0.8); o.rotation.set(0,0,0); o.updateMatrix(); tr.setMatrixAt(n,o.matrix);
+      o.position.set(x,y+alto+1.2*s,z); o.scale.set(s*1.9,s*1.8,s*1.9); o.updateMatrix(); cp.setMatrixAt(n,o.matrix); n++;
+    }
+    tr.count=cp.count=n; scene.add(tr,cp);
+    // lomas lejanas que la neblina vuelve azules
+    for(let k=0;k<22;k++){
+      const a=k/22*Math.PI*2+Math.random()*0.15, r=520+Math.random()*50;
+      const loma=new THREE.Mesh(new THREE.ConeGeometry(70+Math.random()*60,28+Math.random()*34,7),new THREE.MeshStandardMaterial({color:"#5f8a4a",flatShading:true,roughness:1}));
+      loma.position.set(Math.cos(a)*r,-2,Math.sin(a)*r); loma.scale.z=0.6+Math.random()*0.5; loma.rotation.y=Math.random()*3; scene.add(loma);
+    }
+    scene.fog.near=170; scene.fog.far=600;
+  }
   const hemi=new THREE.HemisphereLight("#dff1ff","#6b7a3a",0.9); scene.add(hemi);
   const sol=new THREE.DirectionalLight("#fff4dd",2.4); sol.castShadow=true;
   sol.shadow.mapSize.set(2048,2048); Object.assign(sol.shadow.camera,{left:-150,right:150,top:120,bottom:-120,near:10,far:500}); sol.shadow.bias=-0.0008; sol.shadow.normalBias=0.6;
