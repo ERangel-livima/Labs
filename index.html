@@ -1472,7 +1472,7 @@ function iniciar(){
     haz.position.set(0,21.1,0); pg.add(haz);
     animados.push(t=>{ const activo=pasSel; uni.t.value=t*(activo?2:1); uni.fuerza.value=activo?1.35+Math.sin(t*5)*0.1:1; marco.material.emissiveIntensity=(activo?1.6:0.9)+horaBrillo*0.4; });
     pasG.updateMatrixWorld(true); const pos=new THREE.Vector3(); disco.getWorldPosition(pos);
-    return {pg,disco,marco,etiqueta:pos.clone().add(new THREE.Vector3(0,3.4,0))}; })();
+    return {pg,disco,marco,etiqueta:new THREE.Vector3(PAS.x,PAS.h+10,PAS.z)}; })();
   let pasSel=false;
 
   /* Fibo, el colibrí de la cartelera, vuela hasta la parada que se visita */
@@ -1701,8 +1701,8 @@ function iniciar(){
     const et=$("etiqueta");
     if(cruzando) et.style.display="none";
     else if(seleccion>=0){
-      v3.copy(P[seleccion].portalPos); v3.project(camera);
-      if(v3.z<1){ et.style.display="block"; const pp=P[seleccion]; et.innerHTML=pp.lugar+"<small>"+(pp.expo?pp.lema:"Parada "+pp.n+": "+pp.tit)+". Toca otra vez el portal para entrar.</small>"; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=((1-v3.y)/2*escena.clientHeight)+"px"; }
+      { const pp=P[seleccion]; v3.set(pp.x,pp.h+ALTO_MARCA[seleccion]*ESCALA_PARADA*0.62+1,pp.z); } v3.project(camera);   // por encima de la pieza más alta del stand, para no taparla
+      if(v3.z<1){ et.style.display="block"; const pp=P[seleccion]; et.innerHTML=pp.lugar+"<small>"+(pp.expo?pp.lema:"Parada "+pp.n+": "+pp.tit)+". Toca otra vez el portal para entrar.</small>"; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=Math.max(et.offsetHeight+10,(1-v3.y)/2*escena.clientHeight)+"px"; }
       else et.style.display="none";
     } else if(pasSel){
       v3.copy(pasPortal.etiqueta); v3.project(camera);
@@ -1713,7 +1713,7 @@ function iniciar(){
       if(v3.z<1){ et.style.display="block"; et.textContent=window.LUGARES[lugarSel].nombre; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=((1-v3.y)/2*escena.clientHeight)+"px"; }
       else et.style.display="none";
     } else et.style.display="none";
-    if(pasSel) fiboDestino.copy(pasPortal.etiqueta).add(new THREE.Vector3(2.6,-1.6,0));
+    if(pasSel){ pasPortal.disco.getWorldPosition(fiboDestino); fiboDestino.add(new THREE.Vector3(2.6,3,0)); }
     else if(lugarSel>=0) fiboDestino.copy(LUGAR_POS[lugarSel]).add(new THREE.Vector3(3.2,3,0));
     else if(seleccion>=0) fiboDestino.copy(P[seleccion].portalPos).add(new THREE.Vector3(2.6,0.6,0));
     else fiboDestino.set(controls.target.x+Math.cos(t*0.35)*22,24+Math.sin(t*0.9)*2,controls.target.z+Math.sin(t*0.35)*10);
