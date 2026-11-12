@@ -613,7 +613,7 @@ function iniciar(){
   function copaSuave(){
     const lobulos=[[0,0,0,1],[0.62,-0.12,0.18,0.62],[-0.55,-0.08,0.3,0.66],[0.12,-0.1,-0.62,0.64],[-0.3,0.42,-0.22,0.6],[0.36,0.4,0.3,0.55],[-0.1,-0.2,0.66,0.52]], partes=[];
     for(const [lx,ly,lz,r] of lobulos){
-      const g=new THREE.IcosahedronGeometry(1,2), p=g.attributes.position, col=[];
+      const g=new THREE.SphereGeometry(1,12,9), p=g.attributes.position, col=[];
       for(let i=0;i<p.count;i++){
         const v=new THREE.Vector3().fromBufferAttribute(p,i), k=1+Math.sin(v.x*5.1+lx*9)*0.09+Math.cos(v.y*4.3+v.z*3.7+lz*7)*0.11+Math.sin(v.z*9.7+v.x*8.3)*0.04;
         v.multiplyScalar(k*r); v.y*=0.9; v.x+=lx; v.y+=ly; v.z+=lz; p.setXYZ(i,v.x,v.y,v.z);
@@ -836,25 +836,235 @@ function iniciar(){
   }
   [[-100,8],[-64,-36],[-36,-28],[14,-36],[40,-30],[66,-32],[92,-26],[-14,24],[118,-10]].forEach(([x,dz])=>{ const z=rioZ(x)+dz; if(lejosDeTodo(x,z)||Math.abs(dz)>20) palma(x,z); });
 
+  /* ---------- detalles del territorio: piedras, arbustos, flores y taruya ---------- */
+  let flores=null, nFlores=0;
+  {
+    const o=new THREE.Object3D(), k=new THREE.Color();
+    const libreDeObras=x=>!(Math.abs(x-PUENTE.x)<8 || Math.abs(x-MUELLE.x)<9 || PLANCHONES.some(pl=>Math.abs(x-pl.x)<7));
+    // piedras redondeadas por el río, en la orilla y sueltas en el potrero
+    const piedraGeo=new THREE.SphereGeometry(1,12,9); { const p=piedraGeo.attributes.position, v=new THREE.Vector3();
+      for(let i=0;i<p.count;i++){ v.fromBufferAttribute(p,i); const n=1+0.2*Math.sin(v.x*3.1+1)*Math.cos(v.z*2.7)+0.11*Math.sin(v.y*5.3+v.x*4.1); p.setXYZ(i,v.x*n,v.y*n*0.6,v.z*n); } piedraGeo.computeVertexNormals(); }
+    const texPiedra=texRelieve.clone(); texPiedra.repeat.set(2,2); texPiedra.needsUpdate=true;
+    const NP=300, piedras=new THREE.InstancedMesh(piedraGeo,new THREE.MeshStandardMaterial({color:"#ffffff",normalMap:texPiedra,normalScale:new THREE.Vector2(1.2,1.2),roughness:0.88}),NP);
+    piedras.castShadow=piedras.receiveShadow=true; const grises=["#9A968C","#857F73","#A8A294","#7A7468","#B3AB98"]; let np=0, tries=0;
+    while(np<NP && tries<6000){ tries++;
+      const orilla=np<210, x=(Math.random()-0.5)*(TAM-8); let z;
+      if(orilla){ if(!libreDeObras(x)) continue; z=rioZ(x)+(Math.random()<0.5?1:-1)*(7.2+Math.random()*3.6); } else { z=(Math.random()-0.5)*(TAM-8); if(!lejosDeTodo(x,z)) continue; }
+      const s=orilla?0.35+Math.pow(Math.random(),2)*1.1:0.5+Math.random()*1.3;
+      o.position.set(x,altura(x,z)-0.12*s,z); o.rotation.set(Math.random()*0.4,Math.random()*6.28,Math.random()*0.4); o.scale.set(s*(0.8+Math.random()*0.5),s*(0.7+Math.random()*0.5),s*(0.8+Math.random()*0.5)); o.updateMatrix();
+      piedras.setMatrixAt(np,o.matrix); piedras.setColorAt(np,k.set(grises[np%grises.length]).multiplyScalar(0.85+Math.random()*0.3)); np++;
+    }
+    piedras.count=np; scene.add(piedras);
+    // arbustos bajos entre los árboles
+    const NA=170, arbustos=new THREE.InstancedMesh(copaGeo,matCopa,NA); arbustos.castShadow=arbustos.receiveShadow=true; let na=0; tries=0;
+    while(na<NA && tries<5000){ tries++;
+      const x=(Math.random()-0.5)*(TAM-10), z=(Math.random()-0.5)*(TAM-10); if(!lejosDeTodo(x,z)) continue;
+      if(z>rioZ(x)+30 && Math.random()<0.6) continue;
+      const s=0.9+Math.random()*1.1; o.position.set(x,altura(x,z)+0.42*s,z); o.rotation.set(0,Math.random()*6.28,0); o.scale.set(s*1.15,s*0.72,s*1.15); o.updateMatrix();
+      arbustos.setMatrixAt(na,o.matrix); arbustos.setColorAt(na,k.set(["#4F7A36","#5B8A3C","#476F2E","#668F42"][na%4])); na++;
+    }
+    arbustos.count=na; scene.add(arbustos);
+    // flores silvestres en manchas de un mismo color
+    const NF=1500; flores=new THREE.InstancedMesh(new THREE.SphereGeometry(0.12,6,5),new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.55}),NF); flores.receiveShadow=true;
+    const tonos=["#F4C542","#FFFFFF","#E86A9A","#B57BE8","#FF8A3D","#F4C542"]; tries=0;
+    while(nFlores<NF && tries<900){ tries++;
+      const cx=(Math.random()-0.5)*(TAM-12), cz=(Math.random()-0.5)*(TAM-12); if(!lejosDeTodo(cx,cz)) continue;
+      const tono=tonos[tries%tonos.length], cuantas=8+Math.floor(Math.random()*12);
+      for(let j=0;j<cuantas && nFlores<NF;j++){ const a=Math.random()*6.28, r=Math.sqrt(Math.random())*2.2, x=cx+Math.cos(a)*r, z=cz+Math.sin(a)*r, s=0.7+Math.random()*0.7;
+        o.position.set(x,altura(x,z)+0.34+Math.random()*0.22,z); o.rotation.set(0,0,0); o.scale.set(s,s*0.6,s); o.updateMatrix(); flores.setMatrixAt(nFlores,o.matrix); flores.setColorAt(nFlores,k.set(tono).multiplyScalar(0.9+Math.random()*0.2)); nFlores++; }
+    }
+    flores.count=nFlores; scene.add(flores);
+    // taruya: hojas flotantes en los remansos de la orilla, algunas con flor
+    const hojaAgua=new THREE.CircleGeometry(0.6,12,0.35,Math.PI*2-0.7); hojaAgua.rotateX(-Math.PI/2);
+    const NT=150, taruya=new THREE.InstancedMesh(hojaAgua,new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.5,side:THREE.DoubleSide}),NT); taruya.receiveShadow=true;
+    const florAgua=new THREE.InstancedMesh(new THREE.ConeGeometry(0.16,0.26,7,1,true).rotateX(Math.PI),new THREE.MeshStandardMaterial({color:"#C9A6F2",roughness:0.5,side:THREE.DoubleSide}),40);
+    let nt=0, nfa=0; tries=0;
+    while(nt<NT && tries<5000){ tries++;
+      const x=(Math.random()-0.5)*(TAM-6); if(!libreDeObras(x)) continue;
+      const z=rioZ(x)+(Math.random()<0.5?1:-1)*(4.6+Math.random()*2.6); if(altura(x,z)>NIVEL_AGUA-0.12) continue;
+      const s=0.6+Math.random()*0.9; o.position.set(x,NIVEL_AGUA+0.03+nt*0.0004,z); o.rotation.set(0,Math.random()*6.28,0); o.scale.set(s,1,s); o.updateMatrix();
+      taruya.setMatrixAt(nt,o.matrix); taruya.setColorAt(nt,k.set(["#3F7A32","#4F8A3A","#5C9440"][nt%3])); nt++;
+      if(nfa<40 && Math.random()<0.28){ o.position.y=NIVEL_AGUA+0.2; o.scale.set(1,1,1); o.updateMatrix(); florAgua.setMatrixAt(nfa,o.matrix); nfa++; }
+    }
+    taruya.count=nt; florAgua.count=nfa; scene.add(taruya,florAgua);
+  }
+
   // camino de la ronda con faroles: une las paradas del grado
+  const matCamino=(()=>{ const cn=document.createElement("canvas"); cn.width=cn.height=256; const x=cn.getContext("2d");
+    x.fillStyle="#BFA070"; x.fillRect(0,0,256,256);
+    for(let i=0;i<5200;i++){ const v=Math.random(); x.fillStyle=v<0.4?"rgba(120,92,58,.5)":v<0.8?"rgba(226,204,160,.5)":"rgba(150,140,125,.7)"; const r=0.6+Math.random()*(v>0.8?2.6:1.5); x.beginPath(); x.ellipse(Math.random()*256,Math.random()*256,r,r*0.7,Math.random()*3,0,6.283); x.fill(); }
+    const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.anisotropy=8;
+    const ca=document.createElement("canvas"); ca.width=64; ca.height=4; const xa=ca.getContext("2d"), g=xa.createLinearGradient(0,0,64,0);
+    g.addColorStop(0,"#000"); g.addColorStop(0.22,"#fff"); g.addColorStop(0.78,"#fff"); g.addColorStop(1,"#000"); xa.fillStyle=g; xa.fillRect(0,0,64,4);
+    const borde=new THREE.CanvasTexture(ca); borde.wrapT=THREE.RepeatWrapping;
+    const rel=texRelieve.clone(); rel.repeat.set(1,3); rel.needsUpdate=true;
+    return new THREE.MeshStandardMaterial({map:tx,alphaMap:borde,transparent:true,depthWrite:false,normalMap:rel,normalScale:new THREE.Vector2(0.9,0.9),roughness:1,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2}); })();
   const bombMat=new THREE.MeshStandardMaterial({color:"#FFE7A8",emissive:"#FFC85A",emissiveIntensity:0});
   function caminoDe(capa){
     const camino=P.map(p=>new THREE.Vector3(p.x,0,p.z+9.5));
     const curva=new THREE.CatmullRomCurve3([new THREE.Vector3(-118,0,rioZ(-118)+26),...camino,new THREE.Vector3(122,0,rioZ(122)+22)]);
-    const MUESTRAS=420, cv3=[], idx=[];
+    curvaCamino=curva;
+    const MUESTRAS=420, cv3=[], idx=[], uvs=[];
     for(let i=0;i<=MUESTRAS;i++){
-      const t=i/MUESTRAS, p=curva.getPointAt(t), tg=curva.getTangentAt(t), n=new THREE.Vector3(-tg.z,0,tg.x).normalize().multiplyScalar(1.5);
-      for(const s of [1,-1]){ const x=p.x+n.x*s, z=p.z+n.z*s; cv3.push(x,altura(x,z)+0.08,z); }
+      const t=i/MUESTRAS, p=curva.getPointAt(t), tg=curva.getTangentAt(t), n=new THREE.Vector3(-tg.z,0,tg.x).normalize().multiplyScalar(2.1);
+      for(const s of [1,-1]){ const x=p.x+n.x*s, z=p.z+n.z*s; cv3.push(x,altura(x,z)+0.08,z); uvs.push(s>0?0:1,i*0.16); }
       if(i<MUESTRAS){ const a=i*2; idx.push(a,a+1,a+2,a+1,a+3,a+2); }
     }
-    const caminoGeo=new THREE.BufferGeometry(); caminoGeo.setAttribute("position",new THREE.Float32BufferAttribute(cv3,3)); caminoGeo.setIndex(idx); caminoGeo.computeVertexNormals();
-    const caminoM=new THREE.Mesh(caminoGeo,M("#C9A56A",{side:THREE.DoubleSide,flatShading:false})); caminoM.receiveShadow=true; capa.add(caminoM);
+    const caminoGeo=new THREE.BufferGeometry(); caminoGeo.setAttribute("position",new THREE.Float32BufferAttribute(cv3,3)); caminoGeo.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2)); caminoGeo.setIndex(idx); caminoGeo.computeVertexNormals();
+    const caminoM=new THREE.Mesh(caminoGeo,matCamino); caminoM.receiveShadow=true; capa.add(caminoM);
     for(let i=1;i<24;i++){
       const t=i/24, p=curva.getPointAt(t), tg=curva.getTangentAt(t), x=p.x-tg.z*2.6, z=p.z+tg.x*2.6, y=altura(x,z);
-      malla(new THREE.CylinderGeometry(0.09,0.12,2.6,5),M("#3b3530"),x,y+1.3,z,capa);
+      malla(new THREE.CylinderGeometry(0.06,0.1,2.7,8),M("#2f2a26",{metalness:0.5,roughness:0.5}),x,y+1.35,z,capa); malla(new THREE.CylinderGeometry(0.17,0.22,0.22,8),M("#2f2a26",{metalness:0.5,roughness:0.5}),x,y+0.11,z,capa);
+      malla(new THREE.ConeGeometry(0.34,0.2,8),M("#2f2a26",{metalness:0.5,roughness:0.5}),x,y+3.12,z,capa);
       const b=malla(new THREE.SphereGeometry(0.32,8,6),bombMat,x,y+2.75,z,capa); b.castShadow=false;
     }
   }
+
+  /* ---------- personajes: Mati, Yine y Arte caminan de una parada a otra ----------
+     Cada figura se arma con piezas articuladas (cadera, torso, cabeza, brazos y piernas) y se viste según su ilustración. */
+  let curvaCamino=null;
+  const PERSONAJES={}, ESCALA_GUIA=2.5;
+  const capsula=(r,l)=>{ const g=new THREE.CapsuleGeometry(r,l,5,12); g.translate(0,-l/2,0); return g; };   // el origen queda en la articulación de arriba
+  const matOverol=(()=>{ const cn=document.createElement("canvas"); cn.width=cn.height=128; const x=cn.getContext("2d"); x.fillStyle="#4B2E83"; x.fillRect(0,0,128,128);
+    const tintas=["#F4C542","#FF6FA5","#5FD0CC","#FFFFFF","#FF8A3D","#8BD46A","#C9A6F2"];
+    for(let i=0;i<46;i++){ x.fillStyle=tintas[i%tintas.length]; x.globalAlpha=0.75+Math.random()*0.25; const px=Math.random()*128, py=Math.random()*128, r=1.5+Math.pow(Math.random(),2)*8;
+      x.beginPath(); x.arc(px,py,r,0,6.283); x.fill(); for(let j=0;j<3;j++){ x.beginPath(); x.arc(px+(Math.random()-0.5)*r*4,py+(Math.random()-0.5)*r*4,r*0.25,0,6.283); x.fill(); } }
+    const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(2,2); return new THREE.MeshStandardMaterial({map:tx,roughness:0.9}); })();
+  function crearPersonaje(quien){
+    const D={ mati:{piel:"#C48A55",pelo:"#1E1A18",camisa:"#E6EED2",tela:"#4F7B33",zapato:"#5B4631"},
+              yine:{piel:"#CF9760",pelo:"#161C3A",camisa:"#F4F5F7",tela:"#2F4F9E",zapato:"#22335F"},
+              arte:{piel:"#CC8848",pelo:"#4A2A1C",camisa:"#F5F2EC",tela:null,zapato:"#3A2A55"} }[quien];
+    const piel=M(D.piel,{roughness:0.62}), pelo=M(D.pelo,{roughness:0.92}), camisa=M(D.camisa,{roughness:0.85}), tela=D.tela?M(D.tela,{roughness:0.9}):matOverol, zapato=M(D.zapato,{roughness:0.7});
+    const raiz=new THREE.Group(), cuerpo=new THREE.Group(); raiz.add(cuerpo); raiz.scale.setScalar(ESCALA_GUIA);
+    const cadera=new THREE.Group(); cadera.position.y=0.80; cuerpo.add(cadera);
+    malla(new THREE.SphereGeometry(0.165,14,10),tela,0,0.02,0,cadera).scale.set(1.08,0.72,0.84);
+    const torso=new THREE.Group(); torso.position.y=0.06; cadera.add(torso);
+    malla(new THREE.CapsuleGeometry(0.15,0.2,6,14),camisa,0,0.26,0,torso).scale.set(1.3,1,0.8); malla(new THREE.CapsuleGeometry(0.14,0.14,6,14),camisa,0,0.1,0,torso).scale.set(1.12,1,0.76);
+    malla(new THREE.CylinderGeometry(0.052,0.06,0.1,10),piel,0,0.5,0,torso);
+    const cabeza=new THREE.Group(); cabeza.position.y=0.65; cabeza.scale.setScalar(0.92); torso.add(cabeza);
+    malla(new THREE.SphereGeometry(0.15,20,16),piel,0,0,0,cabeza).scale.set(0.96,1.08,1);
+    // cara: ojos con brillo, cejas, nariz, sonrisa y orejas
+    const ojos=[], blanco=M("#FDFBF6",{roughness:0.3}), iris=M("#3A2414",{roughness:0.25}), brillo=M("#ffffff",{emissive:"#ffffff",emissiveIntensity:0.6});
+    for(const s of [1,-1]){
+      const ojo=new THREE.Group(); ojo.position.set(s*0.056,0.012,0.128); cabeza.add(ojo); ojos.push(ojo);
+      malla(new THREE.SphereGeometry(0.03,10,8),blanco,0,0,0,ojo).scale.set(1,1.12,0.5);
+      malla(new THREE.SphereGeometry(0.0175,10,8),iris,0,0,0.012,ojo).scale.z=0.5;
+      malla(new THREE.SphereGeometry(0.006,6,5),brillo,s*0.006,0.008,0.021,ojo);
+      malla(new THREE.CapsuleGeometry(0.008,0.04,3,6),pelo,s*0.056,0.064,0.134,cabeza).rotation.z=Math.PI/2+s*0.18;
+      malla(new THREE.SphereGeometry(0.03,8,6),piel,s*0.146,-0.005,0,cabeza).scale.set(0.5,1,0.8);
+    }
+    malla(new THREE.SphereGeometry(0.022,8,6),piel,0,-0.022,0.148,cabeza);
+    malla(new THREE.TorusGeometry(0.036,0.007,5,12,Math.PI*0.8),M("#7A3B2E"),0,-0.046,0.127,cabeza).rotation.z=Math.PI*1.1;
+    // pelo rizado: muchos rizos pequeños sobre la cabeza
+    const rizos=[]; let semilla=quien.length*7.3+quien.charCodeAt(0);
+    const azar=()=>{ semilla=Math.sin(semilla*12.9898+78.233)*43758.5453; semilla-=Math.floor(semilla); return semilla; };
+    const rizo=(x,y,z,r)=>{ const g=new THREE.SphereGeometry(r,7,5); g.translate(x,y,z); rizos.push(g); };
+    const volumen=quien==="arte"?1.07:1, grueso=quien==="arte"?0.014:0;
+    for(let i=0;i<110;i++){ const th=azar()*Math.PI*2, ph=Math.acos(1-azar()*1.25), dx=Math.sin(ph)*Math.sin(th), dy=Math.cos(ph), dz=Math.sin(ph)*Math.cos(th);
+      if(dz>0.42 && dy<0.58) continue;   // la cara queda despejada
+      rizo(dx*0.145*volumen,dy*0.16*volumen+0.012,dz*0.15*volumen,0.04+grueso+azar()*0.026); }
+    if(quien==="yine") for(let i=0;i<80;i++){ const lado=azar()-0.5, baja=azar(); rizo(lado*0.36,-baja*0.5+0.02,-0.05-azar()*0.09-(1-Math.abs(lado)*2)*0.04+(Math.abs(lado)>0.36?0.07:0),0.05+azar()*0.022); }   // melena larga hasta media espalda
+    const melena=new THREE.Mesh(unir(rizos),pelo); melena.castShadow=true; cabeza.add(melena);
+    const brazo=s=>{ const hombro=new THREE.Group(); hombro.position.set(s*0.228,0.44,0); torso.add(hombro);
+      malla(capsula(0.047,0.22),piel,0,0,0,hombro); malla(capsula(0.058,0.09),camisa,0,0.006,0,hombro);
+      const codo=new THREE.Group(); codo.position.y=-0.22; hombro.add(codo);
+      malla(capsula(0.041,0.19),piel,0,0,0,codo); malla(new THREE.SphereGeometry(0.05,10,8),piel,0,-0.235,0,codo).scale.set(0.7,1.25,1); malla(new THREE.SphereGeometry(0.018,6,5),piel,0,-0.225,0.04,codo).scale.set(1,1.8,1);
+      return {hombro,codo,lado:s}; };
+    const pierna=(s,telaMuslo,telaCanilla)=>{ const muslo=new THREE.Group(); muslo.position.set(s*0.085,-0.02,0); cadera.add(muslo);
+      malla(capsula(0.078,0.36),telaMuslo,0,0,0,muslo);
+      const rodilla=new THREE.Group(); rodilla.position.y=-0.36; muslo.add(rodilla);
+      malla(capsula(telaCanilla===piel?0.056:0.066,0.34),telaCanilla,0,0,0,rodilla);
+      malla(new THREE.SphereGeometry(0.07,12,8),zapato,0,-0.378,0.06,rodilla).scale.set(1,0.72,2.05); malla(new THREE.BoxGeometry(0.13,0.02,0.27),M("#2A2420"),0,-0.425,0.06,rodilla);
+      return {muslo,rodilla}; };
+    const bI=brazo(1), bD=brazo(-1), corto=quien==="mati", pI=pierna(1,tela,corto?piel:tela), pD=pierna(-1,tela,corto?piel:tela);
+    const pulsera=(b,color,y)=>{ malla(new THREE.TorusGeometry(0.045,0.011,6,14),M(color),0,y,0,b.codo).rotation.x=Math.PI/2; };
+    const mochila=color=>{ malla(new THREE.CapsuleGeometry(0.1,0.16,5,10),M(color,{roughness:0.9}),0,0.24,-0.17,torso).scale.set(1.25,1,0.75); malla(new THREE.BoxGeometry(0.16,0.09,0.04),M(color,{roughness:0.9}),0,0.17,-0.25,torso);
+      for(const s of [1,-1]) malla(new THREE.BoxGeometry(0.036,0.34,0.02),M(color,{roughness:0.9}),s*0.12,0.29,0.124,torso); };
+    if(quien==="mati"){
+      mochila("#4E7A32");
+      const panoleta=malla(new THREE.ConeGeometry(0.075,0.14,3),M("#3F7F34"),0,0.38,0.128,torso); panoleta.rotation.set(Math.PI,Math.PI/6,0); panoleta.scale.z=0.3;
+      malla(new THREE.SphereGeometry(0.022,8,6),M("#3F7F34"),0,0.45,0.125,torso);
+      for(const p of [pI,pD]) malla(new THREE.CylinderGeometry(0.06,0.058,0.09,10),M("#DDE6CC"),0,-0.3,0,p.rodilla);   // medias
+      pulsera(bI,"#6B4A2E",-0.17);
+      // sombrero de explorador, de ala ancha
+      const sombrero=new THREE.Group(); sombrero.position.y=0.085; sombrero.rotation.x=-0.14; cabeza.add(sombrero);
+      const perfil=[[0.13,0.012],[0.2,0.004],[0.27,-0.022],[0.305,-0.04],[0.31,-0.046],[0.3,-0.05],[0.27,-0.034],[0.2,-0.01],[0.13,0]].map(([r,y])=>new THREE.Vector2(r,y));
+      malla(new THREE.LatheGeometry(perfil,28),M("#6F9B48",{side:THREE.DoubleSide,roughness:0.95}),0,0,0,sombrero);
+      malla(new THREE.CylinderGeometry(0.135,0.158,0.11,20),M("#6F9B48",{roughness:0.95}),0,0.058,0,sombrero);
+      malla(new THREE.SphereGeometry(0.135,18,8,0,Math.PI*2,0,Math.PI/2),M("#6F9B48",{roughness:0.95}),0,0.112,0,sombrero).scale.y=0.3;
+      malla(new THREE.CylinderGeometry(0.16,0.161,0.03,20),M("#4E7A32"),0,0.02,0,sombrero);
+      malla(new THREE.CylinderGeometry(0.028,0.028,0.008,6),M("#DDEBC6"),0,0.06,0.152,sombrero).rotation.x=Math.PI/2;
+    }
+    if(quien==="yine"){
+      mochila("#2B4A9A");
+      malla(new THREE.TorusGeometry(0.16,0.026,7,22),M("#2E5FD0",{roughness:0.8}),0,0.062,-0.012,cabeza).rotation.x=Math.PI/2-0.42;   // balaca
+      for(const s of [1,-1]){ malla(new THREE.SphereGeometry(0.014,6,5),M("#2E5FD0",{roughness:0.3}),s*0.15,-0.05,0.005,cabeza); const cuello=malla(new THREE.BoxGeometry(0.075,0.022,0.05),camisa,s*0.05,0.468,0.085,torso); cuello.rotation.set(0.5,0,s*-0.5); }
+      malla(new THREE.CylinderGeometry(0.036,0.036,0.008,6),M("#2E5FD0"),0.085,0.31,0.124,torso).rotation.x=Math.PI/2;   // insignia hexagonal
+      pulsera(bD,"#2E5FD0",-0.16); pulsera(bD,"#5F8BE8",-0.135); pulsera(bI,"#2E5FD0",-0.16);
+      malla(new THREE.BoxGeometry(0.07,0.12,0.1),M("#2B4A9A",{roughness:0.9}),-0.185,-0.07,0.02,cadera);   // bolso de lápices
+    }
+    if(quien==="arte"){
+      malla(new THREE.CapsuleGeometry(0.153,0.06,5,14),matOverol,0,0.07,0,torso).scale.set(1.15,1,0.8);
+      malla(new THREE.BoxGeometry(0.22,0.2,0.02),matOverol,0,0.22,0.124,torso);
+      for(const s of [1,-1]){ malla(new THREE.BoxGeometry(0.036,0.2,0.02),matOverol,s*0.09,0.4,0.116,torso).rotation.x=-0.2; malla(new THREE.BoxGeometry(0.036,0.42,0.02),matOverol,s*0.08,0.28,-0.118,torso);
+        malla(new THREE.CylinderGeometry(0.016,0.016,0.012,10),M("#C9A24A",{metalness:0.6,roughness:0.35}),s*0.09,0.32,0.136,torso).rotation.x=Math.PI/2; }
+      pulsera(bD,"#7B4FC0",-0.16); pulsera(bD,"#C9A6F2",-0.135); pulsera(bI,"#7B4FC0",-0.16);
+      const pincel=new THREE.Group(); pincel.position.set(-0.155,0.03,0.0); pincel.rotation.x=Math.PI/2-0.35; cabeza.add(pincel);   // el pincel detrás de la oreja
+      malla(new THREE.CylinderGeometry(0.007,0.009,0.17,6),M("#8A5A2E"),0,0,0,pincel); malla(new THREE.ConeGeometry(0.014,0.045,8),M("#7B4FC0"),0,0.105,0,pincel);
+    }
+    raiz.visible=false; scene.add(raiz);
+    return {raiz,cuerpo,cadera,torso,cabeza,ojos,bI,bD,pI,pD,fase:0,andar:0,saludoHasta:0,desfase:quien.length};
+  }
+  const LARGO_CICLO=3.3;   // lo que avanza en dos pasos, para que los pies no patinen
+  function animarPersonaje(R,t,dt,vel){
+    R.andar+=((vel>0.3?1:0)-R.andar)*Math.min(1,dt*8);
+    const m=R.andar, quieto=1-m, corre=Math.min(1,Math.max(0,(vel-9)/9));
+    R.fase+=dt*vel*Math.PI*2/(LARGO_CICLO+corre*3.2);
+    const f=R.fase, A=(0.55+corre*0.3)*m, rod=(0.95+corre*0.5)*m;
+    R.pI.muslo.rotation.x=-Math.sin(f)*A; R.pD.muslo.rotation.x=Math.sin(f)*A;
+    R.pI.rodilla.rotation.x=0.04+Math.max(0,Math.cos(f))*rod; R.pD.rodilla.rotation.x=0.04+Math.max(0,-Math.cos(f))*rod;
+    R.cuerpo.position.y=Math.cos(f*2)*0.022*m*(1+corre);
+    R.torso.rotation.set(0.04*m+corre*0.16,Math.sin(f)*0.09*m,0); R.torso.scale.y=1+Math.sin(t*1.6+R.desfase)*0.008*quieto;
+    R.cadera.rotation.z=Math.sin(t*0.5+R.desfase)*0.025*quieto;
+    R.cabeza.rotation.set(-0.04+Math.sin(t*0.31+R.desfase)*0.06*quieto,-Math.sin(f)*0.09*m+Math.sin(t*0.45+R.desfase)*0.32*quieto,0);
+    // brazos: se balancean al contrario de las piernas; al llegar, saluda con la mano derecha
+    const saluda=Math.max(0,Math.min(1,(R.saludoHasta-t)/0.3,(t-(R.saludoHasta-2))/0.3))*quieto;
+    R.bI.hombro.rotation.set(Math.sin(f)*A*0.85+0.05*quieto,0,0.13); R.bI.codo.rotation.set(-0.22-(0.2+corre*1.0)*m,0,0);
+    R.bD.hombro.rotation.set(-Math.sin(f)*A*0.85*(1-saluda),0,-0.13-saluda*2.4); R.bD.codo.rotation.set(-0.22-(0.2+corre*1.0)*m,0,saluda*(0.35+Math.sin(t*9)*0.4));
+    const parpadeo=((t+R.desfase)%3.7)<0.12?0.12:1; R.ojos.forEach(o=>o.scale.y=parpadeo);
+  }
+  // el guía del grado: espera en una parada y camina por el sendero hasta la siguiente
+  const guia={R:null,u:0,u0:0,u1:0,ini:0,dur:0,largo:1,sentido:1};
+  let uParada=[];
+  function prepararGuia(gid){
+    const quien={g6:"mati",g8:"yine",g10:"arte"}[gid];
+    Object.values(PERSONAJES).forEach(r=>{ r.raiz.visible=false; });
+    guia.R=PERSONAJES[quien]||(PERSONAJES[quien]=crearPersonaje(quien)); guia.R.raiz.visible=true; guia.R.raiz.rotation.y=0;
+    const N=600, pts=[]; for(let i=0;i<=N;i++) pts.push(curvaCamino.getPointAt(i/N));
+    uParada=P.map(p=>{ let mejor=0, dMin=Infinity; pts.forEach((q,i)=>{ const d=Math.hypot(q.x-p.x,q.z-(p.z+9.5)); if(d<dMin){ dMin=d; mejor=i; } }); return mejor/N; });
+    guia.largo=curvaCamino.getLength(); guia.u=guia.u0=guia.u1=uParada[0]; guia.dur=0;
+  }
+  // devuelve cuánto tarda el recorrido (en milisegundos), para que la cámara lo acompañe
+  function guiaIrA(i){
+    const u1=uParada[i], dist=Math.abs(u1-guia.u)*guia.largo; if(!(dist>0.5)) return 0;
+    const seg=Math.min(5,Math.max(1.6,dist/9));
+    Object.assign(guia,{u0:guia.u,u1,ini:performance.now(),dur:seg*1000,sentido:Math.sign(u1-guia.u)});
+    return seg*1000;
+  }
+  animados.push((t,dt)=>{
+    const R=guia.R; if(!R || !curvaCamino) return;
+    let vel=0;
+    if(guia.dur){
+      const k=Math.min(1,(performance.now()-guia.ini)/guia.dur), e=k*k*(3-2*k), antes=guia.u;
+      guia.u=guia.u0+(guia.u1-guia.u0)*e; vel=Math.abs(guia.u-antes)*guia.largo/Math.max(dt,0.008);
+      if(k>=1){ guia.dur=0; R.saludoHasta=t+2.3; }
+    }
+    const p=curvaCamino.getPointAt(guia.u), tg=curvaCamino.getTangentAt(guia.u);
+    R.raiz.position.set(p.x,altura(p.x,p.z)+0.1,p.z);
+    const meta=guia.dur?Math.atan2(tg.x*guia.sentido,tg.z*guia.sentido):0;   // al caminar mira hacia donde va; al esperar, hacia quien lo observa
+    let giro=meta-R.raiz.rotation.y; giro=Math.atan2(Math.sin(giro),Math.cos(giro)); R.raiz.rotation.y+=giro*Math.min(1,dt*7);
+    animarPersonaje(R,t,dt,vel);
+  });
 
   // canoa que baja por el río
   const canoa=new THREE.Group();
@@ -1716,6 +1926,7 @@ function iniciar(){
     scene.traverse(o=>{ if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true); } });
     troncos.count=copas.count=ligera?Math.floor(nArb*0.45):nArb;
     if(pasto) pasto.count=ligera?0:nPasto;
+    if(flores) flores.count=ligera?Math.floor(nFlores*0.4):nFlores;
     ajustar();
   }
 
@@ -1765,6 +1976,7 @@ function iniciar(){
     const G=window.GRADOS[gid]; gradoG=G; bordesStand.length=0; carteles.length=0; colorG=G.color; ALTO_MARCA=ALTOS[gid]; ESCALA_PARADA=ESCALAS[gid];
     P=G.paradas; P.forEach((p,i)=>{ const s=SLOTS[p.expo?(gid==="g6"?7:6):i]; p.x=s.x; p.z=s.z; p.h=s.h; });
     caminoDe(capa);
+    prepararGuia(gid);
     ({g6:construir6,g8:construir8,g10:construir10})[gid]();
     portales=crearPortales();
     confetiDe(capa);
@@ -1791,7 +2003,7 @@ function iniciar(){
   // de vuelta en el mapa: la luz se apaga, se recuperan los límites y la cámara regresa frente al stand
   function terminarCruce(i){
     cruzando=false; $("velo").classList.remove("on");
-    controls.enabled=true; controls.minDistance=12; controls.maxPolarAngle=1.42; controls.enableDamping=true;
+    controls.enabled=true; controls.minDistance=5; controls.maxPolarAngle=2.3; controls.enableDamping=true;
     if(i==="pas"){ const v=vistaPas(); volarA(v.pos,v.tgt,10); } else if(i!=null){ const v=vistaDe(i); volarA(v.pos,v.tgt,10); }
   }
   window.addEventListener("pageshow",()=>{ if(cruzando) terminarCruce(null); });
@@ -1809,7 +2021,7 @@ function iniciar(){
   window.MAPA={
     entrar,
     cargarGrado(gid){ construirGrado(gid); window.MAPA.verTodo(); },
-    volar(i){ seleccionar(i); const v=vistaDe(i); volarA(v.pos,v.tgt); },
+    volar(i){ seleccionar(i); const v=vistaDe(i), ms=guiaIrA(i); volarA(v.pos,v.tgt,ms||1200); if(ms) vuelo.seguir=true; },
     volarPasaporte(){ seleccionar(-1); pasSel=true; const v=vistaPas(); volarA(v.pos,v.tgt); $("pista").classList.add("fuera"); },
     cruzarPasaporte,
     volarLugar(i){ seleccionar(-1); lugarSel=i; const v=vistaLugar(i); volarA(v.pos,v.tgt); $("pista").classList.add("fuera"); },
@@ -2015,7 +2227,11 @@ function iniciar(){
     const dt=Math.min(0.05,reloj.getDelta()), t=reloj.elapsedTime;
     if(vuelo){
       const u=Math.min(1,(performance.now()-vuelo.ini)/vuelo.dur), e=u<0.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
-      camera.position.lerpVectors(vuelo.p0,vuelo.p1,e); controls.target.lerpVectors(vuelo.t0,vuelo.t1,e);
+      if(vuelo.seguir && guia.dur){
+        const q=guia.R.raiz.position, angosto=camera.aspect<0.9, a=Math.min(1,u/0.25), b=Math.max(0,(u-0.7)/0.3), sa=a*a*(3-2*a), sb=b*b*(3-2*b);
+        v3.set(q.x+5,q.y+(angosto?14:10),q.z+(angosto?25:17)); camera.position.lerpVectors(vuelo.p0,v3,sa).lerp(vuelo.p1,sb);
+        v3.set(q.x,q.y+3,q.z); controls.target.lerpVectors(vuelo.t0,v3,sa).lerp(vuelo.t1,sb);
+      } else { camera.position.lerpVectors(vuelo.p0,vuelo.p1,e); controls.target.lerpVectors(vuelo.t0,vuelo.t1,e); }
       if(u>=1) vuelo=null;
     }
     controls.target.x=Math.max(-LIM,Math.min(LIM,controls.target.x)); controls.target.z=Math.max(-LIM,Math.min(LIM,controls.target.z)); controls.target.y=Math.max(0,Math.min(600,controls.target.y));
@@ -2066,7 +2282,7 @@ function iniciar(){
   cuadro();
   setTimeout(()=>$("cargando").classList.add("listo"),250);
   setTimeout(()=>$("pista").classList.add("fuera"),9000);
-  window.__mundo={scene,camera,controls,get P(){ return P; },get portales(){ return portales; }};
+  window.__mundo={guia,scene,camera,controls,get P(){ return P; },get portales(){ return portales; }};
 }
 </script>
 </body>
