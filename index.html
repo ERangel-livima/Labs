@@ -456,6 +456,7 @@ window.LIVIMA_JUEGOS = [
       $("ppErr").textContent=""; ultimo={n,g};
       if(!guardar(CLAVE_ULTIMO,JSON.stringify(ultimo))) $("ppErr").textContent="Este navegador no deja guardar datos: tu pasaporte se ve ahora, pero no se recordará la próxima vez.";
       $("ppOut").innerHTML=sellos(n,g);
+      if(window.MAPA && window.MAPA.progreso) window.MAPA.progreso();
     };
   }
   function expo(G){
@@ -463,7 +464,17 @@ window.LIVIMA_JUEGOS = [
     abrir('<h2 id="hojaT">ExpoLIVIMA '+G.num+'</h2><p class="lead">Aquí desemboca la ronda: las obras de las '+par.length+' paradas de '+G.num+' se exponen en el stand del grado. Entra a cualquiera para seguir creando.</p>'+
       '<div class="expo-galeria">'+par.map(p=>'<a href="'+p.url+'"><img src="'+p.img+'" alt="">'+p.tit+'</a>').join("")+'</div>');
   }
-  window.HOJA={pasaporte,expo,cerrar};
+  // progreso por parada del último estudiante que abrió su pasaporte en este equipo: lo usa el mapa para izar las banderas
+  function estado(gid){
+    const id=ultimo?idDe(ultimo.n,ultimo.g):null, res={};
+    JUEGOS.forEach(gm=>{ if(gm.g!==gid) return;
+      if(gm.record){ const rec=+leer(gm.record)||0; res[gm.i]={niveles:rec?NIVELES:0,gano:rec>0,record:rec}; return; }
+      let P=null; if(id){ try{ P=JSON.parse(leer(gm.key+id)||"null"); }catch(e){} }
+      const st=P&&P.stars?P.stars:{}; let sup=0; for(let n=1;n<=NIVELES;n++) if((+st[n]||0)>0) sup++;
+      res[gm.i]={niveles:sup,gano:(+st[NIVELES]||0)>0}; });
+    return {paradas:res,nombre:ultimo?limpio(ultimo.n).split(" ")[0]:""};
+  }
+  window.HOJA={pasaporte,expo,cerrar,estado};
   // sin 3D: lista de paradas y pasaporte a mano
   const lista=$("avisoLista");
   if(lista){ const G=window.GRADOS[window.GRADO_INICIAL]; lista.innerHTML=G.paradas.filter(p=>!p.expo).map(p=>'<li><a href="'+p.url+'">'+p.n+'. '+p.tit+'</a></li>').join(""); $("avisoPas").onclick=pasaporte; }
@@ -773,7 +784,28 @@ function iniciar(){
 
   /* ---------- utilidades de modelado ---------- */
   const mats={};
-  const M=(col,o={})=>{ const k=col+JSON.stringify(o); return mats[k]||(mats[k]=new THREE.MeshStandardMaterial(Object.assign({color:col,roughness:0.85},o))); };
+  const texMadera=(()=>{ const cn=document.createElement("canvas"); cn.width=cn.height=256; const x=cn.getContext("2d"); x.fillStyle="#E4DACB"; x.fillRect(0,0,256,256);
+    for(let i=0;i<520;i++){ const v=Math.random(); x.strokeStyle=v<0.6?"rgba(70,48,28,"+(0.12+Math.random()*0.25)+")":"rgba(255,246,228,.3)"; x.lineWidth=0.5+Math.random()*1.4; const px=Math.random()*256, py=Math.random()*256, l=30+Math.random()*120;
+      x.beginPath(); x.moveTo(px,py); x.bezierCurveTo(px+3,py+l*0.3,px-3,py+l*0.7,px+Math.random()*4-2,py+l); x.stroke(); }
+    for(let k=0;k<4;k++){ x.fillStyle="rgba(40,26,14,.55)"; x.fillRect(k*64,0,1.6,256); }                               // juntas entre tablas
+    for(let i=0;i<7;i++){ const px=Math.random()*256, py=Math.random()*256; const g=x.createRadialGradient(px,py,0,px,py,7); g.addColorStop(0,"rgba(50,32,18,.7)"); g.addColorStop(1,"rgba(50,32,18,0)"); x.fillStyle=g; x.fillRect(px-8,py-8,16,16); }   // nudos
+    const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.anisotropy=4; return tx; })();
+  const texTeja=(()=>{ const cn=document.createElement("canvas"); cn.width=cn.height=256; const x=cn.getContext("2d"); x.fillStyle="#E9DDD2"; x.fillRect(0,0,256,256);
+    for(let f=0;f<8;f++) for(let c=0;c<16;c++){ const px=c*16, py=f*32, tono=205+Math.random()*50|0; const g=x.createLinearGradient(px,0,px+16,0); g.addColorStop(0,"rgba(60,30,20,.55)"); g.addColorStop(0.5,"rgb("+tono+","+(tono-14)+","+(tono-26)+")"); g.addColorStop(1,"rgba(60,30,20,.55)"); x.fillStyle=g; x.fillRect(px,py,16,32);
+      x.fillStyle="rgba(40,20,12,.5)"; x.fillRect(px,py+29,16,3); }
+    const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(2,1); tx.anisotropy=4; return tx; })();
+  const texRevoque=(()=>{ const cn=document.createElement("canvas"); cn.width=cn.height=128; const x=cn.getContext("2d"); x.fillStyle="#808080"; x.fillRect(0,0,128,128);
+    for(let i=0;i<2600;i++){ x.fillStyle=Math.random()<0.5?"rgba(255,255,255,.14)":"rgba(0,0,0,.14)"; const r=0.6+Math.random()*2.2; x.beginPath(); x.arc(Math.random()*128,Math.random()*128,r,0,6.283); x.fill(); }
+    const tx=new THREE.CanvasTexture(cn); tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(3,3); return tx; })();
+  const TEJAS=new Set(["#B5532A","#C9302C"]), tono={h:0,s:0,l:0};
+  // según el color, el material recibe su textura: los cafés son madera, los techos rojos son teja y las paredes claras llevan revoque
+  const M=(col,o={})=>{ const k=col+JSON.stringify(o); if(mats[k]) return mats[k];
+    const extra={};
+    if(Object.keys(o).every(q=>q==="side")){ new THREE.Color(col).getHSL(tono);
+      if(TEJAS.has(col)){ extra.map=texTeja; extra.bumpMap=texTeja; extra.bumpScale=3; }
+      else if(tono.h>0.045 && tono.h<0.125 && tono.s>0.22 && tono.s<0.75 && tono.l>0.16 && tono.l<0.5){ extra.map=texMadera; extra.bumpMap=texMadera; extra.bumpScale=1.6; }
+      else if(tono.l>0.82 && tono.s<0.6){ extra.bumpMap=texRevoque; extra.bumpScale=1.3; } }
+    return mats[k]=new THREE.MeshStandardMaterial(Object.assign({color:col,roughness:0.85},extra,o)); };
   function malla(geo,mat,x=0,y=0,z=0,padre){ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; if(padre) padre.add(m); return m; }
   const animados=[];
 
@@ -930,8 +962,11 @@ function iniciar(){
     for(let i=0;i<46;i++){ x.fillStyle=tintas[i%tintas.length]; x.globalAlpha=0.75+Math.random()*0.25; const px=Math.random()*128, py=Math.random()*128, r=1.5+Math.pow(Math.random(),2)*8;
       x.beginPath(); x.arc(px,py,r,0,6.283); x.fill(); for(let j=0;j<3;j++){ x.beginPath(); x.arc(px+(Math.random()-0.5)*r*4,py+(Math.random()-0.5)*r*4,r*0.25,0,6.283); x.fill(); } }
     const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(2,2); return new THREE.MeshStandardMaterial({map:tx,roughness:0.9}); })();
-  function crearPersonaje(quien){
-    const D={ mati:{piel:"#C48A55",pelo:"#1E1A18",camisa:"#E6EED2",tela:"#4F7B33",zapato:"#5B4631"},
+  const matVueltiao=(()=>{ const cn=document.createElement("canvas"); cn.width=128; cn.height=64; const x=cn.getContext("2d"); x.fillStyle="#EFE3C2"; x.fillRect(0,0,128,64);
+    x.fillStyle="#1E1A18"; [6,22,40,56].forEach((y,k)=>{ if(k%2) for(let i=0;i<16;i++){ x.beginPath(); x.moveTo(i*8,y+6); x.lineTo(i*8+4,y); x.lineTo(i*8+8,y+6); x.closePath(); x.fill(); } else x.fillRect(0,y,128,4); });
+    const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(3,1); return new THREE.MeshStandardMaterial({map:tx,roughness:0.95,side:THREE.DoubleSide}); })();
+  function crearPersonaje(quien,ropa){
+    const D=ropa||{ mati:{piel:"#C48A55",pelo:"#1E1A18",camisa:"#E6EED2",tela:"#4F7B33",zapato:"#5B4631"},
               yine:{piel:"#CF9760",pelo:"#161C3A",camisa:"#F4F5F7",tela:"#2F4F9E",zapato:"#22335F"},
               arte:{piel:"#CC8848",pelo:"#4A2A1C",camisa:"#F5F2EC",tela:null,zapato:"#3A2A55"} }[quien];
     const piel=M(D.piel,{roughness:0.62}), pelo=M(D.pelo,{roughness:0.92}), camisa=M(D.camisa,{roughness:0.85}), tela=D.tela?M(D.tela,{roughness:0.9}):matOverol, zapato=M(D.zapato,{roughness:0.7});
@@ -1012,6 +1047,13 @@ function iniciar(){
       const pincel=new THREE.Group(); pincel.position.set(-0.155,0.03,0.0); pincel.rotation.x=Math.PI/2-0.35; cabeza.add(pincel);   // el pincel detrás de la oreja
       malla(new THREE.CylinderGeometry(0.007,0.009,0.17,6),M("#8A5A2E"),0,0,0,pincel); malla(new THREE.ConeGeometry(0.014,0.045,8),M("#7B4FC0"),0,0.105,0,pincel);
     }
+    if(D.vueltiao){   // sombrero vueltiao: trenzado crema con vueltas negras
+      const sombrero=new THREE.Group(); sombrero.position.y=0.085; sombrero.rotation.x=-0.1; cabeza.add(sombrero);
+      const perfil=[[0.13,0.012],[0.2,0.006],[0.26,-0.012],[0.29,-0.026],[0.295,-0.032],[0.285,-0.036],[0.26,-0.024],[0.2,-0.008],[0.13,0]].map(([rr,y])=>new THREE.Vector2(rr,y));
+      malla(new THREE.LatheGeometry(perfil,28),matVueltiao,0,0,0,sombrero);
+      malla(new THREE.CylinderGeometry(0.128,0.156,0.12,20),matVueltiao,0,0.062,0,sombrero);
+      malla(new THREE.SphereGeometry(0.128,18,8,0,Math.PI*2,0,Math.PI/2),M("#EFE3C2",{roughness:0.95}),0,0.12,0,sombrero).scale.y=0.25;
+    }
     raiz.visible=false; scene.add(raiz);
     return {raiz,cuerpo,cadera,torso,cabeza,ojos,bI,bD,pI,pD,fase:0,andar:0,saludoHasta:0,desfase:quien.length};
   }
@@ -1032,6 +1074,7 @@ function iniciar(){
     R.bI.hombro.rotation.set(Math.sin(f)*A*0.85+0.05*quieto,0,0.13); R.bI.codo.rotation.set(-0.22-(0.2+corre*1.0)*m,0,0);
     R.bD.hombro.rotation.set(-Math.sin(f)*A*0.85*(1-saluda),0,-0.13-saluda*2.4); R.bD.codo.rotation.set(-0.22-(0.2+corre*1.0)*m,0,saluda*(0.35+Math.sin(t*9)*0.4));
     const parpadeo=((t+R.desfase)%3.7)<0.12?0.12:1; R.ojos.forEach(o=>o.scale.y=parpadeo);
+    if(R.pose) R.pose(R,t);
   }
   // el guía del grado: espera en una parada y camina por el sendero hasta la siguiente
   const guia={R:null,u:0,u0:0,u1:0,ini:0,dur:0,largo:1,sentido:1};
@@ -1065,6 +1108,60 @@ function iniciar(){
     let giro=meta-R.raiz.rotation.y; giro=Math.atan2(Math.sin(giro),Math.cos(giro)); R.raiz.rotation.y+=giro*Math.min(1,dt*7);
     animarPersonaje(R,t,dt,vel);
   });
+
+  /* ---------- vida en la ronda: vecinos que pasean, un pescador, peces que saltan y mariposas ---------- */
+  const VECINOS=[];
+  {
+    const ropas=[
+      {piel:"#8E5A3A",pelo:"#1A1512",camisa:"#F2EFE6",tela:"#3E4A5E",zapato:"#3A2E26",vueltiao:true},
+      {piel:"#B9794B",pelo:"#221915",camisa:"#D9533B",tela:"#2B3A66",zapato:"#2A2420"},
+      {piel:"#D6A476",pelo:"#3A2618",camisa:"#F4C542",tela:"#5A4632",zapato:"#3A2E26",vueltiao:true},
+      {piel:"#7A4A30",pelo:"#15110F",camisa:"#1F8A8A",tela:"#EDE6D6",zapato:"#5B4631"},
+      {piel:"#C48A55",pelo:"#2A1D16",camisa:"#FBF6EC",tela:"#6E5A3C",zapato:"#2A2420",vueltiao:true},
+      {piel:"#A86B45",pelo:"#1E1A18",camisa:"#6B3FA0",tela:"#3E4A5E",zapato:"#2A2420"}];
+    const nuevo=k=>{ const R=crearPersonaje("vecino"+k,ropas[k]); R.raiz.scale.setScalar(2.3); R.raiz.visible=true; VECINOS.push(R); return R; };
+    // dos vecinos dan la vuelta a la plaza, en sentidos contrarios
+    [0,1].forEach(k=>{ const R=nuevo(k), sentido=k?1:-1, RADIO=6.4, GIRO=0.34;
+      animados.push((t,dt)=>{ if(!R.raiz.visible) return; const a=sentido*t*GIRO+k*3;
+        R.raiz.position.set(PLAZA.x+Math.cos(a)*RADIO,PLAZA.h+0.3,PLAZA.z+Math.sin(a)*RADIO);
+        R.raiz.rotation.y=Math.atan2(-Math.sin(a)*sentido,Math.cos(a)*sentido); animarPersonaje(R,t,dt,GIRO*RADIO); }); });
+    // otro mira bailar a María Varilla
+    { const R=nuevo(2); R.raiz.position.set(PLAZA.x+3.4,PLAZA.h+0.3,PLAZA.z+3.6); R.raiz.rotation.y=Math.atan2(-3.4,-3.6); animados.push((t,dt)=>{ if(R.raiz.visible) animarPersonaje(R,t,dt,0); }); }
+    // el pescador del muelle, con su caña
+    { const R=nuevo(4), zr=rioZ(MUELLE.x); R.raiz.position.set(MUELLE.x+0.9,1.03,zr+3.4); R.raiz.rotation.y=Math.PI;
+      const cana=malla(new THREE.CylinderGeometry(0.006,0.013,1.7,6),M("#8A6A44"),0,-0.24,0.8,R.bD.codo); cana.rotation.x=Math.PI/2-0.25;
+      R.pose=(R,t)=>{ R.bD.hombro.rotation.set(-0.95+Math.sin(t*0.8)*0.04,0,-0.1); R.bD.codo.rotation.set(-0.5,0,0); R.cabeza.rotation.y*=0.3; };
+      animados.push((t,dt)=>{ if(R.raiz.visible) animarPersonaje(R,t,dt,0); }); }
+    // dos caminantes van y vienen por el sendero
+    [3,5].forEach((k,j)=>{ const R=nuevo(k), PASO=3.1; let u=j?0.72:0.2, sentido=j?-1:1;
+      animados.push((t,dt)=>{ if(!curvaCamino || !R.raiz.visible) return;
+        u+=sentido*dt*PASO/guia.largo; if(u>0.95){ u=0.95; sentido=-1; } if(u<0.05){ u=0.05; sentido=1; }
+        const p=curvaCamino.getPointAt(u), tg=curvaCamino.getTangentAt(u), x=p.x-tg.z*1.3*sentido, z=p.z+tg.x*1.3*sentido;   // cada uno por su derecha
+        R.raiz.position.set(x,altura(x,z)+0.1,z); R.raiz.rotation.y=Math.atan2(tg.x*sentido,tg.z*sentido); animarPersonaje(R,t,dt,PASO); }); });
+    // peces que saltan en el río
+    const plata=M("#B9C4C9",{metalness:0.6,roughness:0.3});
+    for(let k=0;k<4;k++){
+      const pez=new THREE.Group(); malla(new THREE.SphereGeometry(0.3,10,8),plata,0,0,0,pez).scale.set(1.7,0.55,0.38);
+      malla(new THREE.ConeGeometry(0.2,0.34,4),plata,-0.6,0,0,pez).rotation.z=-Math.PI/2; pez.visible=false; scene.add(pez);
+      const onda=new THREE.Mesh(new THREE.RingGeometry(0.5,0.62,24).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:"#ffffff",transparent:true,opacity:0,depthWrite:false})); scene.add(onda);
+      const PERIODO=6.5+k*1.9, SALTO=0.95; let vuelta=-1, x0=0, z0=0, lado=1;
+      animados.push(t=>{
+        const fase=(t+k*2.3)%PERIODO, n=Math.floor((t+k*2.3)/PERIODO);
+        if(n!==vuelta){ vuelta=n; x0=-105+((n*47+k*61)%210); z0=rioZ(x0)+(((n*13+k*7)%7)-3)*0.8; lado=(n+k)%2?1:-1; }
+        if(fase<SALTO){ const s=fase/SALTO; pez.visible=true; pez.position.set(x0+lado*s*2.6,NIVEL_AGUA-0.2+Math.sin(Math.PI*s)*1.5,z0); pez.rotation.set(0,lado>0?0:Math.PI,Math.cos(Math.PI*s)*1.1); } else pez.visible=false;
+        const so=(fase-SALTO*0.9)/1.6; if(so>0 && so<1){ onda.position.set(x0+lado*2.6,NIVEL_AGUA+0.04,z0); onda.scale.setScalar(1+so*3.5); onda.material.opacity=0.55*(1-so); } else onda.material.opacity=0;
+      });
+    }
+    // mariposas sobre el pasto
+    const alaMari=new THREE.PlaneGeometry(0.34,0.26); alaMari.translate(0.17,0,0);
+    ["#F4C542","#FF8A3D","#5FD0CC","#FFFFFF","#C9A6F2","#F4C542","#FF8A3D","#E86A9A","#FFFFFF","#5FD0CC"].forEach((col,k)=>{
+      let cx=0, cz=0; for(let n=0;n<40;n++){ cx=(Math.sin(k*91.7+n*13.3)*0.5)*(TAM-30); cz=(Math.sin(k*47.1+n*7.9)*0.5)*(TAM-30); if(lejosDeTodo(cx,cz)) break; }
+      const m=new THREE.Group(), mat=M(col,{side:THREE.DoubleSide,roughness:0.6}), a1=malla(alaMari,mat,0,0,0,m), a2=malla(alaMari,mat,0,0,0,m); a1.castShadow=a2.castShadow=false; a1.rotation.x=a2.rotation.x=-Math.PI/2; scene.add(m);
+      const y0=altura(cx,cz);
+      animados.push(t=>{ const a=t*0.5+k; m.position.set(cx+Math.sin(a)*2.2+Math.sin(a*2.3)*0.7,y0+1.1+Math.sin(t*2.1+k)*0.35,cz+Math.cos(a*0.8)*2.2); m.rotation.y=a*1.3;
+        const bate=0.25+Math.abs(Math.sin(t*13+k))*1.1; a1.rotation.z=bate; a2.rotation.z=Math.PI-bate; });
+    });
+  }
 
   // canoa que baja por el río
   const canoa=new THREE.Group();
@@ -1240,7 +1337,14 @@ function iniciar(){
       const cab=malla(new THREE.SphereGeometry(0.24,8,6),verde,0.85,0.1,0,ig); cab.scale.set(1.4,0.8,0.8);
       [[0.4,0.3],[0.4,-0.3],[-0.4,0.3],[-0.4,-0.3]].forEach(([px,pz])=>malla(new THREE.BoxGeometry(0.12,0.3,0.12),verdeOsc,px,-0.2,pz,ig));
       for(let c=0;c<4;c++) malla(new THREE.ConeGeometry(0.06,0.22,4),verdeOsc,0.4-c*0.25,0.28,0,ig);
-      animados.push(t=>{ cab.position.y=0.1+Math.max(0,Math.sin(t*1.7+k*2))*0.12; });
+      const casaI={x,z}; let rumboI=k*1.3;
+      animados.push((t,dt)=>{ cab.position.y=0.1+Math.max(0,Math.sin(t*1.7+k*2))*0.12;
+        const ciclo=(t*0.055+k*0.37)%1;
+        if(ciclo<0.3){   // a ratos camina unos pasos, sin alejarse de su sitio
+          const dx=casaI.x-ig.position.x, dz=casaI.z-ig.position.z; if(Math.hypot(dx,dz)>5) rumboI=Math.atan2(-dz,dx);
+          ig.position.x+=Math.cos(rumboI)*dt*0.9; ig.position.z-=Math.sin(rumboI)*dt*0.9; ig.position.y=altura(ig.position.x,ig.position.z)+0.25; ig.rotation.y=rumboI+Math.sin(t*9)*0.12;
+        } else if(ciclo>0.88){ rumboI+=dt*0.6; ig.rotation.y=rumboI; }
+      });
     });
     const blanco=M("#F6F3EA"), pico=M("#E1B53B"), pata=M("#2b2724");
     GARZAS.forEach(([x,dz],k)=>{
@@ -1250,7 +1354,20 @@ function iniciar(){
       const cuello=malla(new THREE.CylinderGeometry(0.08,0.11,1.1,6),blanco,0.5,2.2,0,gz); cuello.rotation.z=-0.5;
       malla(new THREE.SphereGeometry(0.17,8,6),blanco,0.78,2.75,0,gz);
       const p=malla(new THREE.ConeGeometry(0.06,0.6,5),pico,1.1,2.72,0,gz); p.rotation.z=-Math.PI/2;
-      animados.push(t=>{ gz.rotation.y=k*2.1+Math.sin(t*0.4+k)*0.3; });
+      const alaGz=new THREE.PlaneGeometry(0.6,1.5); alaGz.rotateX(-Math.PI/2); alaGz.translate(0,0,0.75);
+      const alas=[1,-1].map(s=>{ const a=malla(alaGz,M("#F6F3EA",{side:THREE.DoubleSide}),0,1.75,s*0.12,gz); a.scale.z=s; a.visible=false; a.lado=s; return a; });
+      const casa=gz.position.clone(), lado=k%2?1:-1, dzCasa=casa.z-rioZ(casa.x); let enVuelo=-1, descanso=3+k;
+      const cercaDe=q=>Math.hypot(q.x-casa.x,q.z-casa.z)<11;
+      animados.push((t,dt)=>{
+        if(enVuelo<0){   // quieta en la orilla; si alguien se acerca, alza vuelo
+          gz.rotation.y=k*2.1+Math.sin(t*0.4+k)*0.3; descanso-=dt;
+          if(descanso<=0 && ((cercaDe(controls.target) && camera.position.distanceTo(casa)<70) || (guia.R && guia.dur && cercaDe(guia.R.raiz.position)))){ enVuelo=0; alas.forEach(a=>a.visible=true); }
+          return; }
+        enVuelo+=dt/9; const s=Math.min(1,enVuelo), arco=Math.sin(Math.PI*s), x=casa.x+arco*26*lado;
+        gz.position.set(x,casa.y+arco*9,rioZ(x)+dzCasa*(1-arco*0.7)); gz.rotation.y=(Math.cos(Math.PI*s)*lado>0)?0:Math.PI;
+        const bate=Math.sin(t*7+k)*0.75; alas.forEach(a=>a.rotation.x=-a.lado*bate);
+        if(s>=1){ enVuelo=-1; descanso=16; alas.forEach(a=>a.visible=false); gz.position.copy(casa); }
+      });
     });
     marcarLugar(g,4);
   })();
@@ -1315,14 +1432,49 @@ function iniciar(){
     x.fillText(p.lugar,W/2,198);
     ["#4A9B2E","#1F8A8A","#1B3A6B","#D9701A","#6B3FA0"].forEach((c,k)=>{ x.fillStyle=c; x.fillRect(40+k*(W-80)/5,H-44,(W-80)/5,16); });
   }
+  const matBaldosa=(()=>{ const cn=document.createElement("canvas"); cn.width=cn.height=512; const x=cn.getContext("2d"); x.fillStyle="#CFC4AC"; x.fillRect(0,0,512,512);
+    for(let f=0;f<12;f++) for(let c=0;c<12;c++){ const v=228+Math.random()*22|0; x.fillStyle="rgb("+v+","+(v-9)+","+(v-28)+")"; x.fillRect(c*42.67+1.5,f*42.67+1.5,39.7,39.7); }
+    const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8; return new THREE.MeshStandardMaterial({map:tx,bumpMap:tx,bumpScale:1.5,roughness:0.82}); })();
+  // asta de progreso: la bandera sube con los niveles superados y recibe una estrella dorada al completar el juego
+  const astas=[], matOro=new THREE.MeshStandardMaterial({color:"#F4C542",metalness:0.7,roughness:0.3,emissive:"#F4A012",emissiveIntensity:0.9});
+  const estrellaGeo=(()=>{ const f=new THREE.Shape(); for(let k=0;k<10;k++){ const a=k/10*Math.PI*2+Math.PI/2, r=k%2?0.17:0.4; f[k?"lineTo":"moveTo"](Math.cos(a)*r,Math.sin(a)*r); } f.closePath(); const g=new THREE.ExtrudeGeometry(f,{depth:0.1,bevelEnabled:false}); g.translate(0,0,-0.05); return g; })();
+  const ASTA_BAJO=1.25, ASTA_ALTO=5.6;
+  function pintarBandera(a){
+    const x=a.cnv.getContext("2d"), W=256, H=160, e=a.estado; x.clearRect(0,0,W,H);
+    x.fillStyle=e.gano?"#F4C542":e.niveles?gradoG.tinta:"#8E979C"; x.fillRect(0,0,W,H);
+    x.fillStyle=e.gano?"#1B3A6B":"#ffffff"; x.textAlign="center"; x.textBaseline="middle"; x.font="800 84px 'Segoe UI',Arial,sans-serif";
+    x.fillText(e.record!=null?(e.record?"★ "+e.record:"0"):(e.gano?"★ 10":e.niveles+"/10"),W/2,H/2+4); a.tex.needsUpdate=true;
+  }
+  function aplicarProgreso(){
+    const est=(window.HOJA && window.HOJA.estado)?window.HOJA.estado(gidActual):null;
+    astas.forEach(a=>{ const e=est && est.paradas[P.indexOf(a.p)]; a.grupo.visible=!!e; if(!e) return;
+      a.estado=e; a.meta=ASTA_BAJO+(ASTA_ALTO-ASTA_BAJO)*Math.min(1,e.niveles/10); a.remate.visible=e.gano; pintarBandera(a); });
+  }
+  const textoProgreso=i=>{ const a=astas.find(q=>q.p===P[i]); if(!a || !a.grupo.visible) return ""; const e=a.estado;
+    return e.record!=null?(e.record?" Tu récord aquí: "+e.record+".":""):e.gano?" Ya ganaste la insignia de este juego.":e.niveles?" Llevas "+e.niveles+" de 10 niveles del juego.":""; };
+  let gidActual="g6";
+  window.addEventListener("pageshow",()=>{ if(capa) aplicarProgreso(); });
   function base(p){
     const g=new THREE.Group(); g.position.set(p.x,p.h,p.z); g.scale.setScalar(ESCALA_PARADA); capa.add(g); gruposParada.push(g);
     const G=gradoG, color=p.expo?"#D9701A":G.color, tinta=p.expo?"#B85C12":G.tinta, R=8.2;
     // piso hexagonal, como el emblema de LIVIMA: borde del color del grado y centro de papel
     const borde=new THREE.MeshStandardMaterial({color,roughness:0.6,emissive:color,emissiveIntensity:0}); bordesStand.push(borde);
     const hexB=malla(new THREE.CylinderGeometry(R,R+0.25,1.2,6),borde,0,-0.48,0,g); hexB.rotation.y=Math.PI/6;
-    const hexC=malla(new THREE.CylinderGeometry(R-0.9,R-0.9,1.2,6),M("#F3EAD6",{roughness:0.9}),0,-0.46,0,g); hexC.rotation.y=Math.PI/6;
+    const hexC=malla(new THREE.CylinderGeometry(R-0.9,R-0.9,1.2,6),matBaldosa,0,-0.46,0,g); hexC.rotation.y=Math.PI/6;
     const zoc=malla(new THREE.CylinderGeometry(R+0.55,R+0.75,0.8,6),M(tinta),0,-0.7,0,g); zoc.rotation.y=Math.PI/6;
+    if(!p.expo){
+      const grupo=new THREE.Group(); grupo.position.set(R*0.52,0.14,R*0.74); g.add(grupo);
+      malla(new THREE.CylinderGeometry(0.06,0.085,6.3,8),M("#C9CED2",{metalness:0.7,roughness:0.35}),0,3.15,0,grupo);
+      malla(new THREE.CylinderGeometry(0.3,0.36,0.24,10),M("#8E979C",{metalness:0.5,roughness:0.5}),0,0.12,0,grupo);
+      malla(new THREE.SphereGeometry(0.11,10,8),M("#C9CED2",{metalness:0.7,roughness:0.35}),0,6.33,0,grupo);
+      const cnvB=document.createElement("canvas"); cnvB.width=256; cnvB.height=160; const texB=new THREE.CanvasTexture(cnvB); texB.colorSpace=THREE.SRGBColorSpace;
+      const panoGeo=new THREE.PlaneGeometry(1.9,1.2); panoGeo.translate(0.98,0,0);
+      const pano=malla(panoGeo,new THREE.MeshStandardMaterial({map:texB,side:THREE.DoubleSide,roughness:0.85}),0.04,ASTA_BAJO,0,grupo);
+      const remate=malla(estrellaGeo,matOro,0,6.95,0,grupo); remate.visible=false; remate.castShadow=false;
+      const a={p,grupo,cnv:cnvB,tex:texB,pano,remate,meta:ASTA_BAJO,estado:{niveles:0,gano:false}}; astas.push(a);
+      const desfase=Math.random()*6;
+      animG.push((t,dt)=>{ pano.position.y+=(a.meta-pano.position.y)*Math.min(1,dt*1.6); pano.rotation.y=Math.sin(t*2.1+desfase)*0.3; remate.rotation.y=t*1.6; remate.position.y=6.95+Math.sin(t*2.4+desfase)*0.08; });
+    }
     // cartel de frente al camino
     const cnv=document.createElement("canvas"); cnv.width=1024; cnv.height=300; pintarCartel(cnv,p,G);
     const tex=new THREE.CanvasTexture(cnv); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4; carteles.push({cnv,p,G,tex});
@@ -1391,9 +1543,24 @@ function iniciar(){
     // 1. El colegio: paredes, techo de teja y un patio pintado con los colores de las emociones
     (function(){ const g=base(P[0]);
       malla(new THREE.BoxGeometry(11,4.2,6),M("#F2EAD8"),0,2.1,-1.5,g);
-      const techo=malla(new THREE.ConeGeometry(7.9,2.6,4),M("#B5532A"),0,5.5,-1.5,g); techo.rotation.y=Math.PI/4; techo.scale.set(1,1,0.6);
-      for(let k=-2;k<=2;k++) if(k) malla(new THREE.BoxGeometry(1.2,1.2,0.1),M("#2B3A66",{roughness:0.3}),k*2.1,2.4,1.56,g);
-      malla(new THREE.BoxGeometry(1.4,2.4,0.12),M("#7A5230"),0,1.2,1.57,g);
+      malla(new THREE.BoxGeometry(11.08,1.0,6.08),M("#3F7F34",{roughness:0.8}),0,0.5,-1.5,g);                      // zócalo pintado
+      malla(new THREE.BoxGeometry(11.7,0.16,6.7),M("#7A5230"),0,4.28,-1.5,g);                                       // alero de madera
+      const techo=malla(new THREE.ConeGeometry(8.5,2.6,4),M("#B5532A"),0,5.62,-1.5,g); techo.rotation.y=Math.PI/4; techo.scale.set(1,1,0.6);
+      const blancoM=M("#FBFBF6",{roughness:0.7}), vidrio=M("#2B3A66",{roughness:0.15,metalness:0.2});
+      for(let k=-2;k<=2;k++) if(k){ const x=k*2.1;
+        malla(new THREE.BoxGeometry(1.5,1.5,0.1),blancoM,x,2.4,1.52,g); malla(new THREE.BoxGeometry(1.24,1.24,0.1),vidrio,x,2.4,1.56,g);
+        malla(new THREE.BoxGeometry(0.07,1.24,0.1),blancoM,x,2.4,1.6,g); malla(new THREE.BoxGeometry(1.24,0.07,0.1),blancoM,x,2.4,1.6,g);
+        malla(new THREE.BoxGeometry(1.66,0.1,0.3),M("#7A5230"),x,1.62,1.62,g); }
+      malla(new THREE.BoxGeometry(1.76,2.62,0.1),M("#5c3d22"),0,1.31,1.52,g); malla(new THREE.BoxGeometry(1.44,2.4,0.12),M("#7A5230"),0,1.2,1.57,g);
+      [[-0.36,1.75],[0.36,1.75],[-0.36,0.65],[0.36,0.65]].forEach(([x,y])=>malla(new THREE.BoxGeometry(0.52,0.86,0.05),M("#6A4528"),x,y,1.64,g));
+      malla(new THREE.SphereGeometry(0.07,8,6),M("#C9A24A",{metalness:0.7,roughness:0.3}),0.56,1.2,1.68,g);
+      { const cn=document.createElement("canvas"); cn.width=640; cn.height=96; const x=cn.getContext("2d"); x.fillStyle="#FBF6EC"; x.fillRect(0,0,640,96); x.strokeStyle="#1B3A6B"; x.lineWidth=6; x.strokeRect(5,5,630,86);
+        x.fillStyle="#1B3A6B"; x.font="800 52px 'Segoe UI',Arial,sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText("I. E. JUAN XXIII",320,50);
+        const tx=new THREE.CanvasTexture(cn); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=4; malla(new THREE.PlaneGeometry(3.6,0.54),new THREE.MeshStandardMaterial({map:tx,roughness:0.7}),0,3.55,1.53,g).castShadow=false; }
+      // corredor al frente: columnas de madera y su techo de teja
+      [-5.25,-3.15,-1.05,1.05,3.15,5.25].forEach(x=>{ malla(new THREE.CylinderGeometry(0.12,0.14,3.2,8),M("#7A5230"),x,1.6,3.25,g); malla(new THREE.BoxGeometry(0.4,0.16,0.4),M("#5c3d22"),x,0.08,3.25,g); });
+      malla(new THREE.BoxGeometry(11.3,0.18,0.2),M("#5c3d22"),0,3.28,3.25,g);
+      malla(new THREE.BoxGeometry(11.7,0.14,2.4),M("#B5532A"),0,3.78,2.45,g).rotation.x=0.34;
       const emo=["#F4C542","#3E7CC0","#5FA845","#D9533B","#8E5BB5","#F08A3C"];
       emo.forEach((col,k)=>malla(new THREE.BoxGeometry(2.6,0.12,2.6),M(col),(k%3-1)*2.9,0.06,4.4+Math.floor(k/3)*2.9,g));
       const asta=malla(new THREE.CylinderGeometry(0.08,0.08,7,6),M("#bfbfbf"),6.6,3.5,2.5,g);
@@ -1927,6 +2094,7 @@ function iniciar(){
     troncos.count=copas.count=ligera?Math.floor(nArb*0.45):nArb;
     if(pasto) pasto.count=ligera?0:nPasto;
     if(flores) flores.count=ligera?Math.floor(nFlores*0.4):nFlores;
+    VECINOS.forEach((R,k)=>{ R.raiz.visible=!ligera || k%2===0; });
     ajustar();
   }
 
@@ -1972,13 +2140,14 @@ function iniciar(){
       portalDe.clear();
     }
     capa=new THREE.Group(); scene.add(capa);
-    animG=[]; paradaDe=new Map(); gruposParada=[]; seleccion=-1;
+    animG=[]; paradaDe=new Map(); gruposParada=[]; seleccion=-1; astas.length=0; gidActual=gid;
     const G=window.GRADOS[gid]; gradoG=G; bordesStand.length=0; carteles.length=0; colorG=G.color; ALTO_MARCA=ALTOS[gid]; ESCALA_PARADA=ESCALAS[gid];
     P=G.paradas; P.forEach((p,i)=>{ const s=SLOTS[p.expo?(gid==="g6"?7:6):i]; p.x=s.x; p.z=s.z; p.h=s.h; });
     caminoDe(capa);
     prepararGuia(gid);
     ({g6:construir6,g8:construir8,g10:construir10})[gid]();
     portales=crearPortales();
+    aplicarProgreso();
     confetiDe(capa);
     bordesStand.forEach(mt=>mt.emissiveIntensity=horaBrillo*(mt.map?0.35:0.45));
     if(document.fonts) document.fonts.load("700 80px Caveat").then(()=>carteles.forEach(c=>{ pintarCartel(c.cnv,c.p,c.G); c.tex.needsUpdate=true; }));
@@ -2019,6 +2188,7 @@ function iniciar(){
     setTimeout(()=>{ window.HOJA.pasaporte(gradoG); terminarCruce("pas"); },1700);
   }
   window.MAPA={
+    progreso:aplicarProgreso,
     entrar,
     cargarGrado(gid){ construirGrado(gid); window.MAPA.verTodo(); },
     volar(i){ seleccionar(i); const v=vistaDe(i), ms=guiaIrA(i); volarA(v.pos,v.tgt,ms||1200); if(ms) vuelo.seguir=true; },
@@ -2254,7 +2424,7 @@ function iniciar(){
     if(cruzando) et.style.display="none";
     else if(seleccion>=0){
       { const pp=P[seleccion]; v3.set(pp.x,pp.h+ALTO_MARCA[seleccion]*ESCALA_PARADA*0.62+1,pp.z); } v3.project(camera);   // por encima de la pieza más alta del stand, para no taparla
-      if(v3.z<1){ et.style.display="block"; const pp=P[seleccion]; et.innerHTML=pp.lugar+"<small>"+(pp.expo?pp.lema:"Parada "+pp.n+": "+pp.tit)+". Toca otra vez el portal para entrar.</small>"; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=Math.max(et.offsetHeight+10,(1-v3.y)/2*escena.clientHeight)+"px"; }
+      if(v3.z<1){ et.style.display="block"; const pp=P[seleccion]; et.innerHTML=pp.lugar+"<small>"+(pp.expo?pp.lema:"Parada "+pp.n+": "+pp.tit)+". Toca otra vez el portal para entrar."+textoProgreso(seleccion)+"</small>"; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=Math.max(et.offsetHeight+10,(1-v3.y)/2*escena.clientHeight)+"px"; }
       else et.style.display="none";
     } else if(pasSel){
       v3.copy(pasPortal.etiqueta); v3.project(camera);
