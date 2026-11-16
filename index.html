@@ -209,6 +209,24 @@
   .expo-galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:14px}
   .expo-galeria a{display:block;text-decoration:none;color:#E8EEF7;font-size:13.5px;font-weight:700}
   .expo-galeria img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;margin-bottom:4px}
+
+  /* caminar por la ronda */
+  .andar{position:absolute;right:12px;bottom:12px;height:44px;padding:0 16px 0 12px;border-radius:999px;border:0;background:var(--orange);color:var(--noche);font:700 15px/1 var(--sans);display:flex;align-items:center;gap:7px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+  .andar svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .andar[aria-pressed="true"]{background:var(--papel)}
+  .full.vista{top:auto;right:12px;bottom:66px;display:none}
+  @media(max-width:380px){.andar{padding:0 11px}.andar span{display:none}}
+  .entrar{position:absolute;left:50%;top:66px;transform:translateX(-50%);min-height:46px;max-width:calc(100% - 24px);padding:9px 18px;border-radius:14px;border:2px solid var(--orange);background:var(--papel);color:var(--navy);font:700 16px/1.25 var(--sans);cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.35);display:none}
+  .entrar small{display:block;font:600 12.5px/1.2 var(--sans);color:var(--mute);margin-top:2px}
+  .palanca{position:absolute;left:14px;bottom:70px;width:116px;height:116px;border-radius:50%;background:rgba(9,22,48,.5);border:2px solid rgba(255,255,255,.4);touch-action:none;display:none}
+  .palanca i{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:var(--papel);box-shadow:0 4px 10px rgba(0,0,0,.4)}
+  .escena.andando .ctl{display:none}
+  .escena.andando .full.vista{display:grid}
+  .full.salto{top:auto;right:12px;bottom:120px;display:none}
+  .escena.andando.tactil .full.salto{display:grid}
+  .escena.andando .entrar.cerca{display:block}
+  .escena.andando.tactil .palanca{display:block}
+  .escena.andando.tactil .entrar small{display:none}
   .full.sonido{right:64px}
   .full.sonido .ondas{display:none}
   .full.sonido.on .ondas{display:inline}
@@ -255,6 +273,11 @@
       <span class="sep"></span>
       <button type="button" id="bCasa" aria-label="Ver todo el mapa"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M6 9.5V20h12V9.5"/></svg></button>
     </div>
+    <button type="button" class="entrar" id="bEntrar"></button>
+    <div class="palanca" id="palanca" aria-hidden="true"><i></i></div>
+    <button type="button" class="full salto" id="bSalto" aria-label="Saltar"><svg viewBox="0 0 24 24"><path d="M12 19V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/></svg></button>
+    <button type="button" class="full vista" id="bVista" aria-pressed="false" aria-label="Ver a mi explorador desde atrás"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5.5 20c.6-4 3-6 6.5-6s5.9 2 6.5 6"/></svg></button>
+    <button type="button" class="andar" id="bAndar" aria-pressed="false" aria-label="Caminar por la ronda"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4.5" r="2"/><path d="M9 21l2.5-6.5L9.5 11l1-4 3.5 1.5 2 3.5 2.5 1M11 14.5l3 2.5 1 4M9.5 8L7 10l-.5 3"/></svg><span id="bAndarT">Caminar</span></button>
     <div class="hora">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
       <label class="sr" for="hora">Hora del día en el Sinú</label>
@@ -508,6 +531,8 @@ try{
 
 function iniciar(){
   let P=[];
+  // caminar por la ronda: el visitante recorre el mapa a pie, en primera persona o viendo a su explorador
+  const andar={on:false,pos:null,yaw:0,pitch:0,tercera:false,vel:0,cerca:-1,palX:0,palY:0,rumbo:0,alt:0,vy:0,troncos:[],palmas:[]};
   const escena=$("escena"), cv=$("cv");
   const esCel=window.innerWidth<700 || (navigator.deviceMemory && navigator.deviceMemory<=4);
   let ligera=esCel;
@@ -837,7 +862,7 @@ function iniciar(){
     if(z>rioZ(x)+32 && Math.random()<0.7) continue;   // menos árboles en el primer plano, para que no tapen las paradas
     const y=altura(x,z), ceiba=Math.random()<0.22, s=ceiba?2.4+Math.random():1.1+Math.random()*0.9;
     const alto=ceiba?6.5*s/2.4:3.2*s;
-    tmp.position.set(x,y+alto/2,z); tmp.rotation.set(0,Math.random()*6,0); tmp.scale.set(s*0.8,alto,s*0.8); tmp.updateMatrix(); troncos.setMatrixAt(nArb,tmp.matrix);
+    tmp.position.set(x,y+alto/2,z); tmp.rotation.set(0,Math.random()*6,0); tmp.scale.set(s*0.8,alto,s*0.8); tmp.updateMatrix(); troncos.setMatrixAt(nArb,tmp.matrix); andar.troncos.push([x,z,s*0.62]);
     tmp.position.set(x,y+alto+(ceiba?0.6:1.2)*s,z); tmp.scale.set(ceiba?s*2.6:s*1.7,ceiba?s*0.9:s*1.9,ceiba?s*2.6:s*1.7); tmp.updateMatrix(); copas.setMatrixAt(nArb,tmp.matrix);
     copas.setColorAt(nArb,colCopa.set(verdes[Math.floor(Math.random()*verdes.length)]));
     nArb++;
@@ -857,7 +882,7 @@ function iniciar(){
       p.setXYZ(i,x,l*0.62-v*v*3.3-Math.abs(x)*0.42,l*0.86*(1-0.12*v)); }
     g.computeVertexNormals(); return g; })();
   function palma(x,z){
-    const g=new THREE.Group(), y=altura(x,z); g.position.set(x,y,z);
+    const g=new THREE.Group(), y=altura(x,z); g.position.set(x,y,z); andar.palmas.push([x,z]);
     const alto=7+Math.random()*2, incl=(Math.random()-0.5)*0.4;
     for(let i=0;i<6;i++){ const s=malla(new THREE.CylinderGeometry(0.28,0.34,alto/6,6),M("#8A6A44"),incl*i*0.6,alto/6*(i+0.5),0,g); s.rotation.z=-incl*0.5; }
     const hoja=hojaPalma;
@@ -1114,7 +1139,7 @@ function iniciar(){
     return seg*1000;
   }
   animados.push((t,dt)=>{
-    const R=guia.R; if(!R || !curvaCamino) return;
+    const R=guia.R; if(!R || !curvaCamino || andar.on) return;
     let vel=0;
     if(guia.dur){
       const k=Math.min(1,(performance.now()-guia.ini)/guia.dur), e=k*k*(3-2*k), antes=guia.u;
@@ -2247,7 +2272,7 @@ function iniciar(){
     const w=escena.clientWidth, h=escena.clientHeight; if(!w||!h) return;
     renderer.setSize(w,h,false); camera.aspect=w/h;
     if(composer){ composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w,h); }
-    camera.fov = w/h<0.9 ? 58 : 45; camera.updateProjectionMatrix();
+    camera.fov = andar.on ? (w/h<0.9 ? 74 : 62) : (w/h<0.9 ? 58 : 45); camera.updateProjectionMatrix();
   }
   new ResizeObserver(ajustar).observe(escena);
   aplicarCalidad();
@@ -2317,7 +2342,8 @@ function iniciar(){
   function terminarCruce(i){
     cruzando=false; $("velo").classList.remove("on");
     controls.enabled=true; controls.minDistance=5; controls.maxPolarAngle=2.3; controls.enableDamping=true;
-    if(i==="pas"){ const v=vistaPas(); volarA(v.pos,v.tgt,10); } else if(i!=null){ const v=vistaDe(i); volarA(v.pos,v.tgt,10); }
+    if(andar.on){ controls.enabled=false; vuelo=null; }
+    else if(i==="pas"){ const v=vistaPas(); volarA(v.pos,v.tgt,10); } else if(i!=null){ const v=vistaDe(i); volarA(v.pos,v.tgt,10); }
   }
   window.addEventListener("pageshow",()=>{ if(cruzando) terminarCruce(null); });
   function vistaPas(){ const angosto=camera.aspect<0.9, tgt=new THREE.Vector3(PAS.x,PAS.h+4,PAS.z-1); return {pos:new THREE.Vector3(PAS.x+5,PAS.h+(angosto?36:27),PAS.z+(angosto?40:33)),tgt}; }
@@ -2364,6 +2390,8 @@ function iniciar(){
   escena.addEventListener("pointerenter",()=>{ sobreMapa=true; }); escena.addEventListener("pointerleave",()=>{ sobreMapa=false; });
   window.addEventListener("keydown",e=>{
     const accion=TECLAS_MOVER[e.key.toLowerCase()]; rapido=e.shiftKey;
+    if(andar.on && e.code==="Space" && $("hoja").hidden && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)){ saltar(); e.preventDefault(); return; }
+    if(andar.on && andar.cerca!==-1 && (e.key==="e"||e.key==="E"||e.key==="Enter") && $("hoja").hidden && !/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(e.target.tagName)){ cruzarCercano(); e.preventDefault(); return; }
     if(!accion || e.ctrlKey || e.metaKey || e.altKey) return;
     if(!sobreMapa && document.activeElement!==cv) return;
     if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type!=="range") return;
@@ -2429,7 +2457,7 @@ function iniciar(){
   }
   cv.addEventListener("pointerup",e=>{
     if(!abajo) return; const mov=Math.hypot(e.clientX-abajo.x,e.clientY-abajo.y), dur=performance.now()-abajo.t; abajo=null;
-    if(mov>8||dur>600) return;
+    if(mov>8||dur>600||andar.on) return;
     const ahora=performance.now();
     if(ultimoToque && ahora-ultimoToque.t<400 && Math.hypot(e.clientX-ultimoToque.x,e.clientY-ultimoToque.y)<30){ ultimoToque=null; if(centrarEn(e)) return; }
     ultimoToque={t:ahora,x:e.clientX,y:e.clientY};
@@ -2534,6 +2562,174 @@ function iniciar(){
   if(sonidoOn) document.addEventListener("pointerdown",()=>{ iniciarAudio(); if(audio) audio.ctx.resume(); },{once:true});
   setInterval(actualizarSonido,250);
 
+  /* ---------- caminar por la ronda ----------
+     El visitante se mueve libre por la orilla: W, A, S, D o las flechas en computador, y una palanca en pantalla táctil.
+     Al acercarse a un portal aparece el botón para entrar a esa expedición. */
+  const CLAVE_ANDAR="livima_mapa_andar";
+  const ALTURA_OJOS=3.6, PASO_ANDAR=9, PASO_CORRER=16, RADIO_PORTAL_CERCA=7.5, LIMITE_ANDAR=124;
+  const vDir=new THREE.Vector3(), vPortal=new THREE.Vector3();
+  // el suelo que pisa: el terreno y, sobre el río, el tablero del puente
+  function sueloAndar(x,z){
+    const h=altura(x,z);
+    if(Math.abs(x-PUENTE.x)<2.8 && z>PUENTE.z0-5 && z<PUENTE.z1+5){ const w=suave(PUENTE.z0-5,PUENTE.z0,z)*(1-suave(PUENTE.z1,PUENTE.z1+5,z)); return Math.max(h,h+(PUENTE.y+0.25-h)*w); }
+    return h;
+  }
+  /* choques: cada objeto sólido de la ronda (carteles, piezas de las paradas, kioscos, faroles, árboles) ocupa una caja en el suelo.
+     Solo estorba lo que queda entre las rodillas y la cabeza del caminante: un piso bajo se pisa y una bandera alta se pasa por debajo. */
+  const RADIO_CUERPO=0.7, ALTO_CUERPO=4.2, ESCALON=1.3, FUERZA_SALTO=9.5, GRAVEDAD=26;
+  let cajasFijas=null, cajasGrado=[], capaDeCajas=null;
+  const matTmp=new THREE.Matrix4();
+  // cada pieza guarda un rectángulo girado igual que ella: [centro x, centro z, eje x, eje z, medio largo, medio ancho, base, tope]
+  function cajasDe(raiz,lista){
+    raiz.updateMatrixWorld(true);
+    const ajenos=Object.values(PERSONAJES).map(r=>r.raiz), centro=new THREE.Vector3(), medio=new THREE.Vector3(), ejes=[new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()];
+    const sumar=(caja,matriz)=>{
+      caja.getCenter(centro).applyMatrix4(matriz); caja.getSize(medio).multiplyScalar(0.5);
+      const e=matriz.elements;
+      ejes[0].set(e[0],e[1],e[2]).multiplyScalar(medio.x); ejes[1].set(e[4],e[5],e[6]).multiplyScalar(medio.y); ejes[2].set(e[8],e[9],e[10]).multiplyScalar(medio.z);
+      const alto=Math.abs(ejes[0].y)+Math.abs(ejes[1].y)+Math.abs(ejes[2].y);
+      let k=0, mayor=-1; ejes.forEach((v,i)=>{ const h=Math.hypot(v.x,v.z); if(h>mayor){ mayor=h; k=i; } });   // el lado más largo sobre el suelo marca la dirección del rectángulo
+      const ax=mayor>1e-6?ejes[k].x/mayor:1, az=mayor>1e-6?ejes[k].z/mayor:0;
+      let largo=0, ancho=0; ejes.forEach(v=>{ largo+=Math.abs(v.x*ax+v.z*az); ancho+=Math.abs(-v.x*az+v.z*ax); });
+      if(largo>8 || ancho>8) return;   // el sendero, las luces y otras piezas enormes no son obstáculos
+      if(ancho<0.03) return;         // banderines y telas sin grosor se atraviesan
+      const piso=altura(centro.x,centro.z), base=centro.y-alto, tope=centro.y+alto;
+      if(tope<piso+ESCALON || base>piso+ALTO_CUERPO) return;
+      lista.push([centro.x,centro.z,ax,az,largo,ancho,base,tope]);
+    };
+    raiz.traverse(o=>{
+      if(!o.isMesh || !o.geometry) return;
+      for(let q=o;q;q=q.parent){ if(!q.visible || ajenos.includes(q)) return; }
+      const m=Array.isArray(o.material)?o.material[0]:o.material;
+      if(!m || m.isShaderMaterial || (m.transparent && (m.depthWrite===false || m.opacity<0.6))) return;   // remolinos, haces de luz y brillos se atraviesan
+      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      if(o.isInstancedMesh){ if(o.count>300) return; for(let k=0;k<o.count;k++){ o.getMatrixAt(k,matTmp); matTmp.premultiply(o.matrixWorld); sumar(o.geometry.boundingBox,matTmp); } }
+      else sumar(o.geometry.boundingBox,o.matrixWorld);
+    });
+  }
+  function prepararCajas(){
+    if(!cajasFijas){ cajasFijas=[]; cajasDe(pasG,cajasFijas); gruposLugar.forEach((g,i)=>{ if(i>0) cajasDe(g,cajasFijas); });   // el puente (lugar 0) se cruza a pie
+      andar.palmas.forEach(([x,z])=>cajasFijas.push([x,z,1,0,0.4,0.4,-99,99])); }
+    if(capaDeCajas!==capa){ cajasGrado=[]; if(capa) cajasDe(capa,cajasGrado); capaDeCajas=capa; }
+  }
+  function chocaEn(x,z,pies){
+    const r=RADIO_CUERPO;
+    for(const lista of [cajasFijas,cajasGrado]) for(const c of lista){ if(c[6]>=pies+ALTO_CUERPO || c[7]<=pies+ESCALON) continue; const dx=x-c[0], dz=z-c[1]; if(Math.abs(dx*c[2]+dz*c[3])<c[4]+r && Math.abs(dz*c[2]-dx*c[3])<c[5]+r) return true; }
+    const n=Math.min(troncos.count,andar.troncos.length);
+    for(let k=0;k<n;k++){ const a=andar.troncos[k], d=r+a[2]; if(Math.abs(x-a[0])<d && Math.abs(z-a[1])<d && Math.hypot(x-a[0],z-a[1])<d) return true; }
+    return false;
+  }
+  function saltar(){ if(andar.on && !cruzando && andar.alt===0) andar.vy=FUERZA_SALTO; }
+  const transitable=(x,z)=>Math.abs(x)<LIMITE_ANDAR && Math.abs(z)<LIMITE_ANDAR && sueloAndar(x,z)>NIVEL_AGUA+0.3;
+  function pintarAndar(){
+    escena.classList.toggle("andando",andar.on);
+    $("bAndar").setAttribute("aria-pressed",andar.on); $("bAndarT").textContent=andar.on?"Ver mapa":"Caminar"; $("bAndar").setAttribute("aria-label",andar.on?"Volver a ver el mapa desde arriba":"Caminar por la ronda");
+    $("bVista").setAttribute("aria-pressed",andar.tercera); $("bVista").setAttribute("aria-label",andar.tercera?"Ver con mis propios ojos":"Ver a mi explorador desde atrás");
+  }
+  function guardarAndar(){ try{ if(andar.on) sessionStorage.setItem(CLAVE_ANDAR,JSON.stringify({g:gidActual,x:andar.pos.x,z:andar.pos.z,yaw:andar.yaw,tercera:andar.tercera})); else sessionStorage.removeItem(CLAVE_ANDAR); }catch(e){} }
+  function empezarAndar(desde){
+    if(cruzando) return;
+    if(!andar.pos) andar.pos=new THREE.Vector3();
+    if(desde && transitable(desde.x,desde.z)){ andar.pos.set(desde.x,0,desde.z); andar.yaw=desde.yaw||0; andar.tercera=!!desde.tercera; }
+    else { const q=guia.R.raiz.position; andar.pos.set(q.x,0,q.z+1.5); andar.yaw=Math.PI/2; }   // arranca junto al guía, mirando río abajo, hacia las paradas
+    andar.pos.y=sueloAndar(andar.pos.x,andar.pos.z); andar.pitch=-0.04; andar.rumbo=andar.yaw; andar.cerca=-1; andar.alt=0; andar.vy=0; andar.on=true;
+    vuelo=null; seleccionar(-1); pulsadas.clear(); controls.enabled=false;
+    $("pista").innerHTML='<span class="raton">Camina con W, A, S, D o las flechas, salta con la barra espaciadora y mantén el clic para mirar alrededor. Acércate a un portal y pulsa E para entrar.</span><span class="tactil">Mueve la palanca para caminar y arrastra la pantalla para mirar. Acércate a un portal para entrar.</span>';
+    $("pista").classList.remove("fuera"); setTimeout(()=>$("pista").classList.add("fuera"),8000);
+    pintarAndar(); ajustar(); guardarAndar();
+  }
+  function salirAndar(){
+    andar.on=false; andar.cerca=-1; andar.palX=andar.palY=0; pulsadas.clear();
+    if(!cruzando) controls.enabled=true;
+    if(guia.R) guia.R.raiz.visible=true;
+    pintarAndar(); ajustar(); guardarAndar(); window.MAPA.verTodo();
+  }
+  function cruzarCercano(){
+    if(!andar.on || cruzando || andar.cerca===-1) return;
+    guardarAndar();
+    if(andar.cerca==="pas") cruzarPasaporte(); else entrar(andar.cerca);
+  }
+  // tras tocar un botón el foco vuelve al mapa: así la barra espaciadora salta en vez de volver a pulsar el botón
+  $("bAndar").onclick=()=>{ if(andar.on) salirAndar(); else empezarAndar(); cv.focus({preventScroll:true}); };
+  $("bVista").onclick=()=>{ andar.tercera=!andar.tercera; pintarAndar(); guardarAndar(); cv.focus({preventScroll:true}); };
+  $("bSalto").onclick=()=>saltar();
+  $("bEntrar").onclick=cruzarCercano;
+  if(window.matchMedia && matchMedia("(hover:none) and (pointer:coarse)").matches) escena.classList.add("tactil");
+  // mirar: se arrastra sobre el mapa con el ratón o con un dedo
+  let miraAndar=null;
+  cv.addEventListener("pointerdown",e=>{
+    if(!andar.on || cruzando) return;
+    if(e.pointerType==="touch") escena.classList.add("tactil"); else if(e.button!==0) return;
+    if(miraAndar) return;
+    miraAndar={x:e.clientX,y:e.clientY,id:e.pointerId}; try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  cv.addEventListener("pointermove",e=>{
+    if(!miraAndar || e.pointerId!==miraAndar.id) return;
+    const dx=e.clientX-miraAndar.x, dy=e.clientY-miraAndar.y; miraAndar.x=e.clientX; miraAndar.y=e.clientY;
+    const k=e.pointerType==="touch"?0.0062:0.0044;
+    andar.yaw-=dx*k; andar.pitch=Math.max(-1.05,Math.min(1.05,andar.pitch-dy*k));
+    $("pista").classList.add("fuera");
+  });
+  const soltarMiraAndar=e=>{ if(miraAndar && e.pointerId===miraAndar.id) miraAndar=null; };
+  cv.addEventListener("pointerup",soltarMiraAndar); cv.addEventListener("pointercancel",soltarMiraAndar);
+  // palanca táctil
+  { const pal=$("palanca"), perilla=pal.firstElementChild; let idPal=null;
+    const mover=e=>{ const r=pal.getBoundingClientRect(), R=r.width/2; let x=(e.clientX-r.left-R)/R, y=(e.clientY-r.top-R)/R; const L=Math.hypot(x,y); if(L>1){ x/=L; y/=L; }
+      andar.palX=x; andar.palY=y; perilla.style.transform="translate("+(x*R*0.6)+"px,"+(y*R*0.6)+"px)"; };
+    const soltar=e=>{ if(e.pointerId!==idPal) return; idPal=null; andar.palX=andar.palY=0; perilla.style.transform=""; };
+    pal.addEventListener("pointerdown",e=>{ idPal=e.pointerId; try{ pal.setPointerCapture(e.pointerId); }catch(err){} mover(e); $("pista").classList.add("fuera"); e.preventDefault(); });
+    pal.addEventListener("pointermove",e=>{ if(e.pointerId===idPal) mover(e); });
+    pal.addEventListener("pointerup",soltar); pal.addEventListener("pointercancel",soltar);
+  }
+  function pasoAndar(t,dt){
+    // giro con Q y E (E solo gira cuando no hay un portal cerca)
+    andar.yaw+=((pulsadas.has("giraIzq")?1:0)-(pulsadas.has("giraDer")?1:0))*1.9*dt;
+    andar.pitch=Math.max(-1.05,Math.min(1.05,andar.pitch+((pulsadas.has("sube")?1:0)-(pulsadas.has("baja")?1:0))*0.9*dt));
+    let lado=(pulsadas.has("der")?1:0)-(pulsadas.has("izq")?1:0)+andar.palX, frente=(pulsadas.has("adelante")?1:0)-(pulsadas.has("atras")?1:0)-andar.palY;
+    const fuerza=Math.hypot(lado,frente); if(fuerza>1){ lado/=fuerza; frente/=fuerza; }
+    const fx=Math.sin(andar.yaw), fz=Math.cos(andar.yaw), paso=(rapido?PASO_CORRER:PASO_ANDAR)*dt;
+    const dx=(fx*frente-fz*lado)*paso, dz=(fz*frente+fx*lado)*paso, p=andar.pos, x0=p.x, z0=p.z;
+    prepararCajas();
+    if(andar.alt>0 || andar.vy>0){ andar.vy-=GRAVEDAD*dt; andar.alt+=andar.vy*dt; if(andar.alt<=0){ andar.alt=0; andar.vy=0; } }
+    if(dx||dz){
+      const pies=p.y+andar.alt, atrapado=chocaEn(p.x,p.z,pies);   // si ya está dentro de un objeto (por ejemplo, al caer de un salto), puede salir
+      const libre=(x,z)=>transitable(x,z) && (atrapado || !chocaEn(x,z,pies));
+      if(libre(p.x+dx,p.z+dz)){ p.x+=dx; p.z+=dz; }
+      else if(libre(p.x+dx,p.z)) p.x+=dx;      // si choca, resbala por el lado libre
+      else if(libre(p.x,p.z+dz)) p.z+=dz;
+    }
+    p.y=sueloAndar(p.x,p.z);
+    const recorrido=Math.hypot(p.x-x0,p.z-z0); andar.vel=recorrido/Math.max(dt,0.008);
+    if(recorrido>0.002) andar.rumbo=Math.atan2(p.x-x0,p.z-z0);
+    // la cámara: en los ojos del visitante o detrás de su explorador
+    const cp=Math.cos(andar.pitch); vDir.set(fx*cp,Math.sin(andar.pitch),fz*cp);
+    const R=guia.R;
+    if(andar.tercera){
+      camera.position.set(p.x-vDir.x*9.5,p.y+andar.alt+ALTURA_OJOS+2.2-vDir.y*9.5,p.z-vDir.z*9.5);
+      const piso=Math.max(NIVEL_AGUA,altura(camera.position.x,camera.position.z))+1; if(camera.position.y<piso) camera.position.y=piso;
+      controls.target.set(p.x+vDir.x*3,p.y+andar.alt+ALTURA_OJOS+vDir.y*3,p.z+vDir.z*3);
+    } else {
+      const vaiven=andar.vel>0.3 && andar.alt===0?Math.sin(t*(rapido?13:9))*0.07:0;
+      camera.position.set(p.x,p.y+andar.alt+ALTURA_OJOS+vaiven,p.z);
+      controls.target.copy(camera.position).addScaledVector(vDir,10);
+    }
+    camera.lookAt(controls.target);
+    if(R){ R.raiz.visible=andar.tercera; R.raiz.position.set(p.x,p.y+andar.alt+0.1,p.z);
+      let giro=andar.rumbo-R.raiz.rotation.y; giro=Math.atan2(Math.sin(giro),Math.cos(giro)); R.raiz.rotation.y+=giro*Math.min(1,dt*9);
+      animarPersonaje(R,t,dt,andar.vel); }
+    // qué hay cerca: un portal de expedición, el del pasaporte o un lugar de la ciudad
+    let cerca=-1, dMin=RADIO_PORTAL_CERCA;
+    P.forEach((q,i)=>{ if(!q.portalPos) return; const d=Math.hypot(q.portalPos.x-p.x,q.portalPos.z-p.z); if(d<dMin){ dMin=d; cerca=i; } });
+    pasPortal.disco.getWorldPosition(vPortal); { const d=Math.hypot(vPortal.x-p.x,vPortal.z-p.z); if(d<dMin){ dMin=d; cerca="pas"; } }
+    if(cerca!==andar.cerca){
+      andar.cerca=cerca; const b=$("bEntrar"); b.classList.toggle("cerca",cerca!==-1);
+      if(cerca==="pas") b.innerHTML="Abrir mi pasaporte<small>o pulsa la tecla E</small>";
+      else if(cerca!==-1){ const q=P[cerca]; b.textContent=q.expo?"Entrar a "+q.lugar.charAt(0).toLowerCase()+q.lugar.slice(1):"Entrar: "+q.tit; const s=document.createElement("small"); s.textContent="o pulsa la tecla E"; b.appendChild(s); }
+      seleccion=typeof cerca==="number"?cerca:-1; pasSel=cerca==="pas";
+    }
+    lugarSel=-1; if(cerca===-1) LUGAR_POS.forEach((q,i)=>{ if(Math.hypot(q.x-p.x,q.z-p.z)<13) lugarSel=i; });
+  }
+
   /* ---------- bucle ---------- */
   const reloj=new THREE.Clock(), v3=new THREE.Vector3();
   const LIM=240;   // el centro puede recorrer la ronda y el territorio que la rodea
@@ -2550,10 +2746,10 @@ function iniciar(){
     }
     controls.target.x=Math.max(-LIM,Math.min(LIM,controls.target.x)); controls.target.z=Math.max(-LIM,Math.min(LIM,controls.target.z)); controls.target.y=Math.max(0,Math.min(600,controls.target.y));
     moverLibre(dt);
-    controls.update();
+    if(andar.on && !cruzando){ controls.enabled=false; vuelo=null; pasoAndar(t,dt); } else controls.update();
     { const rc=Math.hypot(camera.position.x,camera.position.z), RMAX=540; if(rc>RMAX){ camera.position.x*=RMAX/rc; camera.position.z*=RMAX/rc; } }   // la cámara no llega a las lomas del horizonte
     cielo.position.copy(camera.position); estrellas.position.copy(camera.position);
-    if(!cruzando){ const suelo=Math.max(NIVEL_AGUA,altura(camera.position.x,camera.position.z))+3; if(camera.position.y<suelo) camera.position.y=suelo; }   // la cámara nunca se mete bajo el suelo ni el agua
+    if(!cruzando && !andar.on){ const suelo=Math.max(NIVEL_AGUA,altura(camera.position.x,camera.position.z))+3; if(camera.position.y<suelo) camera.position.y=suelo; }   // la cámara nunca se mete bajo el suelo ni el agua
     centro.position.set(controls.target.x,controls.target.y+0.3,controls.target.z);
     { const objetivo=centroVisible?0.85:0; anilloCentro.material.opacity+=(objetivo-anilloCentro.material.opacity)*Math.min(1,dt*8); puntoCentro.material.opacity=anilloCentro.material.opacity; const s=1+Math.sin(t*4)*0.08; anilloCentro.scale.set(s,s,s); }
     // el agua corre río abajo: dos capas de ondas a distinta velocidad
@@ -2566,11 +2762,11 @@ function iniciar(){
     animados.forEach(f=>f(t,dt)); animG.forEach(f=>f(t,dt));
     const et=$("etiqueta");
     if(cruzando) et.style.display="none";
-    else if(seleccion>=0){
+    else if(seleccion>=0 && !andar.on){
       { const pp=P[seleccion]; v3.set(pp.x,pp.h+ALTO_MARCA[seleccion]*ESCALA_PARADA*0.62+1,pp.z); } v3.project(camera);   // por encima de la pieza más alta del stand, para no taparla
       if(v3.z<1){ et.style.display="block"; const pp=P[seleccion]; et.innerHTML=pp.lugar+"<small>"+(pp.expo?pp.lema:"Parada "+pp.n+": "+pp.tit)+". Toca otra vez el portal para entrar."+textoProgreso(seleccion)+"</small>"; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=Math.max(et.offsetHeight+10,(1-v3.y)/2*escena.clientHeight)+"px"; }
       else et.style.display="none";
-    } else if(pasSel){
+    } else if(pasSel && !andar.on){
       v3.copy(pasPortal.etiqueta); v3.project(camera);
       if(v3.z<1){ et.style.display="block"; et.innerHTML="Mi pasaporte<small>Toca otra vez el portal para ver tus sellos</small>"; et.style.left=((v3.x+1)/2*escena.clientWidth)+"px"; et.style.top=((1-v3.y)/2*escena.clientHeight)+"px"; }
       else et.style.display="none";
@@ -2596,7 +2792,8 @@ function iniciar(){
   cuadro();
   setTimeout(()=>$("cargando").classList.add("listo"),250);
   setTimeout(()=>$("pista").classList.add("fuera"),9000);
-  window.__mundo={guia,scene,camera,controls,get P(){ return P; },get portales(){ return portales; }};
+  try{ const g=JSON.parse(sessionStorage.getItem(CLAVE_ANDAR)||"null"); if(g && g.g===gidActual) empezarAndar(g); }catch(e){}
+  window.__mundo={guia,scene,camera,controls,andar,cajas:()=>[cajasFijas,cajasGrado],get P(){ return P; },get portales(){ return portales; }};
 }
 </script>
 </body>
