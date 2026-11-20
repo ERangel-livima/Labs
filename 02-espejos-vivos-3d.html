@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Espejos Vivos 3D, LIVIMA</title>
+<meta name="theme-color" content="#1B3A6B">
+<style>
+  /* colores de la estación: la paleta de los simuladores se cambia aquí y en ESTACION */
+  :root{
+    --marino:#1B3A6B; --acento:#4A9B2E; --acento-hondo:#2f6f1c; --accion:#D9701A;
+    --papel:#FBFAF6; --tinta:#1d2733; --gris:#5B6573; --linea:#d9d4c7; --cielo:#bcd8ec;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--cielo);color:var(--tinta);
+    font:16px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+  #mundo{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  button,input,select{font:inherit}
+  .hud{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none;z-index:5}
+  .hud > *{pointer-events:auto}
+  .chip{background:var(--marino);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600}
+  .chip.suave{background:#ffffffe6;color:var(--marino)}
+  .hud .volver{margin-left:auto;text-decoration:none;color:var(--marino);background:#ffffffe6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600;min-height:36px;display:inline-flex;align-items:center}
+
+  .globo{position:fixed;top:calc(62px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));max-width:min(380px,calc(100vw - 24px));
+    display:flex;gap:10px;align-items:flex-start;background:#fffffff2;border:2px solid var(--acento);border-radius:14px;padding:10px 12px;z-index:6}
+  .globo img{width:44px;height:66px;object-fit:contain;flex:none}
+  .globo p{margin:0;font-size:15px}
+  .globo b{color:var(--acento-hondo)}
+  .globo .cerrar{margin-left:auto;background:none;border:0;color:var(--gris);font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
+
+  .barra{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(720px,calc(100vw - 24px));
+    display:flex;flex-direction:column;gap:8px;z-index:5}
+  .fila{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .btn{min-height:44px;background:#fff;color:var(--marino);border:1.5px solid var(--marino);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;
+    text-decoration:none;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+  .btn.principal{background:var(--accion);border-color:var(--accion);color:#fff}
+  .btn:focus-visible,.seg button:focus-visible,.color:focus-visible{outline:3px solid var(--accion);outline-offset:2px}
+  .seg{display:inline-flex;border:1.5px solid var(--marino);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{min-height:44px;border:0;background:none;color:var(--marino);font-weight:600;padding:8px 12px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--marino);color:#fff}
+  .punto-color{width:18px;height:18px;border-radius:50%;border:2px solid #fff;outline:1.5px solid var(--linea)}
+
+  .hoja{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(128px + env(safe-area-inset-bottom,0px));width:min(520px,calc(100vw - 24px));
+    background:var(--papel);border:1.5px solid var(--linea);border-radius:14px;padding:14px 16px;z-index:7;box-shadow:0 6px 18px #1b3a6b2e}
+  .hoja h2{font:700 17px Georgia,serif;color:var(--marino);margin:0 0 10px}
+  .hoja label{display:block;font-size:14px;font-weight:600;color:var(--marino);margin:12px 0 6px}
+  .colores{display:flex;flex-wrap:wrap;gap:8px}
+  .color{width:40px;height:40px;border-radius:10px;border:3px solid #fff;outline:1.5px solid var(--linea);cursor:pointer}
+  .color[aria-pressed="true"]{outline:3px solid var(--marino)}
+  input[type=range]{width:100%;accent-color:var(--acento);min-height:32px}
+  input[type=text]{width:100%;min-height:44px;border:1.5px solid var(--linea);border-radius:10px;padding:8px 12px;background:#fff}
+  .muestras{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .muestras button{min-height:52px;text-align:left;border:1.5px solid var(--linea);background:#fff;border-radius:10px;padding:6px 10px;cursor:pointer;color:var(--tinta)}
+  .muestras button small{display:block;color:var(--gris);font-size:13px}
+  .muestras button[aria-pressed="true"]{border-color:var(--acento);box-shadow:inset 0 0 0 1.5px var(--acento)}
+  .enlaces{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .enlaces a{font-size:14px}
+
+  .precision{position:fixed;inset:0;background:#e9eef3;z-index:8;display:flex;flex-direction:column;align-items:center;gap:10px;
+    padding:calc(56px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+  .precision canvas{width:min(96vw,(100vh - 240px)*4/3);max-width:100%;height:auto;border:8px solid #6b4a2e;border-radius:4px;background:var(--papel);touch-action:none;cursor:crosshair}
+  .precision p{margin:0;max-width:640px;text-align:center;font-weight:600;color:var(--marino)}
+  .ligera{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#e9eef3;
+    padding:calc(110px + env(safe-area-inset-top,0px)) 12px calc(130px + env(safe-area-inset-bottom,0px))}
+  .ligera canvas{max-width:100%;max-height:100%;width:auto;height:auto;border:8px solid #6b4a2e;border-radius:4px;touch-action:none;cursor:crosshair}
+  .aviso{position:fixed;left:50%;transform:translateX(-50%);top:calc(62px + env(safe-area-inset-top,0px));background:var(--marino);color:#fff;border-radius:10px;padding:10px 16px;
+    z-index:9;max-width:calc(100vw - 24px);font-size:15px}
+  @media (max-width:520px){ .seg button{padding:8px 10px} .btn{padding:8px 11px} .globo{top:calc(56px + env(safe-area-inset-top,0px))} }
+</style>
+</head>
+<body>
+<canvas id="mundo" aria-label="Taller de Espejos Vivos a la orilla del río Sinú"></canvas>
+<div class="ligera" id="ligera" hidden></div>
+
+<header class="hud">
+  <span class="chip">Espejos Vivos</span>
+  <span class="chip suave" id="estado">Llegada</span>
+  <a class="volver" href="index.html">Volver a la ronda</a>
+</header>
+
+<div class="globo" id="globo" role="status" hidden>
+  <img src="3d/mati.webp" alt="">
+  <p id="globoTexto"></p>
+  <button class="cerrar" id="globoCerrar" aria-label="Cerrar el mensaje de Mati">×</button>
+</div>
+<div class="aviso" id="aviso" role="alert" hidden></div>
+
+<!-- 1. llegada -->
+<div class="barra" id="panelLlegada" hidden>
+  <div class="fila">
+    <button class="btn" id="btnSaltar">Saltar la llegada</button>
+    <button class="btn principal" id="btnAlBastidor">Ir al bastidor</button>
+  </div>
+</div>
+
+<!-- 2. trabajo -->
+<div class="barra" id="panelTrabajo" hidden>
+  <div class="fila">
+    <div class="seg" role="group" aria-label="Ejes de simetría">
+      <button data-ejes="1" aria-pressed="true">1 eje</button><button data-ejes="2" aria-pressed="false">2 ejes</button><button data-ejes="4" aria-pressed="false">4 ejes</button>
+    </div>
+    <button class="btn" id="btnColor" aria-expanded="false"><span class="punto-color" id="puntoColor"></span>Color</button>
+    <button class="btn" id="btnDeshacer">Deshacer</button>
+    <button class="btn" id="btnMas" aria-expanded="false">Muestras</button>
+  </div>
+  <div class="fila">
+    <button class="btn" id="btnPrecision">Vista de precisión</button>
+    <button class="btn principal" id="btnTermine">Terminé mi obra</button>
+  </div>
+</div>
+
+<section class="hoja" id="hojaColor" hidden aria-label="Color y grosor">
+  <h2>Color y grosor del trazo</h2>
+  <div class="colores" id="colores"></div>
+  <label for="grosor">Grosor: <span id="grosorValor"></span></label>
+  <input type="range" id="grosor" min="2" max="24" step="1">
+</section>
+
+<section class="hoja" id="hojaMas" hidden aria-label="Muestras y obra">
+  <h2>Criaturas del Sinú</h2>
+  <div class="muestras" id="muestras"></div>
+  <label for="nombreObra">Nombre de tu obra</label>
+  <input type="text" id="nombreObra" maxlength="30" placeholder="Ej: La babilla del caño">
+  <div class="enlaces">
+    <button class="btn" id="btnBorrar">Borrar todo</button>
+    <a class="btn" href="02-lienzo-simetria-espejos-vivos.html#guia">Abrir la guía</a>
+    <a class="btn" id="enlaceLigera" href="?ligera=1">Usar la vista ligera</a>
+  </div>
+</section>
+
+<!-- vista de precisión -->
+<section class="precision" id="precision" hidden aria-label="Vista de precisión">
+  <canvas id="lienzoPrecision" width="1024" height="768" aria-label="Cuadrícula para medir distancias al eje"></canvas>
+  <p id="explica"></p>
+  <div class="fila"><button class="btn principal" id="btnVolverTaller">Volver al taller</button></div>
+</section>
+
+<!-- 3. obra terminada -->
+<div class="barra" id="panelObra" hidden>
+  <div class="fila">
+    <button class="btn" id="btnSeguir">Seguir dibujando</button>
+    <a class="btn" href="02-lienzo-simetria-espejos-vivos.html#juego">Jugar Criaturas del espejo</a>
+    <button class="btn principal" id="btnDescargar">Descargar mi obra</button>
+  </div>
+</div>
+
+<noscript><p style="padding:80px 16px">Esta estación necesita JavaScript. Abre la versión clásica: 02-lienzo-simetria-espejos-vivos.html</p></noscript>
+
+<script type="module">
+import { THREE, hayWebGL, almacen, crearMundo, construirOrilla, figuraGuia } from "./3d/livima3d.js";
+
+const ESTACION = { id: "espejos", acento: "#4A9B2E", clave: "livima_espejos3d_obra" };
+const COLORES = ["#1B3A6B", "#1F8A8A", "#4A9B2E", "#D9701A", "#6B3FA0", "#C0392B", "#E8B800", "#111111"];
+const CUADRO = 40;                  // un cuadro de la cuadrícula, en unidades del lienzo
+const ANCHO_U = 800, ALTO_U = 600;  // el lienzo mide 20 x 15 cuadros; el centro es (0, 0)
+const PX_ANCHO = 1024, PX_ALTO = 768;
+const DISTANCIA_MIN_PUNTOS = 1.5;   // no se guardan puntos más cercanos: el trazo pesa menos
+
+// los mismos reflejos del simulador clásico: eje vertical; más el horizontal; más las dos diagonales
+const REFLEJOS = {
+  1: [(x, y) => [x, y], (x, y) => [-x, y]],
+  2: [(x, y) => [x, y], (x, y) => [-x, y], (x, y) => [x, -y], (x, y) => [-x, -y]],
+  4: [(x, y) => [x, y], (x, y) => [-x, y], (x, y) => [x, -y], (x, y) => [-x, -y],
+      (x, y) => [y, x], (x, y) => [-y, x], (x, y) => [y, -x], (x, y) => [-y, -x]]
+};
+
+const elipse = (cx, cy, rx, ry, a0, a1, n = 24) =>
+  Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; });
+
+// Cada muestra trae solo su parte base: el calco que el estudiante repasa. Los ejes hacen el resto.
+const MUESTRAS = {
+  babilla: { ejes: 1, nombre: "Babilla", nota: "1 eje",
+    pista: "La babilla tiene un solo eje: va de la trompa a la cola. Calca la mitad marcada y mira cómo el espejo la completa.",
+    trazos: [
+      { c: "#4A9B2E", a: 10, p: [[0,-272],[-16,-262],[-22,-222],[-30,-186],[-42,-174],[-36,-150],[-34,-128],[-60,-92],[-70,-20],[-62,48],[-40,100],[-26,150],[-12,222],[0,282]] },
+      { c: "#4A9B2E", a: 9, p: [[-58,-82],[-104,-106],[-122,-100]] }, { c: "#4A9B2E", a: 6, p: [[-104,-106],[-112,-124]] },
+      { c: "#4A9B2E", a: 9, p: [[-62,40],[-108,66],[-126,60]] }, { c: "#4A9B2E", a: 6, p: [[-108,66],[-118,84]] },
+      ...[-60, -34, -8, 18, 44, 70].map(y => ({ c: "#1F8A8A", a: 6, p: [[-8,y],[-40,y+8]] })),
+      { c: "#1F8A8A", a: 5, p: [[-6,118],[-24,124]] }, { c: "#1F8A8A", a: 5, p: [[-4,168],[-16,172]] },
+      { c: "#D9701A", a: 7, p: elipse(-30, -172, 7, 7, 0, 6.3, 12) }
+    ] },
+  bocachicos: { ejes: 2, nombre: "Bocachicos en ronda", nota: "2 ejes",
+    pista: "Dibuja un solo bocachico arriba a la izquierda. Con 2 ejes, un pez se vuelve cuatro: nariz con nariz y de arriba a abajo.",
+    trazos: [
+      { c: "#1F8A8A", a: 9, p: elipse(-130, -120, 100, 40, 0, 6.3, 36) },
+      { c: "#D9701A", a: 8, p: [[-228,-120],[-280,-162],[-266,-120],[-280,-78],[-228,-120]] },
+      { c: "#D9701A", a: 7, p: [[-160,-158],[-130,-186],[-100,-158]] },
+      { c: "#1B3A6B", a: 6, p: elipse(-62, -130, 7, 7, 0, 6.3, 12) },
+      { c: "#1F8A8A", a: 5, p: elipse(-150, -120, 18, 26, -1.2, 1.2, 10) }, { c: "#1F8A8A", a: 5, p: elipse(-185, -120, 18, 26, -1.2, 1.2, 10) },
+      { c: "#6B3FA0", a: 6, p: elipse(0, 0, 46, 46, Math.PI, 1.5 * Math.PI, 12) }
+    ] },
+  hicoteas: { ejes: 4, nombre: "Ronda de hicoteas", nota: "4 ejes",
+    pista: "Con 4 ejes basta media hicotea y media flor de buchón: el espejo arma la ronda completa.",
+    trazos: [
+      { c: "#4A9B2E", a: 9, p: elipse(0, -182, 58, 62, -Math.PI / 2, -1.5 * Math.PI, 24) },
+      { c: "#1F8A8A", a: 6, p: [[0,-210],[-26,-196],[-26,-166],[0,-152]] },
+      { c: "#1F8A8A", a: 5, p: [[-26,-196],[-50,-210]] }, { c: "#1F8A8A", a: 5, p: [[-26,-166],[-52,-150]] },
+      { c: "#4A9B2E", a: 8, p: [[0,-246],[-14,-252],[-18,-270],[-8,-284],[0,-286]] },
+      { c: "#D9701A", a: 5, p: [[-6,-262],[-12,-272]] },
+      { c: "#4A9B2E", a: 8, p: [[-48,-214],[-84,-236],[-80,-212],[-56,-200]] },
+      { c: "#4A9B2E", a: 8, p: [[-44,-146],[-72,-122],[-52,-116],[-36,-128]] },
+      { c: "#4A9B2E", a: 6, p: [[0,-120],[-6,-110],[0,-102]] },
+      { c: "#6B3FA0", a: 8, p: [[-92,-92],[-104,-134],[-152,-152]] },
+      { c: "#6B3FA0", a: 6, p: [[-112,-112],[-118,-132],[-138,-138]] },
+      { c: "#1B3A6B", a: 7, p: elipse(0, 0, 38, 38, -Math.PI / 2, -0.75 * Math.PI, 6) }
+    ] },
+  blanco: { ejes: 1, nombre: "Lienzo en blanco", nota: "Tu criatura", pista: "Lienzo en blanco: inventa tu propia criatura del Sinú.", trazos: [] }
+};
+
+const $ = id => document.getElementById(id);
+const guardado = almacen(ESTACION.clave);
+const estado = { vista: "llegada", ejes: 1, color: COLORES[2], grosor: 8, muestra: "babilla", trazos: [], nombre: "" };
+
+/* ---------- el lienzo: se pinta en 2D y la misma imagen va al bastidor 3D ---------- */
+const nuevoCanvas = () => { const c = document.createElement("canvas"); c.width = PX_ANCHO; c.height = PX_ALTO; return c; };
+const lienzoTrabajo = nuevoCanvas();   // con el calco de la muestra
+const lienzoObra = nuevoCanvas();      // la obra limpia, para la galería y la descarga
+const ESCALA = PX_ALTO / ALTO_U;
+const aPx = (x, y) => [PX_ANCHO / 2 + x * ESCALA, PX_ALTO / 2 + y * ESCALA];
+
+function pintarFondo(ctx, conCuadricula) {
+  ctx.fillStyle = "#FBFAF6"; ctx.fillRect(0, 0, PX_ANCHO, PX_ALTO);
+  if (!conCuadricula) return;
+  ctx.strokeStyle = "#1B3A6B22"; ctx.lineWidth = 1.5;
+  const paso = CUADRO * ESCALA;
+  for (let x = (PX_ANCHO / 2) % paso; x < PX_ANCHO; x += paso) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, PX_ALTO); ctx.stroke(); }
+  for (let y = (PX_ALTO / 2) % paso; y < PX_ALTO; y += paso) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(PX_ANCHO, y); ctx.stroke(); }
+}
+function pintarEjes(ctx, ejes) {
+  const cx = PX_ANCHO / 2, cy = PX_ALTO / 2, mitad = PX_ALTO / 2;
+  const linea = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
+  ctx.save(); ctx.setLineDash([12, 10]); ctx.strokeStyle = "#9aa3ad"; ctx.lineWidth = 3;
+  linea(cx, 0, cx, PX_ALTO);
+  if (ejes >= 2) linea(0, cy, PX_ANCHO, cy);
+  if (ejes === 4) { linea(cx - mitad, 0, cx + mitad, PX_ALTO); linea(cx + mitad, 0, cx - mitad, PX_ALTO); }
+  ctx.restore();
+}
+function pintarTrazo(ctx, trazo, reflejos = REFLEJOS[trazo.ejes]) {
+  ctx.strokeStyle = trazo.color; ctx.lineWidth = trazo.grosor * ESCALA; ctx.lineCap = ctx.lineJoin = "round";
+  reflejos.forEach(t => {
+    ctx.beginPath();
+    trazo.puntos.forEach(([x, y], i) => { const [px, py] = aPx(...t(x, y)); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    if (trazo.puntos.length === 1) { const [px, py] = aPx(...t(...trazo.puntos[0])); ctx.lineTo(px + 0.01, py); }
+    ctx.stroke();
+  });
+}
+function pintarCalco(ctx, muestra) {
+  ctx.save(); ctx.globalAlpha = 0.28;
+  muestra.trazos.forEach(({ c, a, p }) => pintarTrazo(ctx, { color: c, grosor: a, puntos: p }, [REFLEJOS[1][0]]));
+  ctx.restore();
+}
+const pintarMuestraCompleta = (ctx, muestra) =>
+  muestra.trazos.forEach(({ c, a, p }) => pintarTrazo(ctx, { color: c, grosor: a, puntos: p, ejes: muestra.ejes }));
+
+function pintarObra(ctx) {
+  pintarFondo(ctx, false); pintarEjes(ctx, estado.ejes);
+  estado.trazos.forEach(t => pintarTrazo(ctx, t));
+}
+function redibujarTrabajo() {
+  const ctx = lienzoTrabajo.getContext("2d");
+  pintarFondo(ctx, false); pintarEjes(ctx, estado.ejes); pintarCalco(ctx, MUESTRAS[estado.muestra]);
+  estado.trazos.forEach(t => pintarTrazo(ctx, t));
+  avisarCambioLienzo();
+}
+
+/* ---------- mensajes de Mati y avisos ---------- */
+let globoTimer = 0;
+// el globo y los avisos van justo debajo de la barra de arriba, que en un celular puede ocupar dos líneas
+const bajoLaBarra = () => `${document.querySelector(".hud").getBoundingClientRect().bottom + 8}px`;
+function decirMati(html, { segundos = 0 } = {}) {
+  $("globoTexto").innerHTML = html; $("globo").style.top = bajoLaBarra(); $("globo").hidden = false;
+  clearTimeout(globoTimer);
+  if (segundos) globoTimer = setTimeout(() => { $("globo").hidden = true; }, segundos * 1000);
+}
+$("globoCerrar").onclick = () => { $("globo").hidden = true; };
+let avisoTimer = 0;
+function avisar(texto) {
+  $("aviso").textContent = texto; $("aviso").style.top = bajoLaBarra(); $("aviso").hidden = false;
+  clearTimeout(avisoTimer); avisoTimer = setTimeout(() => { $("aviso").hidden = true; }, 4500);
+}
+
+/* ---------- guardar y recuperar la obra ---------- */
+let yaAvisoGuardado = false;
+function guardarObra() {
+  const ok = guardado.guardar({ ejes: estado.ejes, muestra: estado.muestra, trazos: estado.trazos, nombre: estado.nombre, color: estado.color, grosor: estado.grosor });
+  if (!ok && !yaAvisoGuardado) { yaAvisoGuardado = true; avisar("Este navegador no deja guardar: tu obra sigue aquí, pero se perderá si cierras la página. Descárgala al terminar."); }
+}
+function recuperarObra() {
+  const previo = guardado.leer();
+  if (!previo || !Array.isArray(previo.trazos)) return false;
+  Object.assign(estado, previo, { muestra: MUESTRAS[previo.muestra] ? previo.muestra : "babilla" });
+  return estado.trazos.length > 0;
+}
+
+/* ---------- el mundo 3D o la vista ligera ---------- */
+const usarLigera = new URLSearchParams(location.search).has("ligera") || !hayWebGL();
+let mundo = null, tela = null, atril = null, mati = null, cuadrosGaleria = [], texTrabajo = null, texObra = null;
+const ENCUADRES = {
+  llegada: { mira: [0, 1.7, 0], desde: [0, 0.062, 1], ancho: 10.5, alto: 9, margen: 1.15, distanciaMax: 17 },
+  trabajo: { mira: [0, 1.74, 0.8], desde: [0.08, 0.06, 1], ancho: 2.35, alto: 1.8, margen: 1.3 },
+  obra:    { mira: [-1.2, 1.55, -2.8], desde: [0, 0.05, 1], ancho: 5.1, alto: 1.5, margen: 1.08, distanciaMax: 4.6 }
+};
+const avisarCambioLienzo = () => { if (texTrabajo) { texTrabajo.needsUpdate = true; mundo.pedirCuadro(); } };
+
+// el papel brilla un poco por sí mismo: bajo el techo de palma la sombra lo volvía gris
+const materialLamina = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.45 });
+
+function construirTaller() {
+  const { escena, caja, material } = mundo;
+  caja(9, 0.3, 7, "#a07a52", 0, 0.15, 0);
+  [[-4, -3], [4, -3], [-4, 3], [4, 3]].forEach(([x, z]) => caja(0.2, 3.2, 0.2, "#7a5a3a", x, 1.9, z));
+  const techo = new THREE.Mesh(new THREE.ConeGeometry(6.6, 2.2, 4), material("#c9a66b"));
+  techo.rotation.y = Math.PI / 4; techo.position.set(0, 4.55, 0); techo.castShadow = true; escena.add(techo);
+  const portal = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.12, 12, 48),
+    new THREE.MeshStandardMaterial({ color: ESTACION.acento, emissive: ESTACION.acento, emissiveIntensity: 0.8 }));
+  portal.position.set(4.5, 1.5, 9); portal.rotation.y = -0.5; escena.add(portal);
+
+  // bastidor: el lienzo del estudiante es la tela
+  atril = new THREE.Group(); atril.position.set(0, 0.3, 0.8); escena.add(atril);
+  caja(2.3, 1.75, 0.08, "#6b4a2e", 0, 1.55, 0, atril);
+  texTrabajo = new THREE.CanvasTexture(lienzoTrabajo); texTrabajo.colorSpace = THREE.SRGBColorSpace;
+  tela = new THREE.Mesh(new THREE.PlaneGeometry(2.14, 1.6), materialLamina(texTrabajo));
+  tela.position.set(0, 1.55, 0.045); atril.add(tela);
+  [-0.9, 0.9].forEach(x => { const pata = caja(0.08, 1.9, 0.08, "#6b4a2e", x, 0.75, -0.25, atril); pata.rotation.x = 0.18; });
+
+  // mesa con los tarros de pintura
+  caja(1.4, 0.08, 0.7, "#8a6440", 2.2, 1.05, 1.0);
+  caja(0.08, 0.9, 0.08, "#6b4a2e", 1.6, 0.6, 0.75); caja(0.08, 0.9, 0.08, "#6b4a2e", 2.8, 0.6, 0.75);
+  COLORES.slice(0, 5).forEach((c, i) => caja(0.12, 0.12, 0.12, c, 1.7 + i * 0.24, 1.15, 1.05));
+
+  // galería de espejos al fondo: la obra en el centro y dos muestras a los lados
+  caja(5.2, 2.2, 0.15, "#e8e2d4", -1.2, 1.4, -2.9);
+  texObra = new THREE.CanvasTexture(lienzoObra); texObra.colorSpace = THREE.SRGBColorSpace;
+  cuadrosGaleria = [-2.9, -1.2, 0.5].map(x => {
+    const g = new THREE.Group(); g.position.set(x, 1.55, -2.8); escena.add(g);
+    caja(1.25, 0.98, 0.05, "#6b4a2e", 0, 0, 0, g);
+    const lamina = new THREE.Mesh(new THREE.PlaneGeometry(1.12, 0.84), new THREE.MeshStandardMaterial({ color: "#d5d0c4" }));
+    lamina.position.z = 0.03; g.add(lamina);
+    return lamina;
+  });
+  cuadrosGaleria[1].material = materialLamina(texObra);
+
+  mati = figuraGuia(mundo, "3d/mati.webp", { alto: 1.75, x: -1.9, z: 1.3, piso: 0.3 });
+}
+
+function colgarMuestrasEnGaleria() {
+  const otras = Object.keys(MUESTRAS).filter(k => k !== "blanco" && k !== estado.muestra).slice(0, 2);
+  [cuadrosGaleria[0], cuadrosGaleria[2]].forEach((lamina, i) => {
+    const c = nuevoCanvas(), ctx = c.getContext("2d");
+    pintarFondo(ctx, false); pintarEjes(ctx, MUESTRAS[otras[i]].ejes); pintarMuestraCompleta(ctx, MUESTRAS[otras[i]]);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    if (lamina.material.map) lamina.material.map.dispose();
+    lamina.material = materialLamina(tex);
+  });
+}
+
+/* ---------- dibujar con el dedo o el ratón ---------- */
+const superficie = usarLigera ? lienzoTrabajo : $("mundo");
+function puntoDelLienzo(evento) {
+  let u, v;
+  if (usarLigera) {
+    const r = lienzoTrabajo.getBoundingClientRect();
+    u = (evento.clientX - r.left) / r.width; v = 1 - (evento.clientY - r.top) / r.height;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+  } else {
+    const uv = mundo.uvBajoPuntero(evento, tela);
+    if (!uv) return null;
+    u = uv.x; v = uv.y;
+  }
+  return [(u - 0.5) * ANCHO_U, (0.5 - v) * ALTO_U];
+}
+let trazoActual = null;
+superficie.addEventListener("pointerdown", e => {
+  if (estado.vista !== "trabajo") return;
+  const p = puntoDelLienzo(e); if (!p) return;
+  superficie.setPointerCapture(e.pointerId);
+  cerrarHojas(); $("globo").hidden = true;
+  trazoActual = { color: estado.color, grosor: estado.grosor, ejes: estado.ejes, puntos: [p] };
+  estado.trazos.push(trazoActual);
+  pintarTrazo(lienzoTrabajo.getContext("2d"), trazoActual); avisarCambioLienzo();
+});
+superficie.addEventListener("pointermove", e => {
+  if (!trazoActual) return;
+  const p = puntoDelLienzo(e); if (!p) return;
+  const ultimo = trazoActual.puntos[trazoActual.puntos.length - 1];
+  if (Math.hypot(p[0] - ultimo[0], p[1] - ultimo[1]) < DISTANCIA_MIN_PUNTOS) return;
+  trazoActual.puntos.push(p);
+  pintarTrazo(lienzoTrabajo.getContext("2d"), { ...trazoActual, puntos: [ultimo, p] }); avisarCambioLienzo();
+});
+const terminarTrazo = () => { if (!trazoActual) return; trazoActual = null; guardarObra(); };
+superficie.addEventListener("pointerup", terminarTrazo);
+superficie.addEventListener("pointercancel", terminarTrazo);
+
+/* ---------- herramientas ---------- */
+function marcarEjes() {
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.ejes) === estado.ejes)));
+  $("estado").textContent = estado.vista === "trabajo" ? `${MUESTRAS[estado.muestra].nombre} - ${estado.ejes} ${estado.ejes > 1 ? "ejes" : "eje"}` : $("estado").textContent;
+}
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+  estado.ejes = Number(b.dataset.ejes); marcarEjes(); redibujarTrabajo(); guardarObra();
+  const deLaMuestra = MUESTRAS[estado.muestra].ejes;
+  if (estado.muestra !== "blanco" && deLaMuestra !== estado.ejes)
+    decirMati(`Esta muestra se arma con ${deLaMuestra} ${deLaMuestra > 1 ? "ejes" : "eje"}. Prueba con ${estado.ejes} y mira qué criatura aparece.`, { segundos: 6 });
+});
+
+$("colores").innerHTML = COLORES.map(c => `<button class="color" style="background:${c}" data-color="${c}" aria-label="Color ${c}"></button>`).join("");
+function marcarColor() {
+  document.querySelectorAll(".color").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.color === estado.color)));
+  $("puntoColor").style.background = estado.color;
+  $("grosor").value = estado.grosor; $("grosorValor").textContent = estado.grosor;
+}
+$("colores").onclick = e => { const b = e.target.closest(".color"); if (!b) return; estado.color = b.dataset.color; marcarColor(); };
+$("grosor").oninput = () => { estado.grosor = Number($("grosor").value); $("grosorValor").textContent = estado.grosor; };
+
+$("muestras").innerHTML = Object.entries(MUESTRAS).map(([k, m]) => `<button data-muestra="${k}">${m.nombre}<small>${m.nota}</small></button>`).join("");
+function marcarMuestra() { document.querySelectorAll("#muestras button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.muestra === estado.muestra))); }
+$("muestras").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  estado.muestra = b.dataset.muestra;
+  if (estado.muestra !== "blanco") estado.ejes = MUESTRAS[estado.muestra].ejes;
+  marcarMuestra(); marcarEjes(); redibujarTrabajo(); guardarObra(); cerrarHojas();
+  decirMati(MUESTRAS[estado.muestra].pista, { segundos: 8 });
+};
+$("nombreObra").oninput = () => { estado.nombre = $("nombreObra").value.trim(); guardarObra(); };
+
+function alternarHoja(hoja, boton) {
+  const abrir = $(hoja).hidden; cerrarHojas();
+  $(hoja).hidden = !abrir; $(boton).setAttribute("aria-expanded", String(abrir));
+}
+function cerrarHojas() {
+  ["hojaColor", "hojaMas"].forEach(h => { $(h).hidden = true; });
+  ["btnColor", "btnMas"].forEach(b => $(b).setAttribute("aria-expanded", "false"));
+}
+$("btnColor").onclick = () => alternarHoja("hojaColor", "btnColor");
+$("btnMas").onclick = () => alternarHoja("hojaMas", "btnMas");
+$("btnDeshacer").onclick = () => {
+  if (!estado.trazos.length) { avisar("No hay trazos para deshacer."); return; }
+  estado.trazos.pop(); redibujarTrabajo(); guardarObra();
+};
+// borrar pide un segundo toque en la misma página: el visor no muestra ventanas de confirmación
+let borrarArmado = false;
+$("btnBorrar").onclick = () => {
+  if (!borrarArmado) { borrarArmado = true; $("btnBorrar").textContent = "Toca otra vez para borrar"; setTimeout(() => { borrarArmado = false; $("btnBorrar").textContent = "Borrar todo"; }, 3000); return; }
+  borrarArmado = false; $("btnBorrar").textContent = "Borrar todo";
+  estado.trazos = []; redibujarTrabajo(); guardarObra(); cerrarHojas();
+};
+
+/* ---------- vista de precisión: tocar un punto y ver sus reflejos ---------- */
+const lienzoPrecision = $("lienzoPrecision");
+let puntoP = [-120, -120];
+const cuadros = n => `${n} ${n === 1 ? "cuadro" : "cuadros"}`;
+function pintarPrecision() {
+  const ctx = lienzoPrecision.getContext("2d");
+  pintarFondo(ctx, true); pintarEjes(ctx, estado.ejes);
+  ctx.save(); ctx.globalAlpha = 0.45; estado.trazos.forEach(t => pintarTrazo(ctx, t)); ctx.restore();
+  const [x, y] = puntoP;
+  const imagenes = [...new Map(REFLEJOS[estado.ejes].map(t => t(x, y)).map(q => [q.join(","), q])).values()];
+  const dv = Math.abs(x) / CUADRO, dh = Math.abs(y) / CUADRO;
+  ctx.save(); ctx.strokeStyle = "#D9701A"; ctx.lineWidth = 4; ctx.setLineDash([8, 6]);
+  if (estado.ejes === 4 && imagenes.length > 1) {
+    const [cx, cy] = aPx(0, 0); ctx.beginPath(); ctx.arc(cx, cy, Math.hypot(x, y) * ESCALA, 0, 2 * Math.PI); ctx.stroke();
+  } else {
+    imagenes.forEach(q => { const [a, b] = aPx(x, y), [c, d] = aPx(...q); if (q[1] === y && q[0] !== x) { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); } });
+    if (estado.ejes === 2) imagenes.forEach(q => { const [a, b] = aPx(x, y), [c, d] = aPx(...q); if (q[0] === x && q[1] !== y) { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); } });
+  }
+  ctx.restore();
+  ctx.font = "700 26px Segoe UI, sans-serif"; ctx.textAlign = "center";
+  const etiqueta = (t, px, py) => { const w = ctx.measureText(t).width; ctx.fillStyle = "#FBFAF6"; ctx.fillRect(px - w / 2 - 6, py - 22, w + 12, 30); ctx.fillStyle = "#1B3A6B"; ctx.fillText(t, px, py); };
+  imagenes.forEach((q, i) => {
+    const [px, py] = aPx(...q);
+    ctx.fillStyle = i ? "#D9701A" : "#1B3A6B"; ctx.beginPath(); ctx.arc(px, py, 11, 0, 2 * Math.PI); ctx.fill();
+    etiqueta(i ? (imagenes.length === 2 ? "P'" : `P${i}`) : "P", px + (q[0] >= 0 ? 30 : -30), py - 14);
+  });
+  let texto;
+  if (imagenes.length === 1) texto = estado.ejes === 1 ? "Este punto está sobre el eje: su reflejo es él mismo." : "Este punto es el centro: está en todos los ejes y no se mueve.";
+  else if (estado.ejes === 1) texto = `P está a ${cuadros(dv)} del eje y P' también, del otro lado. Entre los dos hay ${cuadros(2 * dv)}.`;
+  else if (estado.ejes === 2) texto = `P está a ${cuadros(dv)} del eje vertical y a ${cuadros(dh)} del horizontal. Sus reflejos guardan esas mismas distancias.`;
+  else texto = `P tiene ${imagenes.length - 1} reflejos y todos quedan a la misma distancia del centro: por eso caen sobre el mismo círculo.`;
+  $("explica").textContent = texto + " Toca otro punto de la cuadrícula para medir.";
+}
+lienzoPrecision.addEventListener("pointerdown", e => {
+  const r = lienzoPrecision.getBoundingClientRect();
+  const x = ((e.clientX - r.left) / r.width - 0.5) * ANCHO_U, y = ((e.clientY - r.top) / r.height - 0.5) * ALTO_U;
+  // se ajusta al cruce más cercano de la cuadrícula para poder contar cuadros enteros
+  puntoP = [Math.round(x / CUADRO) * CUADRO, Math.round(y / CUADRO) * CUADRO];
+  pintarPrecision();
+});
+$("btnPrecision").onclick = () => { cerrarHojas(); $("globo").hidden = true; $("precision").hidden = false; $("estado").textContent = "Vista de precisión"; pintarPrecision(); };
+$("btnVolverTaller").onclick = () => { $("precision").hidden = true; marcarEjes(); };
+
+/* ---------- las tres vistas de la estación ---------- */
+function mostrarPanel(vista) {
+  estado.vista = vista;
+  // Mati recibe en la llegada; en el taller y la galería habla desde el globo para no tapar la obra
+  if (mati) mati.visible = vista === "llegada";
+  $("panelLlegada").hidden = vista !== "llegada";
+  $("panelTrabajo").hidden = vista !== "trabajo";
+  $("panelObra").hidden = vista !== "obra";
+  cerrarHojas();
+}
+function irALlegada() {
+  mostrarPanel("llegada"); $("estado").textContent = "Llegada";
+  if (mundo) mundo.irA(ENCUADRES.llegada, { instantaneo: true });
+  decirMati("<b>Mati:</b> A esta babilla le falta su reflejo. Elige uno, dos o cuatro ejes y dibuja: el espejo completa la criatura.");
+}
+async function irATrabajo({ instantaneo = false } = {}) {
+  mostrarPanel("trabajo"); marcarEjes();
+  $("ligera").hidden = !usarLigera;
+  if (mundo) { atril.visible = true; await mundo.irA(ENCUADRES.trabajo, { instantaneo }); }
+}
+async function irAObra() {
+  if (!estado.trazos.length) { decirMati("Aún no hay trazos en el bastidor. Calca la mitad marcada y mira cómo el espejo completa la criatura.", { segundos: 6 }); return; }
+  pintarObra(lienzoObra.getContext("2d"));
+  mostrarPanel("obra"); $("estado").textContent = "Galería de espejos";
+  const titulo = estado.nombre ? `"${estado.nombre}"` : "Tu obra";
+  if (mundo) {
+    // la obra sale del bastidor y pasa a la galería
+    atril.visible = false; texObra.needsUpdate = true; colgarMuestrasEnGaleria();
+    await mundo.irA(ENCUADRES.obra);
+  } else {
+    $("ligera").replaceChildren(lienzoObra);
+  }
+  decirMati(`<b>Insignia Guardián de la Simetría.</b> ${titulo} ya cuelga en la galería. Lo que hiciste de un lado, el espejo lo devolvió del otro.`);
+}
+$("btnSaltar").onclick = () => { $("globo").hidden = true; irATrabajo({ instantaneo: true }); };
+$("btnAlBastidor").onclick = async () => { $("globo").hidden = true; await irATrabajo(); decirMati(MUESTRAS[estado.muestra].pista, { segundos: 8 }); };
+$("btnTermine").onclick = irAObra;
+$("btnSeguir").onclick = () => { $("globo").hidden = true; if (usarLigera) $("ligera").replaceChildren(lienzoTrabajo); irATrabajo(); };
+
+$("btnDescargar").onclick = () => {
+  const c = document.createElement("canvas"); c.width = PX_ANCHO; c.height = PX_ALTO + 70;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(lienzoObra, 0, 0);
+  ctx.fillStyle = "#1B3A6B"; ctx.fillRect(0, PX_ALTO, PX_ANCHO, 70);
+  ctx.fillStyle = "#fff"; ctx.font = "700 28px Georgia, serif"; ctx.textBaseline = "middle";
+  ctx.fillText(`${estado.nombre || "Mi obra"} - Espejos Vivos - LIVIMA`, 24, PX_ALTO + 35);
+  c.toBlob(blob => {
+    const enlace = document.createElement("a");
+    enlace.href = URL.createObjectURL(blob);
+    enlace.download = `espejos-vivos-${(estado.nombre || "mi-obra").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, "-")}.png`;
+    document.body.appendChild(enlace); enlace.click(); enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(enlace.href), 4000);
+  });
+};
+
+/* ---------- arranque ---------- */
+const hayObraPrevia = recuperarObra();
+$("nombreObra").value = estado.nombre;
+marcarColor(); marcarMuestra(); redibujarTrabajo();
+if (usarLigera) {
+  $("mundo").hidden = true; $("ligera").append(lienzoTrabajo); $("enlaceLigera").hidden = true;
+  if (!hayWebGL()) avisar("Este equipo no pudo abrir el 3D: estás en la vista ligera, con las mismas herramientas.");
+  irATrabajo();
+  decirMati(hayObraPrevia ? "Aquí está tu obra, tal como la dejaste." : MUESTRAS[estado.muestra].pista, { segundos: 8 });
+} else {
+  mundo = crearMundo($("mundo"));
+  construirOrilla(mundo);
+  construirTaller();
+  avisarCambioLienzo();
+  if (hayObraPrevia) { irATrabajo({ instantaneo: true }); decirMati("Aquí está tu obra, tal como la dejaste.", { segundos: 6 }); }
+  else irALlegada();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && mundo) mundo.pedirCuadro(); });
+window.__listo = true;
+</script>
+</body>
+</html>
