@@ -151,12 +151,12 @@ const NAVY = "#1B3A6B", TEAL = "#1F8A8A", GREEN = "#4A9B2E", ORANGE = "#D9701A",
 
 /* ---------- los 8 hallazgos y sus pruebas: las mismas del simulador clásico ---------- */
 function drawHoja(g){
-  g.fillStyle="#7FB95C"; g.strokeStyle="#3F7A22"; g.lineWidth=4;
+  g.fillStyle="#3E8E22"; g.strokeStyle="#1F5410"; g.lineWidth=5;
   g.beginPath(); g.moveTo(210,66);
   g.bezierCurveTo(292,112, 300,224, 210,352);
   g.bezierCurveTo(120,224, 128,112, 210,66);
   g.closePath(); g.fill(); g.stroke();
-  g.strokeStyle="#3F7A22"; g.lineWidth=3;
+  g.strokeStyle="#CFE8B8"; g.lineWidth=3;
   g.beginPath(); g.moveTo(210,78); g.lineTo(210,340); g.stroke();
   g.lineWidth=2;
   [130,175,220,265].forEach((y,i)=>{
@@ -166,10 +166,10 @@ function drawHoja(g){
   });
 }
 function drawMariposa(g){
-  g.fillStyle=PURPLE; g.globalAlpha=0.82;
+  g.fillStyle=PURPLE; g.globalAlpha=1;
   g.beginPath(); g.ellipse(146,166,54,44,-0.5,0,TAU); g.fill();
   g.beginPath(); g.ellipse(274,166,54,44,0.5,0,TAU); g.fill();
-  g.fillStyle=ORANGE;
+  g.fillStyle="#C25E10";
   g.beginPath(); g.ellipse(158,254,38,32,0.35,0,TAU); g.fill();
   g.beginPath(); g.ellipse(262,254,38,32,-0.35,0,TAU); g.fill();
   g.globalAlpha=1;
@@ -186,37 +186,38 @@ function drawMariposa(g){
 function drawFlor(g){
   for(let k=0;k<5;k++){
     g.save(); g.translate(210,210); g.rotate(k*72*D2R);
-    g.fillStyle=PURPLE; g.globalAlpha=0.8;
+    g.fillStyle="#5A2D91"; g.globalAlpha=1;
     g.beginPath(); g.ellipse(0,-78,30,64,0,0,TAU); g.fill();
+    g.strokeStyle="#3B1A66"; g.lineWidth=3; g.stroke();
     g.globalAlpha=1; g.restore();
   }
-  g.fillStyle="#E8B71A"; g.beginPath(); g.arc(210,210,30,0,TAU); g.fill();
-  g.strokeStyle="#B98E0D"; g.lineWidth=3; g.stroke();
+  g.fillStyle="#E0A800"; g.beginPath(); g.arc(210,210,30,0,TAU); g.fill();
+  g.strokeStyle="#8A6500"; g.lineWidth=4; g.stroke();
 }
 function drawReja(g){
-  g.strokeStyle=ORANGE; g.lineWidth=7;
+  g.strokeStyle="#C25E10"; g.lineWidth=9;
   g.strokeRect(76,122,268,176);
-  g.strokeStyle=NAVY; g.lineWidth=4;
+  g.strokeStyle=NAVY; g.lineWidth=6;
   [116,163,210,257,304].forEach(x=>{ g.beginPath(); g.moveTo(x,132); g.lineTo(x,288); g.stroke(); });
   g.beginPath(); g.moveTo(86,210); g.lineTo(334,210); g.stroke();
   g.fillStyle=TEAL;
-  [116,163,210,257,304].forEach(x=>{ g.beginPath(); g.arc(x,210,6,0,TAU); g.fill(); });
+  [116,163,210,257,304].forEach(x=>{ g.beginPath(); g.arc(x,210,8,0,TAU); g.fill(); });
 }
 function drawTri(g){
-  g.fillStyle="#D9EEED"; g.strokeStyle=TEAL; g.lineWidth=6;
+  g.fillStyle="#2FA3A0"; g.strokeStyle="#0E5555"; g.lineWidth=7;
   g.beginPath(); g.moveTo(210,84); g.lineTo(319,273); g.lineTo(101,273); g.closePath();
   g.fill(); g.stroke();
-  g.fillStyle=TEAL; g.beginPath(); g.arc(210,210,7,0,TAU); g.fill();
+  g.fillStyle="#0E5555"; g.beginPath(); g.arc(210,210,8,0,TAU); g.fill();
 }
 function drawCua(g){
-  g.fillStyle="#DCE4F0"; g.strokeStyle=NAVY; g.lineWidth=6;
-  g.strokeRect(112,112,196,196); g.fillRect(112,112,196,196);
-  g.strokeStyle=TEAL; g.lineWidth=4;
+  g.fillStyle="#4F78BE"; g.strokeStyle=NAVY; g.lineWidth=7;
+  g.fillRect(112,112,196,196); g.strokeRect(112,112,196,196);
+  g.strokeStyle="#F5F1E4"; g.lineWidth=5;
   g.beginPath(); g.moveTo(210,112); g.lineTo(308,210); g.lineTo(210,308); g.lineTo(112,210); g.closePath(); g.stroke();
 }
 function drawCopo(g){
   // copo de nieve: 6 brazos con ramitas y un hexágono al centro (6 ejes, calza cada 60°)
-  const C=210, arms=[], OUT="#5E8FCB", FILL="#A9CDF5", HI="#DCEBFC";
+  const C=210, arms=[], OUT="#123F7A", FILL="#2F6FC0", HI="#9CC4F0";
   for(let k=0;k<6;k++){
     const a=(-90+k*60)*D2R, ux=Math.cos(a), uy=Math.sin(a);
     const seg=[[C+ux*36,C+uy*36,C+ux*150,C+uy*150]];
@@ -242,8 +243,8 @@ function drawRemo(g){
     g.closePath(); };
   for(let k=0;k<4;k++){
     g.save(); g.translate(210,210); g.rotate(k*90*D2R);
-    blade(); g.fillStyle="#9B6AD6"; g.fill();
-    g.lineWidth=7; g.lineJoin="round"; g.strokeStyle="#6B3FA0"; g.stroke();
+    blade(); g.fillStyle="#6A35B5"; g.fill();
+    g.lineWidth=7; g.lineJoin="round"; g.strokeStyle="#3B1A66"; g.stroke();
     g.beginPath(); g.moveTo(8,-32); g.bezierCurveTo(58,-44, 82,-90, 58,-128);
     g.lineWidth=5; g.lineCap="round"; g.strokeStyle="rgba(255,255,255,0.45)"; g.stroke();
     g.restore();
@@ -358,7 +359,8 @@ function pintarMesa() {
     g.save(); g.globalAlpha = 0.45; g.translate(cx, cy); g.transform(c2, s2, s2, -c2, 0, 0); g.translate(-cx, -cy);
     g.drawImage(fig, ORIGEN_FIG, ORIGEN_FIG, TAM_FIG, TAM_FIG); g.restore();
     const eje = ejeQueCalza(f, v, mesa.correr);
-    lineaDeEje(g, v, eje !== undefined ? GREEN : NAVY, 3, eje !== undefined ? null : [9, 7], mesa.correr);
+    // el eje es una línea delgada de guiones; al calzar se vuelve verde y un poco más marcada
+    lineaDeEje(g, v, eje !== undefined ? GREEN : NAVY, eje !== undefined ? 9 : 7, eje !== undefined ? [24, 12] : [22, 13], mesa.correr);
     return { eje, anguloBien: cercaDeEje(f, v) !== undefined };
   }
   g.save(); g.globalAlpha = 0.32; g.drawImage(fig, ORIGEN_FIG, ORIGEN_FIG, TAM_FIG, TAM_FIG); g.restore();
@@ -649,7 +651,7 @@ function texturaPaja() {
 function mesaDelDetective() {
   const { M, malla, escena } = mundo, y0 = ALTO_PISO_PARADA, madera = M("#7A5230");
   const g = new THREE.Group(); g.position.set(MESA.x, y0, MESA.z); escena.add(g);
-  malla(new THREE.CylinderGeometry(0.78, 0.78, 0.06, 32), madera, 0, MESA.alto, 0, g);
+  malla(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 40), madera, 0, MESA.alto, 0, g);   // un borde delgado: la tornamesa ocupa casi toda la mesa
   malla(new THREE.CylinderGeometry(0.09, 0.12, MESA.alto - 0.05, 10), M("#5c3d22"), 0, (MESA.alto - 0.05) / 2, 0, g);
   malla(new THREE.CylinderGeometry(0.42, 0.48, 0.06, 20), M("#5c3d22"), 0, 0.03, 0, g);
   const arriba = MESA.alto + 0.03;
@@ -681,7 +683,8 @@ function moverPiezasDeLaMesa() {
   if (!piezasMesa) return;
   const { aro, espejo, marco, marcoApagado, marcoCalza } = piezasMesa;
   const hayFigura = mesa.fig !== null && mesa.llevando === null;
-  espejo.visible = hayFigura && mesa.prueba === "espejo";
+  // vista desde arriba, el espejo de pie taparía el eje: queda solo la línea de guiones dibujada en el papel
+  espejo.visible = hayFigura && mesa.prueba === "espejo" && vista !== "mesa";
   const t = mesa.angulo * D2R;
   if (mesa.prueba === "espejo") {
     // en el lienzo, x va a la derecha y y hacia el estudiante: así se pasa a la mesa
@@ -825,6 +828,7 @@ function mostrarPanel(nueva) {
   vista = nueva;
   verTecho(nueva !== "mesa");
   vistaDeMesa(nueva === "mesa");
+  moverPiezasDeLaMesa();
   if (recorrido && nueva !== "recorrido") recorrido.desactivar();
   if (R_MATI && nueva !== "recorrido") R_MATI.raiz.visible = false;
   $("panelMesa").hidden = nueva !== "mesa";
@@ -850,7 +854,7 @@ function encuadrarMesa(ms = 900) {
     : { x0: 0, x1: innerWidth, y0: arriba, y1: Math.max(arriba + innerHeight * 0.25, panel.top - 12) };
   const tanMedio = Math.tan(THREE.MathUtils.degToRad(mundo.camara.fov / 2)), aspecto = innerWidth / innerHeight;
   const fraccionAncho = (libre.x1 - libre.x0) / innerWidth, fraccionAlto = (libre.y1 - libre.y0) / innerHeight;
-  const TAM = (MESA.radioTornamesa + 0.2) * 2;
+  const TAM = (MESA.radioTornamesa + 0.11) * 2;
   const distancia = Math.min(DISTANCIA_MAX_MESA, Math.max(0.9, TAM / (fraccionAlto * 2 * tanMedio), TAM / (fraccionAncho * 2 * tanMedio * aspecto)));
   // la cámara se corre para que la tornamesa quede en el centro del rectángulo libre (arriba de la pantalla es el fondo de la mesa)
   const nx = ((libre.x0 + libre.x1) / innerWidth) - 1, ny = 1 - ((libre.y0 + libre.y1) / innerHeight);
@@ -971,7 +975,7 @@ if (usarLigera) {
     circulos: [
       ...troncos,
       ...postes.map(p => [p.x, p.z, 0.3]),
-      [MESA.x, MESA.z, 0.85],
+      [MESA.x, MESA.z, 0.68],
       ...POS_PEDESTALES.map(p => [p.x, p.z, 0.3]),
       ...POS_CESTAS.map(p => [p.x, p.z, 0.42]),
       [PORTAL.x, PORTAL.z, 0.8], [MOLINO.x, MOLINO.z, 2.2 * MOLINO.escala],
