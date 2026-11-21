@@ -99,16 +99,42 @@
   .todas{display:none}
   body.plano .todas .pagina{position:relative;inset:auto;height:auto;min-height:0;container-type:normal;font-size:16px;margin-bottom:18px;box-shadow:0 4px 14px rgba(60,40,10,.15);border-radius:4px}
   body.plano .portada{height:auto;min-height:640px}
+  /* impreso: las páginas del libro corren seguidas, sin una hoja por página, para ahorrar papel */
   @media print{
-    @page{margin:14mm}
+    @page{size:letter;margin:12mm 14mm}
     html,body{overflow:visible!important;height:auto;background:#fff!important}
     #mundo,#velo,.volver,.mandos,.cara,.hoja{display:none!important}
-    #libro{position:static!important;display:block!important;opacity:1!important;width:auto!important;height:auto!important;perspective:none}
+    #libro{position:static!important;display:block!important;opacity:1!important;width:auto!important;height:auto!important;perspective:none;margin:0!important;padding:0!important;max-width:none!important}
     .todas{display:block!important}
-    .todas .pagina{position:relative;inset:auto;height:auto;overflow:visible;container-type:normal;font-size:11.5pt;padding:0;box-shadow:none;break-after:page;background:#fff}
-    .todas .pagina:last-child{break-after:auto}
-    .portada{height:250mm}
+    .todas .pagina{position:static;inset:auto;height:auto;overflow:visible;container-type:normal;font-size:9.6pt;line-height:1.32;padding:0;margin:0 0 3.5mm;box-shadow:none!important;border-radius:0;break-after:auto;background:#fff}
+    .todas .pagina h1{font-size:22pt}
+    .todas .pagina h2{font-size:13pt;margin:0 0 1.5mm;break-after:avoid}
+    .todas .pagina h2 .num{width:1.5em;height:1.5em}
+    .todas .pagina p{margin:1.2mm 0}
+    .todas .pagina .sub{margin-top:-1mm}
+    .etiqueta{margin-top:2mm}
+    .campo{margin:1mm 0;gap:1mm 6mm}
+    .pagina input[type=text]{min-height:0;padding:.5mm .3em;background:transparent}
+    table{margin-top:1.5mm;font-size:9pt}
+    th,td{padding:.8mm 2mm}
     th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .caja{margin-top:2mm;padding:2mm 3mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .caja.lista label{margin:.8mm 0}
+    .pasos{margin:1mm 0}
+    .pasos li{margin-bottom:1mm}
+    table,.caja,.cartela,.boceto,.mati-final,.campo{break-inside:avoid}
+    .boceto{min-height:42mm;margin-top:1mm;color:transparent}   /* en papel el recuadro queda limpio para dibujar */
+    .cartela{margin-top:2mm;padding:2mm 3mm;display:grid;grid-template-columns:1fr 1fr;gap:1mm 6mm}
+    .cartela label{margin:0}
+    /* la portada se vuelve una franja de título, con Mati a un lado */
+    .portada{display:grid;grid-template-columns:1fr auto;grid-template-areas:"grado img" "titulo img" "pie img";align-items:center;text-align:left;
+      height:auto!important;min-height:0!important;gap:1mm 6mm;padding-bottom:3mm;border-bottom:2px solid var(--verde)}
+    .portada .grado{grid-area:grado;justify-self:start;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .portada > div{grid-area:titulo}
+    .portada img{grid-area:img;max-height:30mm;max-width:none;width:auto}
+    .portada h1{margin:0}
+    .portada .pie{grid-area:pie;font-size:8.5pt}
+    .mati-final img{width:12mm}
     .pagina.sigue::after{display:none}
   }
 </style>
