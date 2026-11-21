@@ -1771,6 +1771,16 @@ function loop(now){
 }
 renderAlbum(); renderMap();
 requestAnimationFrame(loop);
+// llegada desde el portal del juego de la estación 3D: el estudiante ya escribió allá su nombre y su grupo
+(function(){
+  let entrada = null;
+  try{ entrada = JSON.parse(sessionStorage.getItem("livima_entrada") || "null"); }
+  catch(e){ console.warn("LIVIMA: no se pudo leer la llegada desde la estación 3D", e); }
+  if(!entrada || entrada.destino !== "juego") return;
+  sessionStorage.removeItem("livima_entrada");
+  $("eRegName").value = entrada.nombre || ""; $("eRegGroup").value = entrada.grupo || "";
+  if(!validPlayer(entrada.nombre, entrada.grupo)) register();
+})();
 
 window.ESPEJOS = {
   pauseIfPlaying(){ if(G && (G.state==="play"||G.state==="count")) togglePause(); },
@@ -2157,6 +2167,15 @@ document.querySelectorAll(".axbtn").forEach(function(b){
   if(document.readyState !== 'loading') go(); else document.addEventListener('DOMContentLoaded', go);
   window.addEventListener('load', go);
   window.addEventListener('hashchange', go);
+})();
+// llegada desde el atril de la estación 3D con "Descargar en PDF": se abre la guía y la ventana de imprimir, donde se elige Guardar como PDF
+(function(){
+  var entrada = null;
+  try{ entrada = JSON.parse(sessionStorage.getItem('livima_entrada') || 'null'); }
+  catch(e){ console.warn('LIVIMA: no se pudo leer la llegada desde la estación 3D', e); }
+  if(!entrada || entrada.destino !== 'guia-pdf') return;
+  sessionStorage.removeItem('livima_entrada');
+  window.addEventListener('load', function(){ showTab('guia'); setTimeout(function(){ window.print(); }, 700); });
 })();
 </script>
 </body>
