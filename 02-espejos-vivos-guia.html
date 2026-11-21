@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guía de Espejos Vivos, LIVIMA</title>
+<meta name="theme-color" content="#1B3A6B">
+<script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
+<style>
+  :root{
+    --marino:#1B3A6B; --verde:#4A9B2E; --verde-hondo:#2F6E1C; --naranja:#D9701A; --morado:#6B3FA0;
+    --papel:#FBF6EA; --tinta:#1d2733; --gris:#5B6573; --linea:#E4DCC8;
+    --serif:Georgia,"Times New Roman",serif; --sans:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0;height:100%;overflow:hidden;background:#bcd8ec;color:var(--tinta);font:16px/1.5 var(--sans)}
+  button,input{font:inherit}
+  #mundo{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #velo{position:fixed;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;pointer-events:none;z-index:80;opacity:0;transform:scale(.05);
+    background:radial-gradient(circle,#fff 0%,#FBF6EA 40%,#1B3A6B 76%);transition:opacity .5s ease,transform .75s cubic-bezier(.5,0,.75,0)}
+  #velo.on{opacity:1;transform:scale(1.6)}
+  @media (prefers-reduced-motion: reduce){ #velo{transition:opacity .3s ease} }
+
+  .volver{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:20;
+    text-decoration:none;color:var(--marino);background:#ffffffe6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600;min-height:40px;display:inline-flex;align-items:center}
+  .mandos{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:20;
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;width:min(640px,calc(100vw - 24px))}
+  .btn{min-height:44px;background:#fff;color:var(--marino);border:1.5px solid var(--marino);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer}
+  .btn.principal{background:var(--naranja);border-color:var(--naranja);color:#fff}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn:focus-visible,.volver:focus-visible{outline:3px solid var(--naranja);outline-offset:2px}
+  .folio{background:#ffffffe6;color:var(--marino);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;min-width:118px;text-align:center}
+
+  /* el libro: dos páginas en el computador, una en el celular. La escena 3D se arma a su medida */
+  #libro{position:fixed;z-index:10;display:flex;perspective:2200px;opacity:0;transition:opacity .45s ease}
+  #libro.abierto{opacity:1}
+  .cara{position:relative;flex:1;min-width:0;height:100%}
+  .pagina{position:absolute;inset:0;overflow:auto;background:var(--papel);padding:5.5% 7% 6%;
+    container-type:size;font-size:clamp(12px,3.35cqw,16px);line-height:1.5}
+  /* si el texto no cabe, la página lo dice al pie y se desliza */
+  .pagina.sigue::after{content:"Desliza para ver más";position:sticky;bottom:-6%;display:block;margin:0 -8% -7%;padding:1.6em 0 .6em;text-align:center;
+    font-size:.8em;font-weight:600;color:var(--gris);background:linear-gradient(rgba(251,246,234,0),var(--papel) 55%)}
+  .pagina.vacia{background:var(--papel)}
+  /* sombra del lomo: la página de la izquierda se oscurece hacia la derecha y la otra al revés */
+  .cara.izq .pagina{box-shadow:inset -22px 0 26px -18px rgba(60,40,10,.35)}
+  .cara.der .pagina{box-shadow:inset 22px 0 26px -18px rgba(60,40,10,.35)}
+  .solo .cara.der .pagina{box-shadow:inset 10px 0 16px -12px rgba(60,40,10,.3)}
+  .hoja{position:absolute;top:0;bottom:0;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.45,.05,.3,1);z-index:3;pointer-events:none}
+  .hoja .pagina{backface-visibility:hidden}
+  .hoja .pagina.reverso{transform:rotateY(180deg)}
+  @media (prefers-reduced-motion: reduce){ .hoja{transition:none} }
+
+  /* contenido de la guía: el papel de las guías LIVIMA */
+  .pagina h1{font:700 2.1em/1.1 var(--serif);color:var(--marino);margin:0 0 .3em;text-wrap:balance}
+  .pagina h2{font:700 1.35em/1.2 var(--serif);color:var(--marino);margin:0 0 .5em;text-wrap:balance;display:flex;gap:.5em;align-items:baseline}
+  .pagina h2 .num{flex:none;display:inline-grid;place-items:center;width:1.6em;height:1.6em;border-radius:50%;background:var(--verde);color:#fff;font:700 .8em var(--sans)}
+  .pagina p{margin:.5em 0}
+  .pagina .sub{color:var(--gris);margin-top:-.3em}
+  .etiqueta{font-weight:700;color:var(--marino);margin-top:.9em}
+  .campo{display:flex;flex-wrap:wrap;gap:.5em 1.4em;margin:.6em 0}
+  .campo label{font-weight:700;color:var(--marino);display:flex;align-items:center;gap:.4em;flex:1 1 12em;font-size:.95em}
+  .pagina input[type=text]{flex:1;min-width:3.5em;border:none;border-bottom:1.5px dotted #a9b2bb;background:rgba(74,155,46,.05);padding:.25em .3em;font-size:1em;color:var(--tinta);min-height:32px}
+  .pagina input[type=text]:focus{outline:none;border-bottom-color:var(--verde);background:rgba(74,155,46,.12)}
+  table{width:100%;border-collapse:collapse;font-size:.92em;margin-top:.6em}
+  th{background:var(--verde);color:#fff;text-align:left;padding:.45em .55em;font-size:.92em}
+  td{padding:.4em .55em;border-bottom:1px solid var(--linea);vertical-align:top}
+  td input[type=text]{width:100%}
+  .caja{border-radius:10px;padding:.8em 1em;margin-top:.9em;font-size:.95em}
+  .caja.mati{border:1.5px solid var(--naranja);background:#FBE9D7;color:#5a3712}
+  .caja.mati b{color:var(--naranja)}
+  .caja.lista{border:1.5px solid var(--verde);background:#EEF6E7}
+  .caja.lista b{color:var(--verde-hondo);display:block;margin-bottom:.3em}
+  .caja.lista label{display:flex;gap:.5em;align-items:flex-start;margin:.35em 0;cursor:pointer}
+  .caja.lista input{width:1.1em;height:1.1em;margin-top:.2em;accent-color:var(--verde);flex:none}
+  .caja.reto{border-left:5px solid var(--naranja);background:#FDF3E8;border-radius:0 10px 10px 0}
+  .caja.reto b{color:var(--naranja)}
+  .pasos{padding-left:1.3em;margin:.5em 0}
+  .pasos li{margin-bottom:.45em}
+  .boceto{border:1.5px dashed #a9b2bb;border-radius:10px;min-height:9em;background:#fff8;display:grid;place-items:center;color:#a9b2bb;font-size:.9em;margin-top:.4em}
+  .cartela{border:1.5px solid var(--morado);border-radius:10px;padding:.7em .9em;margin-top:.8em}
+  .cartela label{display:flex;flex-direction:column;font-weight:700;color:var(--morado);font-size:.9em;margin-bottom:.5em}
+  .cartela input[type=text]{border-bottom-color:#c8b4e0;background:transparent}
+  .portada{display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;height:100%;gap:.6em}
+  .portada .grado{font:800 1em var(--sans);color:#fff;background:var(--verde);border-radius:999px;padding:.2em .9em}
+  .portada h1{font-size:2.6em;margin:.1em 0 0}
+  .portada .lema{font:italic 600 1.15em var(--serif);color:var(--verde-hondo)}
+  .portada img{flex:1;min-height:0;max-height:52%;width:auto;max-width:70%;object-fit:contain}
+  .portada .pie{font-size:.85em;color:var(--gris)}
+  .mati-final{display:flex;gap:.9em;align-items:center;margin-top:1em}
+  .mati-final img{width:4.5em;height:auto;flex:none}
+  .mati-final b{font-family:var(--serif);color:var(--morado);display:block}
+
+  /* vista sin 3D y para imprimir: todas las páginas, una debajo de otra */
+  body.plano{overflow:auto;background:#e9e3d2}
+  body.plano #libro{position:static;display:block;opacity:1;perspective:none;max-width:720px;margin:70px auto 100px;padding:0 12px}
+  body.plano .cara, body.plano .hoja{display:none}
+  body.plano .todas{display:block}
+  .todas{display:none}
+  body.plano .todas .pagina{position:relative;inset:auto;height:auto;min-height:0;container-type:normal;font-size:16px;margin-bottom:18px;box-shadow:0 4px 14px rgba(60,40,10,.15);border-radius:4px}
+  body.plano .portada{height:auto;min-height:640px}
+  @media print{
+    @page{margin:14mm}
+    html,body{overflow:visible!important;height:auto;background:#fff!important}
+    #mundo,#velo,.volver,.mandos,.cara,.hoja{display:none!important}
+    #libro{position:static!important;display:block!important;opacity:1!important;width:auto!important;height:auto!important;perspective:none}
+    .todas{display:block!important}
+    .todas .pagina{position:relative;inset:auto;height:auto;overflow:visible;container-type:normal;font-size:11.5pt;padding:0;box-shadow:none;break-after:page;background:#fff}
+    .todas .pagina:last-child{break-after:auto}
+    .portada{height:250mm}
+    th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .pagina.sigue::after{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="velo" class="on" aria-hidden="true"></div>
+<canvas id="mundo" aria-label="Atril de la guía a la orilla del río Sinú"></canvas>
+<a class="volver" id="volver" href="02-espejos-vivos-3d.html?desde=guia">Volver al taller</a>
+
+<div id="libro" aria-label="Guía del taller Espejos Vivos">
+  <div class="cara izq" id="caraIzq"></div>
+  <div class="cara der" id="caraDer"></div>
+  <div class="todas" id="todas"></div>
+</div>
+
+<nav class="mandos" aria-label="Pasar páginas">
+  <button class="btn" id="atras">Página anterior</button>
+  <span class="folio" id="folio" aria-live="polite"></span>
+  <button class="btn" id="adelante">Página siguiente</button>
+  <button class="btn principal" id="pdf">Guardar en PDF</button>
+</nav>
+
+<!-- las páginas de la guía: el mismo contenido del taller, una idea por página -->
+<template id="paginas">
+  <article class="pagina"><div class="portada">
+    <span class="grado">6° - Parada 2 de la expedición</span>
+    <div><h1>Espejos Vivos</h1><div class="lema">Guía del taller: el lienzo del espejo</div></div>
+    <img src="3d/mati.webp" alt="Mati, el que observa, con su lupa">
+    <div class="pie">LIVIMA - Laboratorios Vivos de Matemática y Arte<br>Institución Educativa Juan XXIII, Montería</div>
+  </div></article>
+
+  <article class="pagina">
+    <h2>Ficha de la pareja de espejos</h2>
+    <p class="sub">Una misión de reflejos, en parejas de exploradores.</p>
+    <div class="campo"><label>Explorador 1: <input type="text"></label></div>
+    <div class="campo"><label>Explorador 2: <input type="text"></label></div>
+    <div class="campo"><label>Fecha: <input type="text"></label></div>
+    <p class="etiqueta">Materiales de la expedición</p>
+    <p>Un pliego de papel por pareja (bond, cartulina o craft); un espejo pequeño o una superficie que refleje (una mica, un CD, la pantalla apagada del celular); colores o marcadores, lápiz y regla; y esta guía, como cuaderno de campo de la pareja.</p>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">1</span>Observo, el mundo se mira al espejo</h2>
+    <p>Busquen simetrías a su alrededor: una hoja, una mariposa, una letra, su propia cara. Usen el test del espejo: apoyen el espejito de pie sobre la mitad de un dibujo u objeto. Si el reflejo completa la figura igualita a la original, esa figura es simétrica.</p>
+    <table>
+      <tr><th>Objeto que observo</th><th>¿Tiene eje de simetría?</th><th>¿Cuántos?</th></tr>
+      <tr><td><i>Una mariposa</i></td><td><i>Sí</i></td><td><i>1</i></td></tr>
+      <tr><td><input type="text" aria-label="Objeto 1"></td><td><input type="text" aria-label="Tiene eje, objeto 1"></td><td><input type="text" aria-label="Cuántos ejes, objeto 1"></td></tr>
+      <tr><td><input type="text" aria-label="Objeto 2"></td><td><input type="text" aria-label="Tiene eje, objeto 2"></td><td><input type="text" aria-label="Cuántos ejes, objeto 2"></td></tr>
+      <tr><td><input type="text" aria-label="Objeto 3"></td><td><input type="text" aria-label="Tiene eje, objeto 3"></td><td><input type="text" aria-label="Cuántos ejes, objeto 3"></td></tr>
+      <tr><td><input type="text" aria-label="Objeto 4"></td><td><input type="text" aria-label="Tiene eje, objeto 4"></td><td><input type="text" aria-label="Cuántos ejes, objeto 4"></td></tr>
+    </table>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">2</span>Investigo, encuentro el eje</h2>
+    <p>El eje de simetría es la línea por donde se puede doblar una figura para que las dos mitades coincidan exactamente. Algunas figuras tienen un eje, otras varios, y otras ninguno.</p>
+    <div class="caja mati"><b>Mati, el que observa:</b> prueba doblando papel: recorta media figura sobre el doblez (medio corazón, media mariposa) y ábrela. El doblez es el eje, y la figura sale simétrica sola. Esa es la magia que van a usar en la obra.</div>
+    <p class="etiqueta">Investiguen cuántos ejes tienen estas figuras:</p>
+    <div class="campo"><label>Cuadrado: <input type="text"></label><label>Rectángulo: <input type="text"></label></div>
+    <div class="campo"><label>Triángulo equilátero: <input type="text"></label><label>Círculo: <input type="text"></label></div>
+    <div class="campo"><label>Letra A: <input type="text"></label><label>Letra R: <input type="text"></label></div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">3</span>Descubro la matemática, la simetría axial</h2>
+    <p>Lo que estuvieron explorando tiene nombre: <b>simetría axial</b> (o simetría de reflexión). Una figura la tiene cuando un eje la divide en dos mitades iguales, y cada punto de un lado tiene su reflejo al otro lado, a la misma distancia del eje.</p>
+    <table>
+      <tr><th>Figura</th><th>Ejes de simetría</th></tr>
+      <tr><td>Rectángulo</td><td>2</td></tr>
+      <tr><td>Triángulo equilátero</td><td>3</td></tr>
+      <tr><td>Cuadrado</td><td>4</td></tr>
+      <tr><td>Círculo</td><td>infinitos</td></tr>
+    </table>
+    <div class="caja mati"><b>Una pista de detective:</b> no todo es simétrico, y eso está bien. La letra R no tiene ningún eje. Tu cara parece simétrica, pero si la divides por la mitad con un espejo verás que las dos mitades no son idénticas: la naturaleza casi siempre se acerca a la simetría, sin llegar a la perfección. Para practicar, crucen el portal del juego, al lado del taller: en Criaturas del espejo completan reflejos con eje vertical, horizontal, doble y diagonal.</div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">4</span>Creo, nuestro ser simétrico</h2>
+    <p class="sub">Fase 4, lo que va a ExpoLIVIMA</p>
+    <p><b>Esta es la fase que de verdad importa para la muestra:</b> la obra final no va en esta hoja, va en un pliego grande para la galería. En parejas, creen un ser simétrico (una criatura, un mandala o un autorretrato) usando el eje.</p>
+    <p class="etiqueta">Dos técnicas para lograrlo</p>
+    <ol class="pasos">
+      <li><b>Doblez y pintura:</b> doblen el pliego, pinten con bastante color una sola mitad, vuelvan a doblar y aprieten. Al abrir, el reflejo aparece solo.</li>
+      <li><b>Mitad y mitad:</b> marquen el eje con el doblez. Uno dibuja una mitad y el otro la copia reflejada al otro lado, punto por punto.</li>
+    </ol>
+  </article>
+
+  <article class="pagina">
+    <h2>Nuestro ser simétrico</h2>
+    <p class="etiqueta">Boceto pequeño (marca el eje)</p>
+    <div class="boceto">Dibuja aquí en la hoja impresa</div>
+    <div class="cartela">
+      <label>Nombre del ser: <input type="text"></label>
+      <label>Autores: <input type="text"></label>
+      <label>Número de ejes: <input type="text"></label>
+      <label>Técnica usada: <input type="text"></label>
+    </div>
+    <div class="caja lista"><b>Lista antes de llevarlo a ExpoLIVIMA</b>
+      <label><input type="checkbox"> El eje está bien marcado y las dos mitades coinciden</label>
+      <label><input type="checkbox"> La cartela está completa junto al pliego</label>
+      <label><input type="checkbox"> El pliego resiste colgarse sin dañarse</label>
+      <label><input type="checkbox"> Sabemos responder: ¿cuántos ejes tiene nuestro ser? ¿Dónde encontramos simetría escondida en el colegio?</label>
+    </div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">5</span>Socializo, la galería de espejos</h2>
+    <p class="sub">Rumbo a la ExpoLIVIMA</p>
+    <p>Cuelguen todos los seres simétricos uno al lado del otro. El salón entero se vuelve una galería de espejos. Caminen, observen y conversen.</p>
+    <div class="caja mati"><b>La pregunta del Guardián:</b> ¿existe la simetría perfecta en la naturaleza, o solo nos acercamos a ella? Miren su propio rostro con el espejo sobre la nariz: ¿las dos mitades son idénticas? Casi siempre hay pequeñas diferencias. La simetría es una tendencia hermosa, no una ley exacta, y las excepciones también tienen su belleza.</div>
+    <div class="mati-final"><img src="3d/mati.webp" alt="Mati"><div><b>Mati, el que observa</b>Su mejor ser simétrico viaja a la galería del Observatorio LIVIMA. Entre todas las parejas vamos a armar la gran Galería de Espejos Vivos para la ExpoLIVIMA de fin de año.</div></div>
+  </article>
+
+  <article class="pagina">
+    <h2>Cómo revisamos nuestro trabajo</h2>
+    <table>
+      <tr><th>Criterio</th><th>Aún no</th><th>En proceso</th><th>Logrado</th></tr>
+      <tr><td><b>Observo simetría</b></td><td>No la reconozco</td><td>La reconozco con ayuda</td><td>Encuentro simetría y la pruebo con el espejo</td></tr>
+      <tr><td><b>Encuentro el eje</b></td><td>No ubico el eje</td><td>Ubico uno con ayuda</td><td>Cuento bien los ejes de varias figuras</td></tr>
+      <tr><td><b>Simetría axial (la obra)</b></td><td>Las mitades no coinciden</td><td>Coinciden a medias</td><td>Las dos mitades se reflejan con precisión</td></tr>
+      <tr><td><b>Mirada crítica</b></td><td>Acepto que todo es simétrico</td><td>Dudo sin explicar</td><td>Distingo simetría exacta de aproximada</td></tr>
+    </table>
+  </article>
+
+  <article class="pagina">
+    <h2>Para seguir en casa</h2>
+    <table>
+      <tr><th>Observar</th><th>Preguntarte</th><th>Crear y compartir</th></tr>
+      <tr>
+        <td>Busca tres objetos simétricos en tu casa (un plato, una ventana, un mueble) y marca su eje con un hilo o una regla imaginaria.</td>
+        <td>¿Por qué crees que tantos animales y plantas son simétricos? No busques la respuesta correcta, busca tu idea.</td>
+        <td>Dibuja un ser simétrico distinto al de tu pliego, usando una de las dos técnicas, y tráelo al Observatorio LIVIMA rumbo a la ExpoLIVIMA.</td>
+      </tr>
+    </table>
+    <div class="caja reto"><b>Reto final de la pareja: insignia Guardián de la Simetría.</b> Entreguen su ser simétrico en el pliego, con el eje bien marcado y las dos mitades que coinciden, más su cartela completa. Y respondan en una línea: ¿cuántos ejes tiene su ser? ¿Dónde encontraron simetría escondida en el colegio? Si lo logran, ganan la insignia Guardián de la Simetría.</div>
+  </article>
+</template>
+
+<script type="module">
+import { THREE, hayWebGL, almacen, crearMundo, construirRonda, pisoDeParada, ALTO_PISO_PARADA } from "./3d/livima3d.js";
+
+const $ = id => document.getElementById(id);
+const libro = $("libro");
+
+/* ---------- las páginas ---------- */
+// cada página vive una sola vez: se mueve entre las caras del libro, así lo escrito no se pierde al pasar la hoja
+const PAGINAS = [...$("paginas").content.querySelectorAll(".pagina")].map((p, i) => {
+  const nodo = document.importNode(p, true);
+  return nodo;
+});
+const TOTAL = PAGINAS.length;
+
+// lo que la pareja escribe se guarda en este equipo
+const notas = almacen("livima_espejos_guia");
+const campos = PAGINAS.flatMap(p => [...p.querySelectorAll("input")]);
+const guardadas = notas.leer() || {};
+campos.forEach((c, i) => {
+  if (c.type === "checkbox") c.checked = !!guardadas[i]; else c.value = guardadas[i] || "";
+  c.addEventListener(c.type === "checkbox" ? "change" : "input", () => {
+    guardadas[i] = c.type === "checkbox" ? c.checked : c.value;
+    if (!notas.guardar(guardadas)) console.warn("LIVIMA: este navegador no deja guardar lo escrito en la guía");
+  });
+});
+
+let dosPaginas = innerWidth >= 760, actual = 0, pasando = false;   // actual: la primera página visible
+// copia de una página para la hoja que gira o para imprimir, con lo que la pareja ya escribió
+function clonar(p) {
+  const copia = p.cloneNode(true), originales = p.querySelectorAll("input");
+  copia.querySelectorAll("input").forEach((c, i) => { c.value = originales[i].value; c.checked = originales[i].checked; c.tabIndex = -1; });
+  return copia;
+}
+const vacia = () => { const v = document.createElement("article"); v.className = "pagina vacia"; return v; };
+function mostrar() {
+  libro.classList.toggle("solo", !dosPaginas);
+  $("caraIzq").hidden = !dosPaginas;
+  if (dosPaginas) {
+    // la portada va sola a la derecha, como en un libro de verdad
+    const izq = actual === 0 ? null : PAGINAS[actual], der = actual === 0 ? PAGINAS[0] : PAGINAS[actual + 1];
+    $("caraIzq").replaceChildren(izq || vacia());
+    $("caraDer").replaceChildren(der || vacia());
+    $("folio").textContent = actual === 0 ? "Portada" : der ? `Páginas ${actual} y ${actual + 1} de ${TOTAL - 1}` : `Página ${actual} de ${TOTAL - 1}`;
+  } else {
+    $("caraDer").replaceChildren(PAGINAS[actual]);
+    $("folio").textContent = actual === 0 ? "Portada" : `Página ${actual} de ${TOTAL - 1}`;
+  }
+  marcarLargas();
+  $("atras").disabled = actual === 0;
+  $("adelante").disabled = siguiente(actual) >= TOTAL;
+}
+function marcarLargas() {
+  requestAnimationFrame(() => document.querySelectorAll(".cara .pagina").forEach(p => {
+    const revisar = () => p.classList.toggle("sigue", p.scrollHeight - p.clientHeight - p.scrollTop > 8);
+    revisar(); if (!p.dataset.vigila) { p.dataset.vigila = "1"; p.addEventListener("scroll", revisar, { passive: true }); }
+  }));
+}
+const siguiente = n => !dosPaginas ? n + 1 : n === 0 ? 1 : n + 2;
+const anterior = n => !dosPaginas ? n - 1 : n <= 1 ? 0 : n - 2;
+function normalizar() { if (dosPaginas && actual > 0 && actual % 2 === 0) actual -= 1; }
+
+// pasar la hoja: una hoja con su frente y su reverso gira sobre el lomo
+async function pasar(adelante) {
+  if (pasando) return;
+  const destino = adelante ? siguiente(actual) : anterior(actual);
+  if (destino < 0 || destino >= TOTAL || destino === actual) return;
+  pasando = true;
+  const der = $("caraDer"), izq = $("caraIzq"), ancho = der.offsetWidth;
+  const hoja = document.createElement("div"); hoja.className = "hoja";
+  // la hoja lleva por delante la página que se va y por detrás la que llega a ese lado del libro
+  let frenteNodo, reversoNodo = null;
+  if (dosPaginas) {
+    frenteNodo = adelante ? der.firstElementChild : izq.firstElementChild;
+    reversoNodo = adelante ? PAGINAS[destino] : (destino === 0 ? PAGINAS[0] : PAGINAS[destino + 1]);
+  } else frenteNodo = adelante ? der.firstElementChild : PAGINAS[destino];
+  const frente = clonar(frenteNodo), reverso = reversoNodo ? clonar(reversoNodo) : vacia();
+  reverso.classList.add("reverso");
+  const anteriorIdx = actual; actual = destino;
+  hoja.append(frente, reverso);
+  const lomo = dosPaginas ? izq.offsetWidth : 0;
+  Object.assign(hoja.style, { left: (adelante ? lomo : (dosPaginas ? 0 : lomo)) + "px", width: ancho + "px", transformOrigin: adelante || !dosPaginas ? "left center" : "right center" });
+  if (!adelante && !dosPaginas) hoja.style.transform = "rotateY(-180deg)";
+  libro.append(hoja);
+  if (adelante || dosPaginas) mostrarDebajo(adelante, anteriorIdx);
+  requestAnimationFrame(() => requestAnimationFrame(() => { hoja.style.transform = adelante ? "rotateY(-180deg)" : (dosPaginas ? "rotateY(180deg)" : "rotateY(0deg)"); }));
+  await new Promise(r => setTimeout(r, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 680));
+  hoja.remove(); mostrar(); pasando = false;
+}
+// mientras gira la hoja, debajo se ve la página que sigue y arriba sigue la que se va
+function mostrarDebajo(adelante, previo) {
+  if (!dosPaginas) { $("caraDer").replaceChildren(PAGINAS[actual]); return; }
+  if (adelante) { $("caraDer").replaceChildren(PAGINAS[actual + 1] || vacia()); }
+  else { $("caraIzq").replaceChildren(actual === 0 ? vacia() : PAGINAS[actual]); }
+}
+$("adelante").onclick = () => pasar(true);
+$("atras").onclick = () => pasar(false);
+addEventListener("keydown", e => {
+  if (e.target.closest("input")) return;
+  if (e.key === "ArrowRight" || e.key === "PageDown") pasar(true);
+  if (e.key === "ArrowLeft" || e.key === "PageUp") pasar(false);
+});
+// deslizar con el dedo sobre la página también pasa la hoja
+let toque = null;
+libro.addEventListener("touchstart", e => { toque = e.touches[0].clientX; }, { passive: true });
+libro.addEventListener("touchend", e => {
+  if (toque === null) return; const dx = e.changedTouches[0].clientX - toque; toque = null;
+  if (Math.abs(dx) > 60) pasar(dx < 0);
+});
+
+/* ---------- PDF: todas las páginas, una por hoja ---------- */
+function prepararImpresion() { $("todas").replaceChildren(...PAGINAS.map(clonar)); }
+addEventListener("beforeprint", prepararImpresion);
+addEventListener("afterprint", () => { if (!document.body.classList.contains("plano")) $("todas").replaceChildren(); });
+$("pdf").onclick = () => { prepararImpresion(); window.print(); };
+
+/* ---------- el libro ocupa la ventana; el atril 3D se arma a su medida ---------- */
+const PROPORCION_PAGINA = 0.72;   // ancho sobre alto, como una hoja carta un poco más ancha
+const PROPORCION_MINIMA_CEL = 0.56;
+function medirLibro() {
+  const W = innerWidth, H = innerHeight, cel = W < 600;
+  const arriba = cel ? 62 : 70, abajo = cel ? 124 : 80, lados = dosPaginas ? 24 : (cel ? 10 : 40);
+  const alto = H - arriba - abajo;
+  // en el celular la hoja usa todo el ancho y se alarga hacia abajo, hasta una proporción que todavía parece página
+  if (!dosPaginas) { const w = W - 2 * lados, h = Math.max(260, Math.min(alto, w / PROPORCION_MINIMA_CEL)); return { x: lados, y: arriba + (alto - h) / 2, w, h }; }
+  const h = Math.max(260, Math.min(alto, (W - 2 * lados) / (2 * PROPORCION_PAGINA), 900)), w = h * PROPORCION_PAGINA * 2;
+  return { x: (W - w) / 2, y: arriba + (alto - h) / 2, w, h };
+}
+let caja = null;
+function ubicarLibro() {
+  dosPaginas = innerWidth >= 760; normalizar();
+  caja = medirLibro();
+  Object.assign(libro.style, { left: caja.x + "px", top: caja.y + "px", width: caja.w + "px", height: caja.h + "px" });
+  mostrar();
+}
+
+/* ---------- la escena: el atril junto al río ---------- */
+let mundo = null, atril = null;
+const INCLINACION = THREE.MathUtils.degToRad(18);   // el atril se echa un poco hacia atrás
+const ALTO_PAGINA = 0.36, CENTRO_LIBRO = new THREE.Vector3(0, 1.3, 0);
+const normal = new THREE.Vector3(0, Math.sin(INCLINACION), Math.cos(INCLINACION));
+const arribaLibro = new THREE.Vector3(0, Math.cos(INCLINACION), -Math.sin(INCLINACION));
+function armarAtril() {
+  if (atril) { atril.traverse(o => { if (o.geometry) o.geometry.dispose(); }); mundo.escena.remove(atril); }
+  const { M, malla } = mundo, madera = M("#7A5230"), tapa = M("#1B3A6B", { roughness: 0.6 }), papel = M("#F4EEDC");
+  const ancho = ALTO_PAGINA * caja.w / caja.h;
+  atril = new THREE.Group(); mundo.escena.add(atril);
+  // patas y travesaño
+  for (const s of [-1, 1]) {
+    const pata = malla(new THREE.CylinderGeometry(0.03, 0.04, CENTRO_LIBRO.y + 0.05, 10), madera, s * (ancho / 2 - 0.05), (CENTRO_LIBRO.y + 0.05) / 2 + ALTO_PISO_PARADA - 0.1, -0.12, atril);
+    pata.rotation.x = 0.12;
+  }
+  malla(new THREE.BoxGeometry(ancho, 0.04, 0.04), madera, 0, 0.45, -0.1, atril);
+  // tablero inclinado con el libro: tapas azules, bloque de páginas y repisa
+  const tablero = new THREE.Group(); tablero.position.copy(CENTRO_LIBRO); tablero.rotation.x = -INCLINACION; atril.add(tablero);
+  malla(new THREE.BoxGeometry(ancho + 0.12, ALTO_PAGINA + 0.12, 0.03), madera, 0, 0, -0.045, tablero);
+  malla(new THREE.BoxGeometry(ancho + 0.03, ALTO_PAGINA + 0.025, 0.012), tapa, 0, 0, -0.022, tablero);
+  malla(new THREE.BoxGeometry(ancho, ALTO_PAGINA, 0.016), papel, 0, 0, -0.008, tablero);
+  malla(new THREE.BoxGeometry(ancho + 0.14, 0.035, 0.07), madera, 0, -ALTO_PAGINA / 2 - 0.05, 0.02, tablero);
+}
+// la cámara mira el libro de frente: así sus páginas caen justo debajo de las páginas de la guía
+function encuadreDelLibro() {
+  const tanMedio = Math.tan(THREE.MathUtils.degToRad(mundo.camara.fov / 2));
+  const distancia = ALTO_PAGINA * innerHeight / (2 * tanMedio * caja.h);
+  const metroPorPixel = (2 * distancia * tanMedio) / innerHeight;
+  const dx = (caja.x + caja.w / 2 - innerWidth / 2) * metroPorPixel, dy = (caja.y + caja.h / 2 - innerHeight / 2) * metroPorPixel;
+  const centro = CENTRO_LIBRO.clone().addScaledVector(new THREE.Vector3(1, 0, 0), -dx).addScaledVector(arribaLibro, dy);
+  return { pos: centro.clone().addScaledVector(normal, distancia), mira: centro };
+}
+const LEJOS = { pos: new THREE.Vector3(-3.5, 2.6, 7.5), mira: new THREE.Vector3(0, 1.2, 0) };
+
+/* ---------- llegar y volver ---------- */
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+async function salir(destino) {
+  libro.classList.remove("abierto");
+  if (mundo) await mundo.viajar(LEJOS.pos.clone(), LEJOS.mira.clone(), 900);
+  $("velo").classList.add("on"); await esperar(650);
+  location.href = destino;
+}
+$("volver").addEventListener("click", e => { e.preventDefault(); salir(e.currentTarget.getAttribute("href")); });
+addEventListener("pageshow", e => { if (e.persisted) { $("velo").classList.remove("on"); libro.classList.add("abierto"); if (mundo) { const f = encuadreDelLibro(); mundo.colocar(f.pos, f.mira); } } });
+
+let esperaTamano = 0;
+addEventListener("resize", () => {
+  ubicarLibro();
+  clearTimeout(esperaTamano);
+  esperaTamano = setTimeout(() => { if (mundo) { armarAtril(); const f = encuadreDelLibro(); mundo.colocar(f.pos, f.mira); } }, 120);
+});
+
+/* ---------- arranque ---------- */
+ubicarLibro();
+let pidePdf = false;
+try {
+  const entrada = JSON.parse(sessionStorage.getItem("livima_entrada") || "null");
+  if (entrada && entrada.destino === "guia-pdf") { pidePdf = true; sessionStorage.removeItem("livima_entrada"); }
+} catch (error) { console.warn("LIVIMA: no se pudo leer la llegada desde el atril", error); }
+
+if (new URLSearchParams(location.search).has("ligera") || !hayWebGL()) {
+  document.body.classList.add("plano"); $("mundo").hidden = true; $("velo").classList.remove("on");
+  document.querySelector(".mandos").replaceChildren($("pdf"));
+  prepararImpresion();
+} else {
+  mundo = crearMundo($("mundo"), { slot: 1 });
+  construirRonda(mundo, {});
+  pisoDeParada(mundo, { radio: 6, color: "#8BD46A", tinta: "#2F6E1C" });
+  armarAtril();
+  mundo.colocar(LEJOS.pos.clone(), LEJOS.mira.clone());
+  requestAnimationFrame(() => requestAnimationFrame(async () => {
+    $("velo").classList.remove("on");
+    const f = encuadreDelLibro();
+    await mundo.viajar(f.pos, f.mira, 1600);
+    libro.classList.add("abierto");
+    if (pidePdf) setTimeout(() => $("pdf").click(), 400);
+  }));
+}
+window.__guia = { get mundo() { return mundo; }, pasar };   // para las pruebas automáticas
+window.__listo = true;
+</script>
+</body>
+</html>

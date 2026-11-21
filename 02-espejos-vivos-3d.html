@@ -6,8 +6,9 @@
 <title>Espejos Vivos 3D, LIVIMA</title>
 <meta name="theme-color" content="#1B3A6B">
 <script>
-  // el mapa y el pasaporte abren el juego y la guía con #juego y #guia: esos siguen en el simulador clásico
-  if (location.hash === "#juego" || location.hash === "#guia") location.replace("02-lienzo-simetria-espejos-vivos.html" + location.hash);
+  // el mapa y el pasaporte abren el juego y la guía con #juego y #guia: cada uno tiene ahora su propio lugar
+  if (location.hash === "#juego") location.replace("02-espejos-vivos-juego.html");
+  if (location.hash === "#guia") location.replace("02-espejos-vivos-guia.html");
 </script>
 <script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
 <style>
@@ -102,6 +103,10 @@
 <body>
 <div id="velo" class="on" aria-hidden="true"></div>
 <script>
+  // al volver del juego o de la guía, el destello que se apaga es el mismo con el que se salió
+  { const desde = new URLSearchParams(location.search).get("desde"); if (desde === "juego") document.getElementById("velo").classList.add("arcade"); if (desde === "guia") document.getElementById("velo").classList.add("papel"); }
+</script>
+<script>
   // si el 3D no arranca (navegador muy antiguo), no se queda la pantalla encendida: se ofrece la versión clásica
   setTimeout(() => {
     if (window.__listo) return;
@@ -165,7 +170,7 @@
   <input type="text" id="nombreObra" maxlength="30" placeholder="Ej: La babilla del caño">
   <div class="enlaces">
     <button class="btn" id="btnBorrar">Borrar todo</button>
-    <a class="btn" href="02-lienzo-simetria-espejos-vivos.html#guia">Abrir la guía</a>
+    <a class="btn" href="02-espejos-vivos-guia.html">Abrir la guía</a>
     <a class="btn" id="enlaceLigera" href="?ligera=1">Usar la vista ligera</a>
   </div>
 </section>
@@ -374,7 +379,7 @@ const PORTAL = { x: 1.8, z: 5.7 };   // al frente del stand: al salir del portal
 const JUEGO = { x: 8.6, z: 0.2, semi: 1.25, losa: 1.9 };   // semi: del centro del rombo a cada vértice
 const ATRIL = { x: 7.0, z: 3.7 };
 const JUGADOR = almacen("livima_jugador");                 // el último nombre escrito, para no tener que repetirlo
-const DESTINO_JUEGO = "02-lienzo-simetria-espejos-vivos.html#juego", DESTINO_GUIA = "02-lienzo-simetria-espejos-vivos.html#guia";
+const DESTINO_JUEGO = "02-espejos-vivos-juego.html", DESTINO_GUIA = "02-espejos-vivos-guia.html";
 let portalJuego = null, letreroJuego = null, encendido = { valor: 0, meta: 0 };
 const ENCUADRES = {
   trabajo: { mira: [0, 1.76, BASTIDOR.z + 0.09], desde: [0.03, 0.05, 1], ancho: 2.6, alto: 2.0, margen: 1.25 },
@@ -990,12 +995,15 @@ if (usarLigera) {
   });
   avisarCambioLienzo();
   // se sale del portal: la cámara empieza dentro del remolino, el destello se apaga y el estudiante ya camina como Mati
-  mundo.colocar(portal.centro.clone().addScaledVector(portal.normal, -0.6), portal.centro.clone().addScaledVector(portal.normal, 4));
-  const salida = portal.centro.clone().addScaledVector(portal.normal, 2.3);
+  // se sale por donde se entró: el portal del mapa, el del juego o el atril de la guía
+  const desde = new URLSearchParams(location.search).get("desde");
+  const puerta = desde === "juego" ? portalJuego : desde === "guia" ? atrilComoDestino() : portal;
+  mundo.colocar(puerta.centro.clone().addScaledVector(puerta.normal, -0.6), puerta.centro.clone().addScaledVector(puerta.normal, 4));
+  const salida = puerta.centro.clone().addScaledVector(puerta.normal, desde === "guia" ? 1.5 : 2.3);
   requestAnimationFrame(() => requestAnimationFrame(async () => {
     $("velo").classList.remove("on");
-    await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-portal.normal.x, -portal.normal.z), ms: 1500 });
-    decirMati(hayObraPrevia ? "Tu obra te espera en el bastidor, tal como la dejaste. " + PISTA_CAMINAR : PISTA_CAMINAR, { segundos: 12 });
+    await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-puerta.normal.x, -puerta.normal.z), ms: 1500 });
+    if (!desde) decirMati(hayObraPrevia ? "Tu obra te espera en el bastidor, tal como la dejaste. " + PISTA_CAMINAR : PISTA_CAMINAR, { segundos: 12 });
   }));
 }
 window.__estacion = { get mundo() { return mundo; }, get recorrido() { return recorrido; } };   // para las pruebas automáticas

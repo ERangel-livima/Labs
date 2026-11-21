@@ -4,7 +4,7 @@
 // fuerza la descarga de los 19 de entrada, para no pesar el primer uso). Con internet
 // siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v67";
+const CACHE_NAME = "livima-v68";
 
 const APP_SHELL = [
   "./",
@@ -22,6 +22,8 @@ const SIMULADORES = [
   "01-mapa-de-color-colegio-oculto.html",
   "02-lienzo-simetria-espejos-vivos.html",
   "02-espejos-vivos-3d.html",
+  "02-espejos-vivos-juego.html",
+  "02-espejos-vivos-guia.html",
   "3d/livima3d.js",
   "3d/three.addons.min.js",
   "3d/three.core.min.js",
