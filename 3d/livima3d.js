@@ -738,7 +738,7 @@ export function personajes(mundo, { escala = 0.88 } = {}) {
 // Celular: la palanca de la esquina para caminar y arrastrar el dedo en la pantalla para mirar.
 // obstaculos: cajas {x, z, ancho, fondo, activo?}; circulos: [x, z, radio]; permitido(x, z): false donde no se pisa (el río).
 // piso(x, z): altura del suelo en ese punto. alMoverse(estado): se llama en cada cuadro con la posición de los pies.
-const VELOCIDAD_PASO = 2.6;          // metros por segundo
+const VELOCIDAD_PASO = 3.9;          // metros por segundo (1,5 veces el paso inicial de 2,6)
 const ALTURA_OJOS = 1.45;            // estatura de un estudiante de sexto
 const RADIO_CUERPO = 0.3;
 const SENSIBILIDAD_MIRADA = 0.005;
