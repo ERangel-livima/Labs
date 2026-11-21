@@ -733,7 +733,7 @@ export function personajes(mundo, { escala = 0.88 } = {}) {
 }
 
 // Mundo libre, como el modo caminar del mapa: el estudiante es el guía del grado.
-// Primera persona por defecto; con verDesdeAtras() se ve al guía desde atrás.
+// Se llega viendo al guía desde atrás; con verDesdeAtras(false) se pasa a primera persona.
 // Computador: W A S D o flechas para caminar, barra espaciadora para saltar, arrastrar con el ratón para mirar.
 // Celular: la palanca de la esquina para caminar y arrastrar el dedo en la pantalla para mirar.
 // obstaculos: cajas {x, z, ancho, fondo, activo?}; circulos: [x, z, radio]; permitido(x, z): false donde no se pisa (el río).
@@ -749,7 +749,7 @@ const DISTANCIA_TERCERA = 3.4;       // qué tan atrás va la cámara cuando se 
 export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [], permitido = () => true, piso = () => 0, alMoverse } = {}) {
   const { camara, renderer } = mundo;
   const lienzo = renderer.domElement;
-  let activo = false, tercera = false, yaw = 0, pitch = -0.05, alt = 0, vy = 0, ultimo = 0, rumbo = 0;
+  let activo = false, tercera = true, yaw = 0, pitch = -0.05, alt = 0, vy = 0, ultimo = 0, rumbo = 0;
   const pies = new THREE.Vector3();
   const teclas = new Set();
   const joystick = { x: 0, y: 0, id: null };
@@ -790,9 +790,11 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
 
   const TECLAS_JUEGO = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
   addEventListener("keydown", e => {
-    if (!activo || e.target.closest("input, textarea, button, a")) return;
+    if (!activo || e.target.closest("input, textarea, select")) return;
+    // con un botón enfocado (el de la vista, por ejemplo) se sigue caminando: las flechas y W A S D no lo usan
     if (TECLAS_JUEGO.includes(e.code)) { teclas.add(e.code); e.preventDefault(); }
-    if (e.code === "Space") { saltar(); e.preventDefault(); }
+    // la barra espaciadora pulsaría el botón enfocado: se suelta el foco y se salta
+    if (e.code === "Space") { if (e.target.closest("button, a")) e.target.blur(); saltar(); e.preventDefault(); }
   });
   addEventListener("keyup", e => teclas.delete(e.code));
   addEventListener("blur", () => teclas.clear());
