@@ -46,7 +46,7 @@
   .game>div{min-width:0}
   @media(max-width:860px){.game{grid-template-columns:1fr}.kbdbox{display:none}}
   /* el tablero cabe en el alto de la pantalla, sin tener que desplazarse para jugar */
-  .tablero{max-width:calc((var(--alto, 600px) - 120px) * 1.2);margin:0 auto}
+  .tablero{max-width:calc((var(--alto, 600px) - 96px) * 1.2);margin:0 auto}
   @media(max-width:860px){.tablero{max-width:100%}}
   .stage{position:relative;border-radius:12px;overflow:hidden;border:1.5px solid rgba(195,139,255,.6);
     box-shadow:0 0 20px rgba(195,139,255,.3),inset 0 0 30px rgba(0,0,0,.5);background:var(--night)}
@@ -1143,9 +1143,10 @@ $("cerrarColeccion").onclick = () => { $("coleccion").hidden = true; };
 // márgenes en píxeles: arriba queda el letrero de la máquina y abajo su tablero de mandos
 const MARGEN = { arribaPc: 92, arribaCel: 64, abajoPc: 78, abajoCel: 54, ladoCel: 10, anchoMax: 1240 };
 function medirPantalla() {
-  const W = innerWidth, H = innerHeight, cel = W < 600;
+  // en pantallas bajitas (un portátil con la barra del navegador) el letrero y los mandos se achican como en el celular
+  const W = innerWidth, H = innerHeight, cel = W < 600, compacta = cel || H < 720;
   const lado = cel ? MARGEN.ladoCel : Math.max(24, (W - MARGEN.anchoMax) / 2);
-  const arriba = cel ? MARGEN.arribaCel : MARGEN.arribaPc, abajo = cel ? MARGEN.abajoCel : MARGEN.abajoPc;
+  const arriba = compacta ? MARGEN.arribaCel : MARGEN.arribaPc, abajo = compacta ? MARGEN.abajoCel : MARGEN.abajoPc;
   return { x: lado, y: arriba, w: W - 2 * lado, h: Math.max(240, H - arriba - abajo) };
 }
 function ubicarPantalla() {
@@ -1247,7 +1248,7 @@ function armarMaquina() {
   maquina.clear();
   const aspecto = caja.w / caja.h;
   const sW = aspecto >= 1 ? PANTALLA_3D * aspecto : PANTALLA_3D, sH = aspecto >= 1 ? PANTALLA_3D : PANTALLA_3D / aspecto;
-  const px = sH / caja.h, cel = innerWidth < 600;                         // metros por píxel
+  const px = sH / caja.h, cel = innerWidth < 600 || innerHeight < 720;                         // metros por píxel
   const marco = 9 * px, linea = 3 * px, costado = Math.min(caja.x - 4, 16) * px;
   const altoLetrero = ((cel ? MARGEN.arribaCel : MARGEN.arribaPc) - 16) * px;
   const yC = ALTO_BORDE_INFERIOR + sH / 2, anchoCuerpo = sW + 2 * (marco + costado), techo = yC + sH / 2 + marco + altoLetrero;
