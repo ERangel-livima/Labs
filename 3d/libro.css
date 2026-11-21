@@ -1,0 +1,133 @@
+/* La guía de cada estación: un libro abierto sobre un atril, con la versión plana y la impresa en carta.
+   Cada guía pone su color de grado en --acento, --acento-hondo, --acento-suave, --acento-campo y --acento-foco. */
+:root{
+  --marino:#1B3A6B; --naranja:#D9701A; --morado:#6B3FA0;
+  --acento:#4A9B2E; --acento-hondo:#2F6E1C; --acento-suave:#EEF6E7; --acento-campo:rgba(74,155,46,.05); --acento-foco:rgba(74,155,46,.12);
+  --papel:#FBF6EA; --tinta:#1d2733; --gris:#5B6573; --linea:#E4DCC8;
+  --serif:Georgia,"Times New Roman",serif; --sans:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#bcd8ec;color:var(--tinta);font:16px/1.5 var(--sans)}
+button,input{font:inherit}
+#mundo{position:fixed;inset:0;width:100%;height:100%;display:block}
+#velo{position:fixed;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;pointer-events:none;z-index:80;opacity:0;transform:scale(.05);
+  background:radial-gradient(circle,#fff 0%,#FBF6EA 40%,#1B3A6B 76%);transition:opacity .5s ease,transform .75s cubic-bezier(.5,0,.75,0)}
+#velo.on{opacity:1;transform:scale(1.6)}
+@media (prefers-reduced-motion: reduce){ #velo{transition:opacity .3s ease} }
+
+.volver{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:20;
+  text-decoration:none;color:var(--marino);background:#ffffffe6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600;min-height:40px;display:inline-flex;align-items:center}
+.mandos{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:20;
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;width:min(640px,calc(100vw - 24px))}
+.btn{min-height:44px;background:#fff;color:var(--marino);border:1.5px solid var(--marino);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.principal{background:var(--naranja);border-color:var(--naranja);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.volver:focus-visible{outline:3px solid var(--naranja);outline-offset:2px}
+.folio{background:#ffffffe6;color:var(--marino);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;min-width:118px;text-align:center}
+
+/* el libro: dos páginas en el computador, una en el celular. La escena 3D se arma a su medida */
+#libro{position:fixed;z-index:10;display:flex;perspective:2200px;opacity:0;transition:opacity .45s ease}
+#libro.abierto{opacity:1}
+.cara{position:relative;flex:1;min-width:0;height:100%}
+.pagina{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;background:var(--papel);padding:5.5% 7% 6%;
+  container-type:size;font-size:clamp(12px,3.35cqw,16px);line-height:1.5}
+/* si el texto no cabe, la página lo dice al pie y se desliza */
+.pagina.sigue::after{content:"Desliza para ver más";position:sticky;bottom:-6%;display:block;margin:0 -8% -7%;padding:1.6em 0 .6em;text-align:center;
+  font-size:.8em;font-weight:600;color:var(--gris);background:linear-gradient(rgba(251,246,234,0),var(--papel) 55%)}
+.pagina.vacia{background:var(--papel)}
+/* sombra del lomo: la página de la izquierda se oscurece hacia la derecha y la otra al revés */
+.cara.izq .pagina{box-shadow:inset -22px 0 26px -18px rgba(60,40,10,.35)}
+.cara.der .pagina{box-shadow:inset 22px 0 26px -18px rgba(60,40,10,.35)}
+.solo .cara.der .pagina{box-shadow:inset 10px 0 16px -12px rgba(60,40,10,.3)}
+.hoja{position:absolute;top:0;bottom:0;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.45,.05,.3,1);z-index:3;pointer-events:none}
+.hoja .pagina{backface-visibility:hidden}
+.hoja .pagina.reverso{transform:rotateY(180deg)}
+@media (prefers-reduced-motion: reduce){ .hoja{transition:none} }
+
+/* contenido de la guía: el papel de las guías LIVIMA */
+.pagina h1{font:700 2.1em/1.1 var(--serif);color:var(--marino);margin:0 0 .3em;text-wrap:balance}
+.pagina h2{font:700 1.35em/1.2 var(--serif);color:var(--marino);margin:0 0 .5em;text-wrap:balance;display:flex;gap:.5em;align-items:baseline}
+.pagina h2 .num{flex:none;display:inline-grid;place-items:center;width:1.6em;height:1.6em;border-radius:50%;background:var(--acento);color:#fff;font:700 .8em var(--sans)}
+.pagina p{margin:.5em 0}
+.pagina .sub{color:var(--gris);margin-top:-.3em}
+.etiqueta{font-weight:700;color:var(--marino);margin-top:.9em}
+.campo{display:flex;flex-wrap:wrap;gap:.5em 1.4em;margin:.6em 0}
+.campo label{font-weight:700;color:var(--marino);display:flex;align-items:center;gap:.4em;flex:1 1 9em;min-width:0;font-size:.95em}
+.pagina input[type=text]{flex:1;min-width:3.5em;border:none;border-bottom:1.5px dotted #a9b2bb;background:var(--acento-campo);padding:.25em .3em;font-size:1em;color:var(--tinta);min-height:32px}
+.pagina input[type=text]:focus{outline:none;border-bottom-color:var(--acento);background:var(--acento-foco)}
+table{width:100%;border-collapse:collapse;font-size:.92em;margin-top:.6em}
+th{background:var(--acento);color:#fff;text-align:left;padding:.45em .55em;font-size:.92em}
+td{padding:.4em .55em;border-bottom:1px solid var(--linea);vertical-align:top}
+td input[type=text]{width:100%}
+.caja{border-radius:10px;padding:.8em 1em;margin-top:.9em;font-size:.95em}
+.caja.mati{border:1.5px solid var(--naranja);background:#FBE9D7;color:#5a3712}
+.caja.mati b{color:var(--naranja)}
+.caja.lista{border:1.5px solid var(--acento);background:var(--acento-suave)}
+.caja.lista b{color:var(--acento-hondo);display:block;margin-bottom:.3em}
+.caja.lista label{display:flex;gap:.5em;align-items:flex-start;margin:.35em 0;cursor:pointer}
+.caja.lista input{width:1.1em;height:1.1em;margin-top:.2em;accent-color:var(--acento);flex:none}
+.caja.reto{border-left:5px solid var(--naranja);background:#FDF3E8;border-radius:0 10px 10px 0}
+.caja.reto b{color:var(--naranja)}
+.pasos{padding-left:1.3em;margin:.5em 0}
+.pasos li{margin-bottom:.45em}
+.boceto{border:1.5px dashed #a9b2bb;border-radius:10px;min-height:9em;background:#fff8;display:grid;place-items:center;color:#a9b2bb;font-size:.9em;margin-top:.4em}
+.cartela{border:1.5px solid var(--morado);border-radius:10px;padding:.7em .9em;margin-top:.8em}
+.cartela label{display:flex;flex-direction:column;font-weight:700;color:var(--morado);font-size:.9em;margin-bottom:.5em}
+.cartela input[type=text]{border-bottom-color:#c8b4e0;background:transparent}
+.portada{display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;height:100%;gap:.6em}
+.portada .grado{font:800 1em var(--sans);color:#fff;background:var(--acento);border-radius:999px;padding:.2em .9em}
+.portada h1{font-size:2.6em;margin:.1em 0 0}
+.portada .lema{font:italic 600 1.15em var(--serif);color:var(--acento-hondo)}
+.portada img{flex:1;min-height:0;max-height:52%;width:auto;max-width:70%;object-fit:contain}
+.portada .pie{font-size:.85em;color:var(--gris)}
+.mati-final{display:flex;gap:.9em;align-items:center;margin-top:1em}
+.mati-final img{width:4.5em;height:auto;flex:none}
+.mati-final b{font-family:var(--serif);color:var(--morado);display:block}
+
+/* vista sin 3D y para imprimir: todas las páginas, una debajo de otra */
+body.plano{overflow:auto;background:#e9e3d2}
+body.plano #libro{position:static;display:block;opacity:1;perspective:none;max-width:720px;margin:70px auto 100px;padding:0 12px}
+body.plano .cara, body.plano .hoja{display:none}
+body.plano .todas{display:block}
+.todas{display:none}
+body.plano .todas .pagina{position:relative;inset:auto;height:auto;min-height:0;container-type:normal;font-size:16px;margin-bottom:18px;box-shadow:0 4px 14px rgba(60,40,10,.15);border-radius:4px}
+body.plano .portada{height:auto;min-height:640px}
+/* impreso: las páginas del libro corren seguidas, sin una hoja por página, para ahorrar papel */
+@media print{
+  @page{size:letter;margin:12mm 14mm}
+  html,body{overflow:visible!important;height:auto;background:#fff!important}
+  #mundo,#velo,.volver,.mandos,.cara,.hoja{display:none!important}
+  #libro{position:static!important;display:block!important;opacity:1!important;width:auto!important;height:auto!important;perspective:none;margin:0!important;padding:0!important;max-width:none!important}
+  .todas{display:block!important}
+  .todas .pagina{position:static;inset:auto;height:auto;overflow:visible;container-type:normal;font-size:9.6pt;line-height:1.32;padding:0;margin:0 0 3.5mm;box-shadow:none!important;border-radius:0;break-after:auto;background:#fff}
+  .todas .pagina h1{font-size:22pt}
+  .todas .pagina h2{font-size:13pt;margin:0 0 1.5mm;break-after:avoid}
+  .todas .pagina h2 .num{width:1.5em;height:1.5em}
+  .todas .pagina p{margin:1.2mm 0}
+  .todas .pagina .sub{margin-top:-1mm}
+  .etiqueta{margin-top:2mm}
+  .campo{margin:1mm 0;gap:1mm 6mm}
+  .pagina input[type=text]{min-height:0;padding:.5mm .3em;background:transparent}
+  table{margin-top:1.5mm;font-size:9pt}
+  th,td{padding:.8mm 2mm}
+  th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .caja{margin-top:2mm;padding:2mm 3mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .caja.lista label{margin:.8mm 0}
+  .pasos{margin:1mm 0}
+  .pasos li{margin-bottom:1mm}
+  table,.caja,.cartela,.boceto,.mati-final,.campo{break-inside:avoid}
+  .boceto{min-height:42mm;margin-top:1mm;color:transparent}   /* en papel el recuadro queda limpio para dibujar */
+  .cartela{margin-top:2mm;padding:2mm 3mm;display:grid;grid-template-columns:1fr 1fr;gap:1mm 6mm}
+  .cartela label{margin:0}
+  /* la portada se vuelve una franja de título, con Mati a un lado */
+  .portada{display:grid;grid-template-columns:1fr auto;grid-template-areas:"grado img" "titulo img" "pie img";align-items:center;text-align:left;
+    height:auto!important;min-height:0!important;gap:1mm 6mm;padding-bottom:3mm;border-bottom:2px solid var(--acento)}
+  .portada .grado{grid-area:grado;justify-self:start;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .portada > div{grid-area:titulo}
+  .portada img{grid-area:img;max-height:30mm;max-width:none;width:auto}
+  .portada h1{margin:0}
+  .portada .pie{grid-area:pie;font-size:8.5pt}
+  .mati-final img{width:12mm}
+  .pagina.sigue::after{display:none}
+}

@@ -1,0 +1,42 @@
+/* La sala del juego: destello, botón de volver, la pantalla de la máquina y la colección.
+   Los estilos del juego mismo vienen del simulador clásico y van en cada página. */
+:root{
+  --navy:#1B3A6B; --teal:#1F8A8A; --green:#4A9B2E; --orange:#D9701A; --purple:#6B3FA0;
+  --grey:#555555; --ink:#1d2733;
+  --teal-lt:#DCEFEE; --green-lt:#E8F2DF; --orange-lt:#FBE9D7;
+  --line:#E4E0D6;
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#0B1A33;color:#DDE8F7;font:16px/1.45 var(--sans)}
+button,input{font:inherit}
+#mundo{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+/* el destello del portal del juego: se apaga al llegar y se enciende al volver */
+#velo{position:fixed;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;pointer-events:none;z-index:80;opacity:0;transform:scale(.05);
+  background:radial-gradient(circle,#fff 0%,#fff 10%,#7CFF4F 26%,#33E0D6 44%,#0B1A33 72%);transition:opacity .5s ease,transform .75s cubic-bezier(.5,0,.75,0)}
+#velo.on{opacity:1;transform:scale(1.6)}
+
+.volver{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:20;
+  text-decoration:none;color:#DDE8F7;background:#0B1A33cc;border:1.5px solid #33E0D6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600;
+  min-height:40px;display:inline-flex;align-items:center;box-shadow:0 0 12px #33E0D655}
+.volver:focus-visible{outline:3px solid #7CFF4F;outline-offset:2px}
+
+/* la pantalla de la máquina: su tamaño lo decide la ventana y la máquina 3D se arma a su medida */
+#pantalla{position:fixed;z-index:10;overflow:auto;overscroll-behavior:contain;border-radius:10px;padding:12px;
+  background:radial-gradient(120% 90% at 50% 0%, #1B3A6Bf0 0%, #0E2141f2 55%, #0A1730f5 100%);
+  box-shadow:inset 0 0 40px rgba(0,0,0,.55);opacity:0;transform:scaleY(.02);transform-origin:50% 50%;
+  transition:opacity .25s ease,transform .3s cubic-bezier(.2,.9,.3,1)}
+#pantalla.encendida{opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){ #pantalla{transition:opacity .2s ease;transform:none} #velo{transition:opacity .3s ease} }
+
+
+/* colección: los cromos de las criaturas, dentro de la misma pantalla */
+.coleccion{position:absolute;inset:0;z-index:5;overflow:auto;padding:16px;background:#0A1730f7;border-radius:10px}
+.coleccion .cabeza{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.coleccion h2{margin:0;font:700 24px var(--serif);color:#7CFF4F;text-shadow:0 0 10px rgba(124,255,79,.6)}
+
+.aviso{position:fixed;left:50%;transform:translateX(-50%);top:calc(60px + env(safe-area-inset-top,0px));background:#0B1A33;border:1.5px solid #FFA24A;color:#fff;
+  border-radius:10px;padding:10px 16px;z-index:30;max-width:calc(100vw - 24px);font-size:15px}

@@ -1,0 +1,78 @@
+/* Lo común a todas las estaciones 3D: destello de los portales, barra superior, globo de Mati, paneles, botones,
+   el registro arcade del portal del juego y el atril de la guía.
+   Cada estación pone su color de grado en --acento y --acento-hondo, y sus propios estilos de la actividad. */
+:root{
+  --marino:#1B3A6B; --acento:#4A9B2E; --acento-hondo:#2f6f1c; --accion:#D9701A;
+  --papel:#FBFAF6; --tinta:#1d2733; --gris:#5B6573; --linea:#d9d4c7; --cielo:#bcd8ec;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+
+/* el destello de luz al cruzar un portal: el mismo del mapa, para que el paso de un lugar al otro sea uno solo */
+#velo{position:fixed;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;pointer-events:none;z-index:80;opacity:0;transform:scale(.05);
+  background:radial-gradient(circle,#fff 0%,#fff 12%,#8BD46A 38%,#10284D 72%);transition:opacity .5s ease,transform .75s cubic-bezier(.5,0,.75,0)}
+#velo.on{opacity:1;transform:scale(1.6)}
+/* el portal del juego lleva al registro arcade; el atril, a la guía de papel */
+#velo.arcade{background:radial-gradient(circle,#fff 0%,#fff 10%,#7CFF4F 26%,#33E0D6 44%,#0B1A33 72%)}
+#velo.papel{background:radial-gradient(circle,#fff 0%,#FBF6EA 40%,#1B3A6B 76%)}
+@media (prefers-reduced-motion: reduce){ #velo{transition:opacity .3s ease} }
+
+html,body{margin:0;height:100%;overflow:hidden;background:var(--cielo);color:var(--tinta);
+  font:16px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+#mundo{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button,input,select{font:inherit}
+
+.hud{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none;z-index:5}
+.hud > *{pointer-events:auto}
+.hud .volver{margin-left:auto;text-decoration:none;color:var(--marino);background:#ffffffe6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600;min-height:36px;display:inline-flex;align-items:center}
+
+.globo{position:fixed;top:calc(62px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));max-width:min(380px,calc(100vw - 24px));
+  display:flex;gap:10px;align-items:flex-start;background:#fffffff2;border:2px solid var(--acento);border-radius:14px;padding:10px 12px;z-index:6}
+.globo p{margin:0;font-size:15px}
+.globo b{color:var(--acento-hondo)}
+.globo .cerrar{margin-left:auto;background:none;border:0;color:var(--gris);font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
+
+.barra{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(720px,calc(100vw - 24px));
+  display:flex;flex-direction:column;gap:8px;z-index:5}
+.fila{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.btn{min-height:44px;background:#fff;color:var(--marino);border:1.5px solid var(--marino);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;
+  text-decoration:none;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn.principal{background:var(--accion);border-color:var(--accion);color:#fff}
+.btn:focus-visible,.seg button:focus-visible{outline:3px solid var(--accion);outline-offset:2px}
+/* botones que eligen una opción entre varias */
+.seg{display:inline-flex;border:1.5px solid var(--marino);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{min-height:44px;border:0;background:none;color:var(--marino);font-weight:600;padding:8px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--marino);color:#fff}
+
+/* hojas que se abren encima de la barra */
+.hoja{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(128px + env(safe-area-inset-bottom,0px));width:min(520px,calc(100vw - 24px));
+  background:var(--papel);border:1.5px solid var(--linea);border-radius:14px;padding:14px 16px;z-index:7;box-shadow:0 6px 18px #1b3a6b2e}
+.hoja h2{font:700 17px Georgia,serif;color:var(--marino);margin:0 0 10px}
+.hoja label{display:block;font-size:14px;font-weight:600;color:var(--marino);margin:12px 0 6px}
+input[type=range]{width:100%;accent-color:var(--acento);min-height:32px}
+input[type=text]{width:100%;min-height:44px;border:1.5px solid var(--linea);border-radius:10px;padding:8px 12px;background:#fff}
+
+/* inscripción al portal del juego: el mismo registro arcade de la pestaña Juego */
+.registro{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100vw - 24px));
+  background:#0B1A33;color:#DDE8F7;border:2px solid #33E0D6;border-radius:14px;padding:16px 18px;z-index:7;box-shadow:0 0 22px #33E0D655}
+.registro h2{margin:0 0 4px;font:800 20px "Segoe UI",system-ui,sans-serif;color:#7CFF4F;letter-spacing:.02em}
+.registro p{margin:0 0 10px;font-size:15px}
+.registro label{display:block;font-size:14px;font-weight:600;color:#33E0D6;margin:10px 0 4px}
+.registro input{width:100%;min-height:44px;border:1.5px solid #33E0D6;border-radius:10px;padding:8px 12px;background:#081329;color:#fff}
+.registro input:focus-visible{outline:3px solid #7CFF4F;outline-offset:1px}
+.registro .error{color:#FF8A7A;min-height:1.4em;margin:8px 0 0;font-weight:600}
+.registro .fila{justify-content:flex-end;margin-top:6px}
+.registro .btn{background:transparent;color:#DDE8F7;border-color:#5d7194}
+.registro .btn.encender{background:#FFA24A;border-color:#FFA24A;color:#0B1A33}
+.registro .btn:focus-visible{outline-color:#7CFF4F}
+/* el atril de la guía, en el papel de los simuladores */
+.guia{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100vw - 24px));
+  background:var(--papel);border:1.5px solid var(--linea);border-radius:14px;padding:16px 18px;z-index:7;box-shadow:0 6px 18px #1b3a6b2e}
+.guia h2{font:700 19px Georgia,serif;color:var(--marino);margin:0 0 6px}
+.guia p{margin:0 0 12px;font-size:15px}
+.guia .fila{justify-content:flex-end}
+
+.aviso{position:fixed;left:50%;transform:translateX(-50%);top:calc(62px + env(safe-area-inset-top,0px));background:var(--marino);color:#fff;border-radius:10px;padding:10px 16px;
+  z-index:9;max-width:calc(100vw - 24px);font-size:15px}
+@media (max-width:520px){ .seg button{padding:8px 10px} .btn{padding:8px 11px} .globo{top:calc(56px + env(safe-area-inset-top,0px))} }
