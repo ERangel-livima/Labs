@@ -36,6 +36,19 @@
   @media (max-width:420px){ .hallazgos{gap:6px} .hallazgos button{font-size:12px;padding:4px 2px} .hallazgos button canvas{width:38px;height:38px} }
   @media (max-width:360px){ .hallazgos button canvas{width:32px;height:32px} #hojaHallazgos h2{font-size:15px;margin-bottom:6px} }
   .mesa button{-webkit-tap-highlight-color:transparent}
+  /* en pantallas anchas los controles van en una columna a la derecha: la tornamesa queda libre en el resto */
+  @media (min-width:760px){
+    #panelMesa{left:auto;right:max(12px,env(safe-area-inset-right,0px));transform:none;top:calc(60px + env(safe-area-inset-top,0px));bottom:auto;
+      width:270px;max-height:calc(100vh - 72px);overflow:auto;gap:6px}
+    #panelMesa .seg{display:flex;width:100%}
+    #panelMesa .seg button{flex:1;font-size:13px;padding:6px 6px;min-height:38px}
+    #panelMesa .control{grid-template-columns:1fr;padding:3px 10px}
+    #panelMesa .control label{font-size:13px}
+    #panelMesa .control input[type=range]{min-height:26px}
+    #panelMesa .lectura{font-size:13px;padding:5px 10px}
+    #panelMesa .fila{flex-direction:column;align-items:stretch;gap:6px}
+    #panelMesa .btn{min-height:38px;font-size:14px;padding:6px 10px}
+  }
   #hojaHallazgos,#hojaCestas{overflow:auto}
   .hallazgos button{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;border:1.5px solid var(--linea);background:#fff;border-radius:10px;padding:6px 4px;cursor:pointer;color:var(--tinta);font-size:13px;font-weight:600}
   .hallazgos button canvas{width:56px;height:56px}
@@ -109,7 +122,7 @@
 <!-- mundo libre: el estudiante es Mati -->
 <div class="barra" id="panelRecorrido" hidden>
   <div class="fila">
-    <button class="btn" id="btnVista" aria-pressed="false">Ver a Mati</button>
+    <button class="btn" id="btnVista" aria-pressed="true">Ver con mis ojos</button>
     <button class="btn" id="btnSalto" hidden>Saltar</button>
     <button class="btn principal" id="btnAccion">Ir a la mesa</button>
   </div>
@@ -463,10 +476,16 @@ CESTAS.forEach(c => {
 function alternarHoja(hoja, boton) {
   const abrir = $(hoja).hidden; cerrarHojas();
   if (!abrir) return;
-  // la hoja se abre justo encima de la barra de la mesa, que es más alta que las demás
-  const alto = $("panelMesa").getBoundingClientRect().height + 20;
-  $(hoja).style.bottom = `calc(${alto}px + env(safe-area-inset-bottom, 0px))`;
-  $(hoja).style.maxHeight = `calc(100vh - ${alto + 70}px)`;
+  const h = $(hoja).style;
+  if (panelAlLado() && !$("panelMesa").hidden) {
+    // con el panel a la derecha, la hoja se abre a su lado
+    const r = $("panelMesa").getBoundingClientRect();
+    Object.assign(h, { left: "auto", transform: "none", right: `${innerWidth - r.left + 10}px`, top: `${r.top}px`, bottom: "auto", width: "min(420px, calc(100vw - 320px))", maxHeight: `calc(100vh - ${r.top + 12}px)` });
+  } else {
+    // la hoja se abre justo encima de la barra de la mesa, que es más alta que las demás
+    const alto = $("panelMesa").getBoundingClientRect().height + 20;
+    Object.assign(h, { left: "", transform: "", right: "", top: "", width: "", bottom: `calc(${alto}px + env(safe-area-inset-bottom, 0px))`, maxHeight: `calc(100vh - ${alto + 70}px)` });
+  }
   $(hoja).hidden = false; if (boton) $(boton).setAttribute("aria-expanded", "true");
 }
 function cerrarHojas() {
@@ -565,14 +584,14 @@ function kiosco() {
   const madera = M("#8A5A32"), maderaClara = M("#B98A52");
   const paja = new THREE.MeshStandardMaterial({ map: texturaPaja(), color: "#E3C27E", roughness: 1, side: THREE.DoubleSide });
   const vertice = k => { const a = (30 + k * 60) * D2R; return new THREE.Vector3(K.x + K.radio * Math.sin(a), 0, K.z + K.radio * Math.cos(a)); };
-  const cima = new THREE.Vector3(K.x, y0 + K.alero + K.cumbre - 0.25, K.z);
+  const cima = new THREE.Vector3(K.x, y0 + K.alero + K.cumbre - 0.25, K.z), vigasAlCentro = [];
   for (let k = 0; k < 6; k++) {
     const v = vertice(k), siguiente = vertice(k + 1);
     malla(new THREE.CylinderGeometry(0.11, 0.13, K.alero, 10), madera, v.x, y0 + K.alero / 2, v.z);
     malla(new THREE.CylinderGeometry(0.24, 0.3, 0.2, 8), M("#A8A296"), v.x, y0 + 0.1, v.z);
     // viga del borde entre dos postes y viga que sube al centro
     puntal(v.clone().setY(y0 + K.alero), siguiente.clone().setY(y0 + K.alero), maderaClara, { radioArriba: 0.07, radioAbajo: 0.07 });
-    puntal(v.clone().setY(y0 + K.alero), cima, maderaClara, { radioArriba: 0.06, radioAbajo: 0.08 });
+    vigasAlCentro.push(puntal(v.clone().setY(y0 + K.alero), cima, maderaClara, { radioArriba: 0.06, radioAbajo: 0.08 }));
   }
   // techo: un cono de seis caras, girado para que coincida con los postes
   const techo = malla(new THREE.ConeGeometry(K.radio + 0.75, K.cumbre, 6, 1, true), paja, K.x, y0 + K.alero + K.cumbre / 2 - 0.05, K.z);
@@ -581,7 +600,7 @@ function kiosco() {
   const fleco = malla(new THREE.CylinderGeometry(K.radio + 0.78, K.radio + 0.8, 0.28, 6, 1, true), paja, K.x, y0 + K.alero - 0.14, K.z);
   fleco.rotation.y = Math.PI / 6;
   const remate = malla(new THREE.ConeGeometry(0.16, 0.5, 6), madera, K.x, y0 + K.alero + K.cumbre + 0.12, K.z);
-  partesDelTecho = [techo, fleco, remate];
+  partesDelTecho = [techo, fleco, remate, ...vigasAlCentro];   // la cámara de la mesa mira desde donde se juntan las vigas
   // nombre del lugar colgado de la viga de adelante
   const nombre = texturaLetrero(1024, 220, (x, w, h) => {
     x.fillStyle = "#1B3A6B"; x.fillRect(0, 0, w, h);
@@ -805,6 +824,7 @@ const estadoVista = () => vista;
 function mostrarPanel(nueva) {
   vista = nueva;
   verTecho(nueva !== "mesa");
+  vistaDeMesa(nueva === "mesa");
   if (recorrido && nueva !== "recorrido") recorrido.desactivar();
   if (R_MATI && nueva !== "recorrido") R_MATI.raiz.visible = false;
   $("panelMesa").hidden = nueva !== "mesa";
@@ -812,23 +832,32 @@ function mostrarPanel(nueva) {
   if (rincon) rincon.mostrar(nueva);
   cerrarHojas(); mostrarLlevando();
 }
-// la tornamesa se ve desde arriba y adelante, entera en el espacio que deja libre la barra de la mesa
-const DIRECCION_MESA = new THREE.Vector3(0, 1.55, 1).normalize();
-const DISTANCIA_MAX_MESA = 4.2;
+// la tornamesa se ve desde arriba, de forma perpendicular: los giros y los reflejos se leen sin deformarse.
+// Se encuadra en el espacio que deja libre el panel, a la derecha en pantallas anchas o abajo en el celular.
+// con un lente estrecho, desde más lejos, casi no hay perspectiva: el espejo se ve como una línea sobre el eje
+const DISTANCIA_MAX_MESA = 12, LENTE_MESA = 20, LENTE_NORMAL = 45, ALTO_ESPEJO_DESDE_ARRIBA = 0.25;
+function vistaDeMesa(activa) {
+  if (!mundo) return;
+  mundo.camara.fov = activa ? LENTE_MESA : LENTE_NORMAL; mundo.camara.updateProjectionMatrix();
+  if (piezasMesa) piezasMesa.espejo.scale.y = activa ? ALTO_ESPEJO_DESDE_ARRIBA : 1;
+}
+const panelAlLado = () => matchMedia("(min-width: 760px)").matches;
 function encuadrarMesa(ms = 900) {
-  const centro = new THREE.Vector3(MESA.x, ALTO_PISO_PARADA + MESA.alto + 0.08, MESA.z);
-  const libre = 1 - Math.min(0.66, ($("panelMesa").getBoundingClientRect().height + 20) / innerHeight);
-  const arriba = Math.min(0.12, (document.querySelector(".hud").getBoundingClientRect().bottom + 6) / innerHeight);
-  const visible = Math.max(0.2, libre - arriba);
+  const panel = $("panelMesa").getBoundingClientRect(), arriba = document.querySelector(".hud").getBoundingClientRect().bottom + 6;
+  // el rectángulo libre de la pantalla, en píxeles
+  const libre = panelAlLado()
+    ? { x0: 0, x1: Math.max(innerWidth * 0.3, panel.left - 12), y0: arriba, y1: innerHeight }
+    : { x0: 0, x1: innerWidth, y0: arriba, y1: Math.max(arriba + innerHeight * 0.25, panel.top - 12) };
   const tanMedio = Math.tan(THREE.MathUtils.degToRad(mundo.camara.fov / 2)), aspecto = innerWidth / innerHeight;
-  const TAM = (MESA.radioTornamesa + 0.08) * 2;
-  // con un tope: en un celular muy alto se prefiere recortar un poco el aro antes que alejarse demasiado
-  const distancia = Math.min(DISTANCIA_MAX_MESA, Math.max(1.0, TAM / (visible * 2 * tanMedio), TAM / (2 * tanMedio * aspecto)));
-  const ojo = centro.clone().addScaledVector(DIRECCION_MESA, distancia);
-  // la mirada baja lo justo para que la tornamesa quede en el medio de la franja libre
-  const subir = new THREE.Vector3(0, 1, 0).addScaledVector(DIRECCION_MESA, -DIRECCION_MESA.y).normalize();
-  const correrVista = distancia * tanMedio * (1 - libre - arriba);
-  return mundo.viajar(ojo, centro.clone().addScaledVector(subir, -correrVista), ms);
+  const fraccionAncho = (libre.x1 - libre.x0) / innerWidth, fraccionAlto = (libre.y1 - libre.y0) / innerHeight;
+  const TAM = (MESA.radioTornamesa + 0.2) * 2;
+  const distancia = Math.min(DISTANCIA_MAX_MESA, Math.max(0.9, TAM / (fraccionAlto * 2 * tanMedio), TAM / (fraccionAncho * 2 * tanMedio * aspecto)));
+  // la cámara se corre para que la tornamesa quede en el centro del rectángulo libre (arriba de la pantalla es el fondo de la mesa)
+  const nx = ((libre.x0 + libre.x1) / innerWidth) - 1, ny = 1 - ((libre.y0 + libre.y1) / innerHeight);
+  const mitadAlto = distancia * tanMedio, mitadAncho = mitadAlto * aspecto;
+  const y = ALTO_PISO_PARADA + MESA.alto + 0.08, cx = MESA.x - nx * mitadAncho, cz = MESA.z + ny * mitadAlto;
+  // un pelo hacia la llegada, para que la cámara sepa dónde es "arriba" al mirar recto hacia abajo
+  return mundo.viajar(new THREE.Vector3(cx, y + distancia, cz + distancia * 0.001), new THREE.Vector3(cx, y, cz), ms);
 }
 async function irAMesa() {
   mostrarPanel("mesa"); $("globo").hidden = true;
@@ -891,6 +920,7 @@ function moverMati({ x, y, z, rumbo, vel, tercera, dt }) {
 $("btnVista").onclick = () => {
   const atras = !recorrido.tercera; recorrido.verDesdeAtras(atras);
   $("btnVista").setAttribute("aria-pressed", String(atras)); $("btnVista").textContent = atras ? "Ver con mis ojos" : "Ver a Mati";
+  $("btnVista").blur();   // el foco vuelve a la escena: se sigue caminando sin tocar otra parte
 };
 $("btnSalto").hidden = !ES_TACTIL;
 $("btnSalto").onclick = () => recorrido.saltar();

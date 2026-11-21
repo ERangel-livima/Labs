@@ -86,7 +86,7 @@
 <!-- mundo libre: el estudiante es Mati -->
 <div class="barra" id="panelRecorrido" hidden>
   <div class="fila">
-    <button class="btn" id="btnVista" aria-pressed="false">Ver a Mati</button>
+    <button class="btn" id="btnVista" aria-pressed="true">Ver con mis ojos</button>
     <button class="btn" id="btnSalto" hidden>Saltar</button>
     <button class="btn principal" id="btnAccion">Ir al bastidor</button>
   </div>
@@ -661,6 +661,7 @@ function moverMati({ x, y, z, rumbo, vel, tercera, dt }) {
 $("btnVista").onclick = () => {
   const atras = !recorrido.tercera; recorrido.verDesdeAtras(atras);
   $("btnVista").setAttribute("aria-pressed", String(atras)); $("btnVista").textContent = atras ? "Ver con mis ojos" : "Ver a Mati";
+  $("btnVista").blur();   // el foco vuelve a la escena: se sigue caminando sin tocar otra parte
 };
 $("btnSalto").hidden = !ES_TACTIL;
 $("btnSalto").onclick = () => recorrido.saltar();
