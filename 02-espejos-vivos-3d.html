@@ -36,8 +36,7 @@
 
   .globo{position:fixed;top:calc(62px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));max-width:min(380px,calc(100vw - 24px));
     display:flex;gap:10px;align-items:flex-start;background:#fffffff2;border:2px solid var(--acento);border-radius:14px;padding:10px 12px;z-index:6}
-  .globo img{width:44px;height:66px;object-fit:contain;flex:none}
-  .globo p{margin:0;font-size:15px}
+    .globo p{margin:0;font-size:15px}
   .globo b{color:var(--acento-hondo)}
   .globo .cerrar{margin-left:auto;background:none;border:0;color:var(--gris);font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
 
@@ -99,25 +98,15 @@
 
 <header class="hud">
   <span class="chip">Espejos Vivos</span>
-  <span class="chip suave" id="estado">Llegada</span>
+  <span class="chip suave" id="estado">El lienzo del espejo</span>
   <a class="volver" href="index.html">Volver a la ronda</a>
 </header>
 
 <div class="globo" id="globo" role="status" hidden>
-  <img src="3d/mati.webp" alt="">
   <p id="globoTexto"></p>
-  <button class="cerrar" id="globoCerrar" aria-label="Cerrar el mensaje de Mati">×</button>
+  <button class="cerrar" id="globoCerrar" aria-label="Cerrar la pista">×</button>
 </div>
 <div class="aviso" id="aviso" role="alert" hidden></div>
-
-<!-- 1. llegada -->
-<div class="barra" id="panelLlegada" hidden>
-  <div class="fila">
-    <button class="btn" id="btnSaltar">Saltar la llegada</button>
-    <button class="btn" data-recorrer>Recorrer el taller</button>
-    <button class="btn principal" id="btnAlBastidor">Ir al bastidor</button>
-  </div>
-</div>
 
 <!-- 2. trabajo -->
 <div class="barra" id="panelTrabajo" hidden>
@@ -130,17 +119,18 @@
     <button class="btn" id="btnMas" aria-expanded="false">Muestras</button>
   </div>
   <div class="fila">
-    <button class="btn" data-recorrer>Recorrer</button>
+    <button class="btn" data-recorrer>Seguir caminando</button>
     <button class="btn" id="btnPrecision">Vista de precisión</button>
     <button class="btn principal" id="btnTermine">Terminé mi obra</button>
   </div>
 </div>
 
-<!-- recorrido libre -->
+<!-- mundo libre: el estudiante es Mati -->
 <div class="barra" id="panelRecorrido" hidden>
   <div class="fila">
-    <button class="btn" id="btnVerGaleria">Ver la galería</button>
-    <button class="btn principal" id="btnVolverBastidor">Ir al bastidor</button>
+    <button class="btn" id="btnVista" aria-pressed="false">Ver a Mati</button>
+    <button class="btn" id="btnSalto" hidden>Saltar</button>
+    <button class="btn principal" id="btnAccion">Ir al bastidor</button>
   </div>
 </div>
 
@@ -174,7 +164,7 @@
 <div class="barra" id="panelObra" hidden>
   <div class="fila">
     <button class="btn" id="btnSeguir">Seguir dibujando</button>
-    <button class="btn" data-recorrer>Recorrer</button>
+    <button class="btn" data-recorrer>Seguir caminando</button>
     <a class="btn" href="02-lienzo-simetria-espejos-vivos.html#juego">Jugar Criaturas del espejo</a>
     <button class="btn principal" id="btnDescargar">Descargar mi obra</button>
   </div>
@@ -343,7 +333,7 @@ const ENCUADRES = {
 const avisarCambioLienzo = () => { if (texTrabajo) texTrabajo.needsUpdate = true; };
 
 // el papel brilla un poco por sí mismo, para que la obra se lea bien a cualquier hora
-const materialLamina = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.15 });
+const materialLamina = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.3 });
 
 // El caballete del stand de Espejos Vivos en el mapa: patas, repisa, travesaño y bastidor.
 function caballete(escala, x, z, giro) {
@@ -392,38 +382,86 @@ function construirEstacion() {
   pintarObra(lienzoObra.getContext("2d")); texObra.needsUpdate = true;   // sin esto, el caballete vacío se vería negro
   colgarMuestrasEnGaleria();
   portal = crearPortal(mundo, { x: PORTAL.x, z: PORTAL.z, giro: Math.atan2(-PORTAL.x, -PORTAL.z), color: "#8BD46A" });
-  // Mati, el mismo del mapa, en 3D
+  techoMariposa();
+  letreros();
+  // Mati, el mismo del mapa en 3D: es el estudiante. Se ve cuando se mira desde atrás y en la galería
   guias = personajes(mundo);
-  R_MATI = guias.crearPersonaje("mati"); R_MATI.raiz.visible = true;
-  R_MATI.raiz.position.set(-1.2, ALTO_PISO_PARADA, 1.4);
-  mundo.alAnimar.push(moverMatiPorCuadro);
+  R_MATI = guias.crearPersonaje("mati"); R_MATI.raiz.visible = false;
+  mundo.alAnimar.push((tiempo, dt) => { if (!recorrido || !recorrido.activo) guias.animarPersonaje(R_MATI, tiempo, dt, 0); });
 }
 
-// Mati camina hasta su lugar en cada vista y se voltea hacia quien llega
-const LUGARES_MATI = {
-  llegada: { x: -1.2, z: 1.4, mira: () => portal.centro },
-  trabajo: { x: -1.95, z: -0.55, mira: () => new THREE.Vector3(0.6, 0, 4) },
-  obra:    { x: -3.6,  z: 3.15, mira: () => new THREE.Vector3(2, 0, 0.4) }
-};
-let destinoMati = null;
-const VELOCIDAD_MATI = 1.3;
-function moverMatiPorCuadro(t, dt) {
-  if (!R_MATI) return;
-  const raiz = R_MATI.raiz;
-  let vel = 0;
-  if (destinoMati) {
-    const dx = destinoMati.x - raiz.position.x, dz = destinoMati.z - raiz.position.z, d = Math.hypot(dx, dz);
-    let rumbo;
-    if (d > 0.04) {
-      const paso = Math.min(d, VELOCIDAD_MATI * dt);
-      raiz.position.x += dx / d * paso; raiz.position.z += dz / d * paso; vel = VELOCIDAD_MATI; rumbo = Math.atan2(dx, dz);
-    } else {
-      const m = destinoMati.mira(); rumbo = Math.atan2(m.x - raiz.position.x, m.z - raiz.position.z);
-    }
-    let giro = rumbo - raiz.rotation.y; giro = Math.atan2(Math.sin(giro), Math.cos(giro));
-    raiz.rotation.y += giro * Math.min(1, dt * 6);
+// Techo mariposa: dos alas que suben desde el eje central, una el reflejo de la otra.
+// El valle es el eje de simetría del stand, marcado con una línea de luz del color del grado.
+const TECHO = { altoEje: 3.5, ala: 6.4, fondo: 12.8, inclinacion: THREE.MathUtils.degToRad(13), grosor: 0.16 };
+function puntal(desde, hasta, material) {
+  const largo = desde.distanceTo(hasta);
+  const m = mundo.malla(new THREE.CylinderGeometry(0.07, 0.09, largo, 10), material, (desde.x + hasta.x) / 2, (desde.y + hasta.y) / 2, (desde.z + hasta.z) / 2);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), hasta.clone().sub(desde).normalize());
+  return m;
+}
+function techoMariposa() {
+  const { M, malla, escena } = mundo, T = TECHO;
+  const g = new THREE.Group(); g.position.y = ALTO_PISO_PARADA; escena.add(g);
+  const blanco = M("#F2F0EA"), madera = M("#B98A52"), marino = M("#1B3A6B", { roughness: 0.5 }), acero = M("#2b2724", { metalness: 0.6, roughness: 0.35 });
+  const borde = new THREE.MeshStandardMaterial({ color: "#8BD46A", roughness: 0.5, emissive: "#8BD46A", emissiveIntensity: 0.25 });
+  for (const lado of [-1, 1]) {
+    const ala = new THREE.Group(); ala.position.y = T.altoEje; ala.rotation.z = lado * T.inclinacion; g.add(ala);
+    malla(new THREE.BoxGeometry(T.ala, T.grosor, T.fondo), blanco, lado * T.ala / 2, 0, 0, ala);
+    // cielo raso de listones de madera, perpendiculares al eje
+    for (let z = -T.fondo / 2 + 0.3; z <= T.fondo / 2 - 0.2; z += 0.42) malla(new THREE.BoxGeometry(T.ala - 0.3, 0.07, 0.14), madera, lado * T.ala / 2, -T.grosor / 2 - 0.04, z, ala);
+    // canto exterior del color del grado
+    malla(new THREE.BoxGeometry(0.12, 0.3, T.fondo + 0.04), borde, lado * T.ala, 0, 0, ala);
+    [-1, 1].forEach(s => malla(new THREE.BoxGeometry(T.ala, 0.3, 0.1), blanco, lado * T.ala / 2, 0, s * T.fondo / 2, ala));
   }
-  guias.animarPersonaje(R_MATI, t, dt, vel);
+  // el eje: viga azul en el valle con una línea de luz debajo
+  malla(new THREE.BoxGeometry(0.4, 0.34, T.fondo + 0.5), marino, 0, T.altoEje - 0.08, 0, g);
+  const luz = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, T.fondo + 0.4), new THREE.MeshStandardMaterial({ color: "#8BD46A", emissive: "#8BD46A", emissiveIntensity: 1.6 }));
+  luz.position.set(0, T.altoEje - 0.26, 0); g.add(luz);
+  // apoyos en V, también reflejados a cada lado del eje
+  const alturaAla = x => ALTO_PISO_PARADA + T.altoEje + Math.abs(x) * Math.tan(T.inclinacion) - T.grosor / 2 - 0.08;
+  for (const lado of [-1, 1]) for (const zc of [-4.1, 4.1]) {
+    const x0 = lado * 4.6, y0 = mundo.alturaLocal(x0, zc), base = new THREE.Vector3(x0, y0, zc);
+    malla(new THREE.CylinderGeometry(0.28, 0.34, 0.24, 12), M("#A8A296"), x0, y0 + 0.12, zc);
+    for (const dz of [-1.4, 1.4]) { const x1 = lado * 5.5; puntal(base, new THREE.Vector3(x1, alturaAla(x1), zc + dz), acero); }
+  }
+}
+
+// Letreros que identifican el lugar: el nombre colgado del eje del techo y un tótem a la entrada
+function texturaLetrero(ancho, alto, pintar) {
+  const c = document.createElement("canvas"); c.width = ancho; c.height = alto; pintar(c.getContext("2d"), ancho, alto);
+  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; return tx;
+}
+function letreros() {
+  const { malla, M } = mundo;
+  const conLuz = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.7, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.25 });
+  // nombre colgado del valle del techo, al frente: las letras se leen simétricas alrededor del eje
+  const nombre = texturaLetrero(1024, 256, (x, w, h) => {
+    x.fillStyle = "#1B3A6B"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#8BD46A"; x.fillRect(0, h - 22, w, 22);
+    x.strokeStyle = "#8BD46AAA"; x.setLineDash([14, 10]); x.lineWidth = 4; x.beginPath(); x.moveTo(w / 2, 10); x.lineTo(w / 2, h - 30); x.stroke(); x.setLineDash([]);
+    x.fillStyle = "#FBF6EA"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "700 112px Georgia, 'Times New Roman', serif";
+    x.fillText("Espejos Vivos", w / 2, h / 2 - 8);
+  });
+  const panel = malla(new THREE.BoxGeometry(2.6, 0.62, 0.08), [M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), conLuz(nombre), M("#1B3A6B")], 0, ALTO_PISO_PARADA + TECHO.altoEje - 0.62, TECHO.fondo / 2 - 0.25);
+  [-1.0, 1.0].forEach(x => malla(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 6), M("#2b2724"), x, ALTO_PISO_PARADA + TECHO.altoEje - 0.15, TECHO.fondo / 2 - 0.25));
+  // tótem de la parada, junto a la llegada: grado, expedición, nombre del lugar y su lema
+  const totem = texturaLetrero(512, 1024, (x, w, h) => {
+    x.fillStyle = "#FBF6EA"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#8BD46A"; x.fillRect(0, 0, w, 210);
+    x.fillStyle = "#1B3A6B"; x.textAlign = "center"; x.textBaseline = "middle";
+    x.font = "800 150px 'Segoe UI', Arial, sans-serif"; x.fillText("6°", w / 2, 108);
+    x.font = "600 34px 'Segoe UI', Arial, sans-serif"; x.fillText("Parada 2 - Expedición", w / 2, 280);
+    x.font = "700 70px Georgia, serif"; x.fillText("Espejos", w / 2, 380); x.fillText("Vivos", w / 2, 460);
+    x.fillStyle = "#2F6E1C"; x.fillRect(80, 520, w - 160, 6);
+    x.font = "italic 600 40px Georgia, serif"; x.fillText("El lienzo", w / 2, 600); x.fillText("del espejo", w / 2, 650);
+    x.fillStyle = "#1d2733"; x.font = "500 31px 'Segoe UI', Arial, sans-serif";
+    ["Dibuja de un lado,", "el espejo hace", "el resto"].forEach((l, k) => x.fillText(l, w / 2, 780 + k * 44));
+    x.fillStyle = "#1B3A6B"; x.fillRect(0, h - 40, w, 40);
+  });
+  const tx = -2.9, tz = 7.2, ty = mundo.alturaLocal(tx, tz);
+  const t = new THREE.Group(); t.position.set(tx, ty, tz); t.rotation.y = 0.35; mundo.escena.add(t);
+  malla(new THREE.BoxGeometry(1.15, 2.3, 0.12), [M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), conLuz(totem), M("#FBF6EA")], 0, 1.35, 0, t);
+  malla(new THREE.BoxGeometry(1.35, 0.2, 0.4), M("#A8A296"), 0, 0.1, 0, t);
 }
 
 function colgarMuestrasEnGaleria() {
@@ -574,31 +612,16 @@ $("btnVolverTaller").onclick = () => { $("precision").hidden = true; marcarEjes(
 /* ---------- las vistas de la estación ---------- */
 function mostrarPanel(vista) {
   estado.vista = vista;
-  if (LUGARES_MATI[vista]) destinoMati = LUGARES_MATI[vista];
   if (recorrido && vista !== "recorrido") recorrido.desactivar();
-  $("panelLlegada").hidden = vista !== "llegada";
+  if (R_MATI) {
+    // en la galería, Mati (el estudiante) se queda junto a su obra
+    R_MATI.raiz.visible = vista === "obra";
+    if (vista === "obra") { R_MATI.raiz.position.set(-3.3, ALTO_PISO_PARADA, 3.1); R_MATI.raiz.rotation.y = Math.PI / 2 - 0.3; }
+  }
   $("panelTrabajo").hidden = vista !== "trabajo";
   $("panelObra").hidden = vista !== "obra";
   $("panelRecorrido").hidden = vista !== "recorrido";
   cerrarHojas();
-}
-// la llegada es justo a la salida del portal, mirando el stand, a la altura de los ojos de un estudiante
-function vistaLlegada() {
-  // en un celular vertical hay que mirar desde más atrás para que quepan Mati y el bastidor: a un lado del portal, no a través de él
-  const angosto = mundo.camara.aspect < 0.8, lado = new THREE.Vector3(portal.normal.z, 0, -portal.normal.x);
-  const pos = angosto
-    ? portal.centro.clone().addScaledVector(portal.normal, -4).addScaledVector(lado, 2.3)
-    : portal.centro.clone().addScaledVector(portal.normal, 1.1);
-  pos.y = ALTO_PISO_PARADA + (angosto ? 2.6 : 1.7);
-  return { pos, mira: new THREE.Vector3(-0.6, 1.3, -0.6) };
-}
-async function irALlegada() {
-  mostrarPanel("llegada"); $("estado").textContent = "Llegada";
-  if (mundo) { const v = vistaLlegada(); mundo.soltarEncuadre(); await mundo.viajar(v.pos, v.mira); }
-}
-function saludoDeMati() {
-  if (R_MATI) R_MATI.saludoHasta = mundo.reloj.t + 2.2;
-  decirMati("<b>Mati:</b> Bienvenido al taller de los espejos. El bastidor está en blanco para que crees lo que quieras: elige uno, dos o cuatro ejes y el espejo hace el resto. Si buscas ideas, mira las criaturas del Sinú en Muestras.");
 }
 async function irATrabajo({ instantaneo = false } = {}) {
   mostrarPanel("trabajo"); marcarEjes();
@@ -612,10 +635,8 @@ async function irAObra() {
   const titulo = estado.nombre ? `"${estado.nombre}"` : "Tu obra";
   if (mundo) { texObra.needsUpdate = true; colgarMuestrasEnGaleria(); await mundo.irA(ENCUADRES.obra); }
   else $("ligera").replaceChildren(lienzoObra);
-  decirMati(`<b>Insignia Guardián de la Simetría.</b> ${titulo} ya está en la galería. Lo que hiciste de un lado, el espejo lo devolvió del otro.`);
+  decirMati(`<b>Insignia Guardián de la Simetría.</b> ${titulo} ya está en la galería. Lo que hiciste de un lado, el espejo lo devolvió del otro.`, { segundos: 10 });
 }
-$("btnSaltar").onclick = () => { $("globo").hidden = true; irATrabajo({ instantaneo: true }); };
-$("btnAlBastidor").onclick = async () => { $("globo").hidden = true; await irATrabajo(); decirMati(MUESTRAS[estado.muestra].pista, { segundos: 8 }); };
 $("btnTermine").onclick = irAObra;
 $("btnSeguir").onclick = () => { $("globo").hidden = true; if (usarLigera) $("ligera").replaceChildren(lienzoTrabajo); irATrabajo(); };
 
@@ -635,25 +656,55 @@ $("btnDescargar").onclick = () => {
   });
 };
 
-/* ---------- recorrido libre por el stand y la orilla ---------- */
+/* ---------- mundo libre: el estudiante camina como Mati ---------- */
 const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
-async function irARecorrido() {
-  mostrarPanel("recorrido"); $("estado").textContent = "Recorrido libre";
-  await recorrido.activar();
-  decirMati(ES_TACTIL
-    ? "Camina con el control redondo y arrastra el dedo para mirar a tu alrededor. Cuando quieras pintar, toca Ir al bastidor."
-    : "Camina con W, A, S, D o con las flechas y arrastra con el ratón para mirar. Cuando quieras pintar, toca Ir al bastidor.", { segundos: 9 });
+const PISTA_CAMINAR = ES_TACTIL
+  ? "Eres Mati. Mueve la palanca para caminar y arrastra la pantalla para mirar. Acércate al bastidor para pintar."
+  : "Eres Mati. Camina con W, A, S, D o las flechas, salta con la barra espaciadora y mantén el clic para mirar. Acércate al bastidor y pulsa E para pintar.";
+// lo que hay cerca decide el botón principal, como los portales del mapa
+let cerca = null;
+const LUGARES = [
+  { id: "bastidor", x: BASTIDOR.x, z: BASTIDOR.z + 1.3, radio: 1.9, texto: "Pintar en el bastidor", accion: () => irATrabajo() },
+  { id: "galeria", x: GALERIA.x + 1.5, z: 0, radio: 2.8, texto: "Ver la galería", accion: () => irAObra() },
+  { id: "portal", x: PORTAL.x, z: PORTAL.z, radio: 1.6, texto: "Volver a la ronda", accion: () => cruzarPortal("index.html#g6") }
+];
+function actualizarCerca(x, z) {
+  let nuevo = null;
+  for (const l of LUGARES) if (Math.hypot(x - l.x, z - l.z) < l.radio) { nuevo = l; break; }
+  if (nuevo === cerca) return;
+  cerca = nuevo;
+  $("btnAccion").textContent = cerca ? cerca.texto + (ES_TACTIL ? "" : " (E)") : "Ir al bastidor";
+}
+$("btnAccion").onclick = () => { $("globo").hidden = true; (cerca ? cerca.accion : LUGARES[0].accion)(); };
+addEventListener("keydown", e => {
+  if (e.code !== "KeyE" || !recorrido || !recorrido.activo || !cerca || e.target.closest("input, textarea")) return;
+  e.preventDefault(); $("globo").hidden = true; cerca.accion();
+});
+function moverMati({ x, y, z, rumbo, vel, tercera, dt }) {
+  actualizarCerca(x, z);
+  R_MATI.raiz.visible = tercera;
+  R_MATI.raiz.position.set(x, y, z);
+  let giro = rumbo - R_MATI.raiz.rotation.y; giro = Math.atan2(Math.sin(giro), Math.cos(giro));
+  R_MATI.raiz.rotation.y += giro * Math.min(1, dt * 9);
+  guias.animarPersonaje(R_MATI, mundo.reloj.t, dt, vel);
+}
+$("btnVista").onclick = () => {
+  const atras = !recorrido.tercera; recorrido.verDesdeAtras(atras);
+  $("btnVista").setAttribute("aria-pressed", String(atras)); $("btnVista").textContent = atras ? "Ver con mis ojos" : "Ver a Mati";
+};
+$("btnSalto").hidden = !ES_TACTIL;
+$("btnSalto").onclick = () => recorrido.saltar();
+async function irARecorrido(inicio) {
+  mostrarPanel("recorrido"); $("estado").textContent = "El lienzo del espejo";
+  cerca = undefined; actualizarCerca(Infinity, Infinity);
+  await recorrido.activar(inicio);
 }
 document.querySelectorAll("[data-recorrer]").forEach(b => b.onclick = () => { $("globo").hidden = true; irARecorrido(); });
-$("btnVolverBastidor").onclick = () => { $("globo").hidden = true; irATrabajo(); };
-$("btnVerGaleria").onclick = () => { $("globo").hidden = true; irAObra(); };
 
 /* ---------- cruzar el portal: el mismo destello del mapa, de ida y de vuelta ---------- */
 let cruzando = false;
-document.querySelector(".hud .volver").addEventListener("click", async e => {
-  e.preventDefault();
+async function cruzarPortal(destino) {
   if (cruzando) return; cruzando = true;
-  const destino = e.currentTarget.getAttribute("href");
   $("globo").hidden = true; cerrarHojas();
   if (mundo) {
     if (recorrido) recorrido.desactivar();
@@ -666,7 +717,8 @@ document.querySelector(".hud .volver").addEventListener("click", async e => {
     await new Promise(r => setTimeout(r, 700));
   }
   location.href = destino;
-});
+}
+document.querySelector(".hud .volver").addEventListener("click", e => { e.preventDefault(); cruzarPortal(e.currentTarget.getAttribute("href")); });
 // si el estudiante vuelve con el botón Atrás del navegador, la estación se ve sin destello
 addEventListener("pageshow", () => { if (cruzando) { cruzando = false; $("velo").classList.remove("on"); } });
 
@@ -690,8 +742,10 @@ if (usarLigera) {
     limites: { xMin: -60, xMax: 60, zMin: -40, zMax: 60 },
     permitido: (x, z) => z > mundo.rioLocal(x) + 7.5,   // se puede llegar a la playa, pero no meterse al río
     piso: (x, z) => (Math.hypot(x, z) < 5.4 ? ALTO_PISO_PARADA : mundo.alturaLocal(x, z)),
+    alMoverse: moverMati,
     circulos: [
       ...troncos,
+      ...[-4.6, 4.6].flatMap(x => [[x, -4.1, 0.4], [x, 4.1, 0.4]]),
       [ESTANQUE.x, ESTANQUE.z, ESTANQUE.r + 0.1], [3.1, -2.1, 0.55], [PORTAL.x, PORTAL.z, 0.8]
     ],
     obstaculos: [
@@ -700,22 +754,16 @@ if (usarLigera) {
     ]
   });
   avisarCambioLienzo();
-  // se sale del portal: la cámara empieza dentro del remolino y el destello se apaga mientras avanza
+  // se sale del portal: la cámara empieza dentro del remolino, el destello se apaga y el estudiante ya camina como Mati
   mundo.colocar(portal.centro.clone().addScaledVector(portal.normal, -0.6), portal.centro.clone().addScaledVector(portal.normal, 4));
+  const salida = portal.centro.clone().addScaledVector(portal.normal, 2.3);
   requestAnimationFrame(() => requestAnimationFrame(async () => {
     $("velo").classList.remove("on");
-    if (hayObraPrevia) {
-      mostrarPanel("trabajo"); marcarEjes();
-      await mundo.irA(ENCUADRES.trabajo, { ms: 1500 });
-      decirMati("Aquí está tu obra, tal como la dejaste.", { segundos: 6 });
-    } else {
-      mostrarPanel("llegada"); $("estado").textContent = "Llegada";
-      const v = vistaLlegada();
-      await mundo.viajar(v.pos, v.mira, 1500);
-      saludoDeMati();
-    }
+    await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-portal.normal.x, -portal.normal.z), ms: 1500 });
+    decirMati(hayObraPrevia ? "Tu obra te espera en el bastidor, tal como la dejaste. " + PISTA_CAMINAR : PISTA_CAMINAR, { segundos: 12 });
   }));
 }
+window.__estacion = { get mundo() { return mundo; }, get recorrido() { return recorrido; } };   // para las pruebas automáticas
 window.__listo = true;
 </script>
 </body>
