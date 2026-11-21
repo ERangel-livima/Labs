@@ -9,6 +9,7 @@
   // el mapa y el pasaporte abren el juego y la guía con #juego y #guia: esos siguen en el simulador clásico
   if (location.hash === "#juego" || location.hash === "#guia") location.replace("02-lienzo-simetria-espejos-vivos.html" + location.hash);
 </script>
+<script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
 <style>
   /* colores de la estación: la paleta de los simuladores se cambia aquí y en ESTACION */
   :root{
@@ -17,6 +18,11 @@
   }
   *{box-sizing:border-box}
   [hidden]{display:none!important}
+  /* el destello de luz al cruzar un portal: el mismo del mapa, para que el paso de un lugar al otro sea uno solo */
+  #velo{position:fixed;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;pointer-events:none;z-index:80;opacity:0;transform:scale(.05);
+    background:radial-gradient(circle,#fff 0%,#fff 12%,#8BD46A 38%,#10284D 72%);transition:opacity .5s ease,transform .75s cubic-bezier(.5,0,.75,0)}
+  #velo.on{opacity:1;transform:scale(1.6)}
+  @media (prefers-reduced-motion: reduce){ #velo{transition:opacity .3s ease} }
   html,body{margin:0;height:100%;overflow:hidden;background:var(--cielo);color:var(--tinta);
     font:16px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
   #mundo{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
@@ -76,6 +82,18 @@
 </style>
 </head>
 <body>
+<div id="velo" class="on" aria-hidden="true"></div>
+<script>
+  // si el 3D no arranca (navegador muy antiguo), no se queda la pantalla encendida: se ofrece la versión clásica
+  setTimeout(() => {
+    if (window.__listo) return;
+    document.getElementById("velo").classList.remove("on");
+    const p = document.createElement("p");
+    p.style.cssText = "position:fixed;inset:auto 16px 40% 16px;background:#fff;padding:16px;border-radius:12px;z-index:90;font:16px/1.4 system-ui";
+    p.innerHTML = 'Este navegador no pudo abrir la estación. <a href="?ligera=1">Abrir la vista ligera</a> o <a href="02-lienzo-simetria-espejos-vivos.html">el simulador clásico</a>.';
+    document.body.append(p);
+  }, 15000);
+</script>
 <canvas id="mundo" aria-label="Taller de Espejos Vivos a la orilla del río Sinú"></canvas>
 <div class="ligera" id="ligera" hidden></div>
 
@@ -165,7 +183,7 @@
 <noscript><p style="padding:80px 16px">Esta estación necesita JavaScript. Abre la versión clásica: 02-lienzo-simetria-espejos-vivos.html</p></noscript>
 
 <script type="module">
-import { THREE, hayWebGL, almacen, crearMundo, construirOrilla, figuraGuia, crearRecorrido } from "./3d/livima3d.js";
+import { THREE, hayWebGL, almacen, crearMundo, construirRonda, pisoDeParada, ALTO_PISO_PARADA, crearPortal, personajes, crearRecorrido } from "./3d/livima3d.js";
 
 const ESTACION = { id: "espejos", acento: "#4A9B2E", clave: "livima_espejos3d_obra" };
 const COLORES = ["#1B3A6B", "#1F8A8A", "#4A9B2E", "#D9701A", "#6B3FA0", "#C0392B", "#E8B800", "#111111"];
@@ -313,66 +331,99 @@ function recuperarObra() {
 
 /* ---------- el mundo 3D o la vista ligera ---------- */
 const usarLigera = new URLSearchParams(location.search).has("ligera") || !hayWebGL();
-let mundo = null, tela = null, atril = null, mati = null, recorrido = null, cuadrosGaleria = [], texTrabajo = null, texObra = null;
+let mundo = null, tela = null, recorrido = null, portal = null, R_MATI = null, guias = null, cuadrosGaleria = [], texTrabajo = null, texObra = null, troncos = [];
+const BASTIDOR = { x: 0, z: -1.0, escala: 0.38 };   // el caballete del mapa, a la medida de un estudiante
+const GALERIA = { x: -4.3, zs: [-2.0, 0, 2.0], escala: 0.17 };
+const ESTANQUE = { x: 2.7, z: 0.5, r: 1.25 };
+const PORTAL = { x: 1.8, z: 5.7 };   // al frente del stand: al salir del portal se ve todo el taller
 const ENCUADRES = {
-  llegada: { mira: [0, 1.7, 0], desde: [0, 0.062, 1], ancho: 10.5, alto: 9, margen: 1.15, distanciaMax: 17 },
-  trabajo: { mira: [0, 1.74, 0.8], desde: [0.08, 0.06, 1], ancho: 2.35, alto: 1.8, margen: 1.3 },
-  obra:    { mira: [-1.2, 1.55, -2.8], desde: [0, 0.05, 1], ancho: 5.1, alto: 1.5, margen: 1.08, distanciaMax: 4.6 }
+  trabajo: { mira: [0, 1.76, BASTIDOR.z + 0.09], desde: [0.03, 0.05, 1], ancho: 2.6, alto: 2.0, margen: 1.25 },
+  obra:    { mira: [GALERIA.x, 0.95, 0], desde: [1, 0.2, 0.08], ancho: 5.6, alto: 1.5, margen: 1.08, distanciaMax: 7 }
 };
-const avisarCambioLienzo = () => { if (texTrabajo) { texTrabajo.needsUpdate = true; mundo.pedirCuadro(); } };
+const avisarCambioLienzo = () => { if (texTrabajo) texTrabajo.needsUpdate = true; };
 
-// el papel brilla un poco por sí mismo: bajo el techo de palma la sombra lo volvía gris
-const materialLamina = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.45 });
+// el papel brilla un poco por sí mismo, para que la obra se lea bien a cualquier hora
+const materialLamina = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.15 });
 
-// Mati acompaña en todo el recorrido: al lado del bastidor mientras se pinta y junto a la galería al final
-const LUGARES_MATI = { llegada: [-1.9, 1.3], trabajo: [-1.65, 0.5], obra: [2.05, -2.2] };
-function moverMati([x, z]) {
-  const desde = mati.position.clone(), inicio = performance.now();
-  const paso = ahora => {
-    const t = Math.min((ahora - inicio) / 900, 1);
-    mati.position.x = desde.x + (x - desde.x) * t; mati.position.z = desde.z + (z - desde.z) * t;
-    mundo.pedirCuadro();
-    if (t < 1) requestAnimationFrame(paso);
-  };
-  requestAnimationFrame(paso);
+// El caballete del stand de Espejos Vivos en el mapa: patas, repisa, travesaño y bastidor.
+function caballete(escala, x, z, giro) {
+  const { M, malla, escena } = mundo, madera = M("#7A5230"), marco = M("#8A6A44");
+  const g = new THREE.Group(); g.position.set(x, ALTO_PISO_PARADA, z); g.rotation.y = giro; g.scale.setScalar(escala); escena.add(g);
+  [[-1.8, 0.18], [1.8, -0.18]].forEach(([px, r]) => { malla(new THREE.CylinderGeometry(0.09, 0.14, 7, 10), madera, px, 3.4, 0, g).rotation.z = r; });
+  malla(new THREE.CylinderGeometry(0.09, 0.13, 6.4, 10), madera, 0, 3.1, -1.4, g).rotation.x = -0.25;
+  malla(new THREE.BoxGeometry(7, 0.2, 0.55), madera, 0, 2.0, 0.3, g); malla(new THREE.BoxGeometry(3.4, 0.16, 0.16), M("#5c3d22"), 0, 1.0, 0, g);
+  [[7.18], [2.02]].forEach(([py]) => malla(new THREE.BoxGeometry(6.7, 0.18, 0.34), marco, 0, py + 0.1, 0.1, g));
+  [-3.28, 3.28].forEach(px => malla(new THREE.BoxGeometry(0.18, 5.2, 0.34), marco, px, 4.6, 0.1, g));
+  malla(new THREE.BoxGeometry(6.4, 4.8, 0.25), M("#FBF6EA"), 0, 4.6, 0.1, g);
+  // la tela: un plano 4:3 sobre el lienzo, como el lienzo del simulador
+  const lamina = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 4.8), new THREE.MeshStandardMaterial({ color: "#d5d0c4" }));
+  lamina.position.set(0, 4.6, 0.232); lamina.receiveShadow = true; g.add(lamina);
+  return lamina;
+}
+// banco del pintor del mapa: paleta, tarro de agua y pinceles
+function bancoDelPintor(x, z, giro) {
+  const { M, malla, escena } = mundo;
+  const st = new THREE.Group(); st.position.set(x, ALTO_PISO_PARADA, z); st.rotation.y = giro; st.scale.setScalar(0.8); escena.add(st);
+  malla(new THREE.CylinderGeometry(0.62, 0.62, 0.1, 16), M("#8A6A44"), 0, 1.0, 0, st);
+  [0, 2.1, 4.2].forEach(a => malla(new THREE.CylinderGeometry(0.05, 0.06, 1.0, 6), M("#6E4E2E"), Math.cos(a) * 0.4, 0.5, Math.sin(a) * 0.4, st));
+  malla(new THREE.CylinderGeometry(0.42, 0.42, 0.04, 18), M("#C9A56A", { roughness: 0.7 }), -0.08, 1.08, 0.05, st).scale.z = 0.72;
+  ["#D9533B", "#F4C542", "#3E7CC0", "#5FA845", "#8E5BB5"].forEach((c, k) => { malla(new THREE.SphereGeometry(0.07, 8, 6), M(c, { roughness: 0.4 }), -0.3 + k * 0.13, 1.11, 0.08 + Math.sin(k * 1.4) * 0.1, st).scale.y = 0.45; });
+  malla(new THREE.CylinderGeometry(0.13, 0.11, 0.3, 10), M("#5C9DA3", { roughness: 0.3 }), 0.34, 1.2, -0.22, st);
+  ["#D9533B", "#3E7CC0", "#F4C542"].forEach((c, k) => {
+    const p = malla(new THREE.CylinderGeometry(0.014, 0.014, 0.6, 5), M("#8A6A44"), 0.31 + k * 0.03, 1.48, -0.22, st); p.rotation.z = (k - 1) * 0.22;
+    malla(new THREE.ConeGeometry(0.03, 0.09, 6), M(c), 0.31 + k * 0.03 - (k - 1) * 0.07, 1.8, -0.22, st);
+  });
 }
 
-function construirTaller() {
-  const { escena, caja, material } = mundo;
-  caja(9, 0.3, 7, "#a07a52", 0, 0.15, 0);
-  [[-4, -3], [4, -3], [-4, 3], [4, 3]].forEach(([x, z]) => caja(0.2, 3.2, 0.2, "#7a5a3a", x, 1.9, z));
-  const techo = new THREE.Mesh(new THREE.ConeGeometry(6.6, 2.2, 4), material("#c9a66b"));
-  techo.rotation.y = Math.PI / 4; techo.position.set(0, 4.55, 0); techo.castShadow = true; escena.add(techo);
-  const portal = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.12, 12, 48),
-    new THREE.MeshStandardMaterial({ color: ESTACION.acento, emissive: ESTACION.acento, emissiveIntensity: 0.8 }));
-  portal.position.set(4.5, 1.5, 9); portal.rotation.y = -0.5; escena.add(portal);
-
-  // bastidor: el lienzo del estudiante es la tela
-  atril = new THREE.Group(); atril.position.set(0, 0.3, 0.8); escena.add(atril);
-  caja(2.3, 1.75, 0.08, "#6b4a2e", 0, 1.55, 0, atril);
-  texTrabajo = new THREE.CanvasTexture(lienzoTrabajo); texTrabajo.colorSpace = THREE.SRGBColorSpace;
-  tela = new THREE.Mesh(new THREE.PlaneGeometry(2.14, 1.6), materialLamina(texTrabajo));
-  tela.position.set(0, 1.55, 0.045); atril.add(tela);
-  [-0.9, 0.9].forEach(x => { const pata = caja(0.08, 1.9, 0.08, "#6b4a2e", x, 0.75, -0.25, atril); pata.rotation.x = 0.18; });
-
-  // mesa con los tarros de pintura
-  caja(1.4, 0.08, 0.7, "#8a6440", 2.2, 1.05, 1.0);
-  caja(0.08, 0.9, 0.08, "#6b4a2e", 1.6, 0.6, 0.75); caja(0.08, 0.9, 0.08, "#6b4a2e", 2.8, 0.6, 0.75);
-  COLORES.slice(0, 5).forEach((c, i) => caja(0.12, 0.12, 0.12, c, 1.7 + i * 0.24, 1.15, 1.05));
-
-  // galería de espejos al fondo: la obra en el centro y dos muestras a los lados
-  caja(5.2, 2.2, 0.15, "#e8e2d4", -1.2, 1.4, -2.9);
+function construirEstacion() {
+  const { M, malla } = mundo;
+  pisoDeParada(mundo, { radio: 6, color: "#8BD46A", tinta: "#2F6E1C" });
+  texTrabajo = new THREE.CanvasTexture(lienzoTrabajo); texTrabajo.colorSpace = THREE.SRGBColorSpace; texTrabajo.anisotropy = 8;
+  tela = caballete(BASTIDOR.escala, BASTIDOR.x, BASTIDOR.z, 0);
+  tela.material = materialLamina(texTrabajo);
+  bancoDelPintor(3.1, -2.1, -0.6);
+  // el espejo de agua del stand, con su borde de piedra: refleja el cielo como el río copia la ceiba
+  malla(new THREE.CylinderGeometry(ESTANQUE.r, ESTANQUE.r, 0.08, 40), M("#5C9DA3", { roughness: 0.06, metalness: 0.6 }), ESTANQUE.x, ALTO_PISO_PARADA + 0.03, ESTANQUE.z);
+  malla(new THREE.TorusGeometry(ESTANQUE.r + 0.04, 0.09, 8, 40), new THREE.MeshStandardMaterial({ color: "#A8A296", roughness: 0.95 }), ESTANQUE.x, ALTO_PISO_PARADA + 0.07, ESTANQUE.z).rotation.x = Math.PI / 2;
+  // galería: tres caballetes pequeños a un lado del stand
   texObra = new THREE.CanvasTexture(lienzoObra); texObra.colorSpace = THREE.SRGBColorSpace;
-  cuadrosGaleria = [-2.9, -1.2, 0.5].map(x => {
-    const g = new THREE.Group(); g.position.set(x, 1.55, -2.8); escena.add(g);
-    caja(1.25, 0.98, 0.05, "#6b4a2e", 0, 0, 0, g);
-    const lamina = new THREE.Mesh(new THREE.PlaneGeometry(1.12, 0.84), new THREE.MeshStandardMaterial({ color: "#d5d0c4" }));
-    lamina.position.z = 0.03; g.add(lamina);
-    return lamina;
-  });
+  cuadrosGaleria = GALERIA.zs.map(z => caballete(GALERIA.escala, GALERIA.x, z, Math.PI / 2));
   cuadrosGaleria[1].material = materialLamina(texObra);
+  pintarObra(lienzoObra.getContext("2d")); texObra.needsUpdate = true;   // sin esto, el caballete vacío se vería negro
+  colgarMuestrasEnGaleria();
+  portal = crearPortal(mundo, { x: PORTAL.x, z: PORTAL.z, giro: Math.atan2(-PORTAL.x, -PORTAL.z), color: "#8BD46A" });
+  // Mati, el mismo del mapa, en 3D
+  guias = personajes(mundo);
+  R_MATI = guias.crearPersonaje("mati"); R_MATI.raiz.visible = true;
+  R_MATI.raiz.position.set(-1.2, ALTO_PISO_PARADA, 1.4);
+  mundo.alAnimar.push(moverMatiPorCuadro);
+}
 
-  mati = figuraGuia(mundo, "3d/mati.webp", { alto: 1.75, x: -1.9, z: 1.3, piso: 0.3 });
+// Mati camina hasta su lugar en cada vista y se voltea hacia quien llega
+const LUGARES_MATI = {
+  llegada: { x: -1.2, z: 1.4, mira: () => portal.centro },
+  trabajo: { x: -1.95, z: -0.55, mira: () => new THREE.Vector3(0.6, 0, 4) },
+  obra:    { x: -3.6,  z: 3.15, mira: () => new THREE.Vector3(2, 0, 0.4) }
+};
+let destinoMati = null;
+const VELOCIDAD_MATI = 1.3;
+function moverMatiPorCuadro(t, dt) {
+  if (!R_MATI) return;
+  const raiz = R_MATI.raiz;
+  let vel = 0;
+  if (destinoMati) {
+    const dx = destinoMati.x - raiz.position.x, dz = destinoMati.z - raiz.position.z, d = Math.hypot(dx, dz);
+    let rumbo;
+    if (d > 0.04) {
+      const paso = Math.min(d, VELOCIDAD_MATI * dt);
+      raiz.position.x += dx / d * paso; raiz.position.z += dz / d * paso; vel = VELOCIDAD_MATI; rumbo = Math.atan2(dx, dz);
+    } else {
+      const m = destinoMati.mira(); rumbo = Math.atan2(m.x - raiz.position.x, m.z - raiz.position.z);
+    }
+    let giro = rumbo - raiz.rotation.y; giro = Math.atan2(Math.sin(giro), Math.cos(giro));
+    raiz.rotation.y += giro * Math.min(1, dt * 6);
+  }
+  guias.animarPersonaje(R_MATI, t, dt, vel);
 }
 
 function colgarMuestrasEnGaleria() {
@@ -520,10 +571,10 @@ lienzoPrecision.addEventListener("pointerdown", e => {
 $("btnPrecision").onclick = () => { cerrarHojas(); $("globo").hidden = true; $("precision").hidden = false; $("estado").textContent = "Vista de precisión"; pintarPrecision(); };
 $("btnVolverTaller").onclick = () => { $("precision").hidden = true; marcarEjes(); };
 
-/* ---------- las tres vistas de la estación ---------- */
+/* ---------- las vistas de la estación ---------- */
 function mostrarPanel(vista) {
   estado.vista = vista;
-  if (mati && LUGARES_MATI[vista]) moverMati(LUGARES_MATI[vista]);
+  if (LUGARES_MATI[vista]) destinoMati = LUGARES_MATI[vista];
   if (recorrido && vista !== "recorrido") recorrido.desactivar();
   $("panelLlegada").hidden = vista !== "llegada";
   $("panelTrabajo").hidden = vista !== "trabajo";
@@ -531,29 +582,37 @@ function mostrarPanel(vista) {
   $("panelRecorrido").hidden = vista !== "recorrido";
   cerrarHojas();
 }
-function irALlegada() {
+// la llegada es justo a la salida del portal, mirando el stand, a la altura de los ojos de un estudiante
+function vistaLlegada() {
+  // en un celular vertical hay que mirar desde más atrás para que quepan Mati y el bastidor: a un lado del portal, no a través de él
+  const angosto = mundo.camara.aspect < 0.8, lado = new THREE.Vector3(portal.normal.z, 0, -portal.normal.x);
+  const pos = angosto
+    ? portal.centro.clone().addScaledVector(portal.normal, -4).addScaledVector(lado, 2.3)
+    : portal.centro.clone().addScaledVector(portal.normal, 1.1);
+  pos.y = ALTO_PISO_PARADA + (angosto ? 2.6 : 1.7);
+  return { pos, mira: new THREE.Vector3(-0.6, 1.3, -0.6) };
+}
+async function irALlegada() {
   mostrarPanel("llegada"); $("estado").textContent = "Llegada";
-  if (mundo) mundo.irA(ENCUADRES.llegada, { instantaneo: true });
+  if (mundo) { const v = vistaLlegada(); mundo.soltarEncuadre(); await mundo.viajar(v.pos, v.mira); }
+}
+function saludoDeMati() {
+  if (R_MATI) R_MATI.saludoHasta = mundo.reloj.t + 2.2;
   decirMati("<b>Mati:</b> Bienvenido al taller de los espejos. El bastidor está en blanco para que crees lo que quieras: elige uno, dos o cuatro ejes y el espejo hace el resto. Si buscas ideas, mira las criaturas del Sinú en Muestras.");
 }
 async function irATrabajo({ instantaneo = false } = {}) {
   mostrarPanel("trabajo"); marcarEjes();
   $("ligera").hidden = !usarLigera;
-  if (mundo) { atril.visible = true; await mundo.irA(ENCUADRES.trabajo, { instantaneo }); }
+  if (mundo) await mundo.irA(ENCUADRES.trabajo, { instantaneo });
 }
 async function irAObra() {
-  if (!estado.trazos.length) { decirMati("Aún no hay trazos en el bastidor. Calca la mitad marcada y mira cómo el espejo completa la criatura.", { segundos: 6 }); return; }
+  if (!estado.trazos.length) { decirMati("Aún no hay trazos en el bastidor. Dibuja de un lado y mira cómo el espejo completa tu obra.", { segundos: 6 }); return; }
   pintarObra(lienzoObra.getContext("2d"));
   mostrarPanel("obra"); $("estado").textContent = "Galería de espejos";
   const titulo = estado.nombre ? `"${estado.nombre}"` : "Tu obra";
-  if (mundo) {
-    // la obra sale del bastidor y pasa a la galería
-    atril.visible = false; texObra.needsUpdate = true; colgarMuestrasEnGaleria();
-    await mundo.irA(ENCUADRES.obra);
-  } else {
-    $("ligera").replaceChildren(lienzoObra);
-  }
-  decirMati(`<b>Insignia Guardián de la Simetría.</b> ${titulo} ya cuelga en la galería. Lo que hiciste de un lado, el espejo lo devolvió del otro.`);
+  if (mundo) { texObra.needsUpdate = true; colgarMuestrasEnGaleria(); await mundo.irA(ENCUADRES.obra); }
+  else $("ligera").replaceChildren(lienzoObra);
+  decirMati(`<b>Insignia Guardián de la Simetría.</b> ${titulo} ya está en la galería. Lo que hiciste de un lado, el espejo lo devolvió del otro.`);
 }
 $("btnSaltar").onclick = () => { $("globo").hidden = true; irATrabajo({ instantaneo: true }); };
 $("btnAlBastidor").onclick = async () => { $("globo").hidden = true; await irATrabajo(); decirMati(MUESTRAS[estado.muestra].pista, { segundos: 8 }); };
@@ -576,11 +635,10 @@ $("btnDescargar").onclick = () => {
   });
 };
 
-/* ---------- recorrido libre por el taller y la orilla ---------- */
+/* ---------- recorrido libre por el stand y la orilla ---------- */
 const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
 async function irARecorrido() {
   mostrarPanel("recorrido"); $("estado").textContent = "Recorrido libre";
-  atril.visible = true;
   await recorrido.activar();
   decirMati(ES_TACTIL
     ? "Camina con el control redondo y arrastra el dedo para mirar a tu alrededor. Cuando quieras pintar, toca Ir al bastidor."
@@ -590,6 +648,28 @@ document.querySelectorAll("[data-recorrer]").forEach(b => b.onclick = () => { $(
 $("btnVolverBastidor").onclick = () => { $("globo").hidden = true; irATrabajo(); };
 $("btnVerGaleria").onclick = () => { $("globo").hidden = true; irAObra(); };
 
+/* ---------- cruzar el portal: el mismo destello del mapa, de ida y de vuelta ---------- */
+let cruzando = false;
+document.querySelector(".hud .volver").addEventListener("click", async e => {
+  e.preventDefault();
+  if (cruzando) return; cruzando = true;
+  const destino = e.currentTarget.getAttribute("href");
+  $("globo").hidden = true; cerrarHojas();
+  if (mundo) {
+    if (recorrido) recorrido.desactivar();
+    mundo.soltarEncuadre();
+    await mundo.viajar(portal.centro.clone().addScaledVector(portal.normal, 3.2), portal.centro.clone(), 800);
+    $("velo").classList.add("on");
+    await mundo.viajar(portal.centro.clone().addScaledVector(portal.normal, -1.2), portal.centro.clone().addScaledVector(portal.normal, -6), 700);
+  } else {
+    $("velo").classList.add("on");
+    await new Promise(r => setTimeout(r, 700));
+  }
+  location.href = destino;
+});
+// si el estudiante vuelve con el botón Atrás del navegador, la estación se ve sin destello
+addEventListener("pageshow", () => { if (cruzando) { cruzando = false; $("velo").classList.remove("on"); } });
+
 /* ---------- arranque ---------- */
 const hayObraPrevia = recuperarObra();
 $("nombreObra").value = estado.nombre;
@@ -597,30 +677,45 @@ marcarColor(); marcarMuestra(); redibujarTrabajo();
 if (usarLigera) {
   $("mundo").hidden = true; $("ligera").append(lienzoTrabajo); $("enlaceLigera").hidden = true;
   document.querySelectorAll("[data-recorrer]").forEach(b => { b.hidden = true; });
+  $("velo").classList.remove("on");
   if (!hayWebGL()) avisar("Este equipo no pudo abrir el 3D: estás en la vista ligera, con las mismas herramientas.");
   irATrabajo();
   decirMati(hayObraPrevia ? "Aquí está tu obra, tal como la dejaste." : MUESTRAS[estado.muestra].pista, { segundos: 8 });
 } else {
-  mundo = crearMundo($("mundo"));
-  construirOrilla(mundo);
-  construirTaller();
+  mundo = crearMundo($("mundo"), { slot: 1 });
+  const zonaLibre = (x, z) => x > -4 && x < 8 && z > 4 && z < 18;   // la salida del portal queda despejada
+  ({ troncos } = construirRonda(mundo, { zonaLibre }));
+  construirEstacion();
   recorrido = crearRecorrido(mundo, {
-    limites: { xMin: -14, xMax: 14, zMin: -9.5, zMax: 16 },
-    // la plataforma del taller está 30 cm sobre el pasto
-    piso: (x, z) => (Math.abs(x) < 4.5 && Math.abs(z) < 3.5 ? 0.3 : 0),
+    limites: { xMin: -60, xMax: 60, zMin: -40, zMax: 60 },
+    permitido: (x, z) => z > mundo.rioLocal(x) + 7.5,   // se puede llegar a la playa, pero no meterse al río
+    piso: (x, z) => (Math.hypot(x, z) < 5.4 ? ALTO_PISO_PARADA : mundo.alturaLocal(x, z)),
+    circulos: [
+      ...troncos,
+      [ESTANQUE.x, ESTANQUE.z, ESTANQUE.r + 0.1], [3.1, -2.1, 0.55], [PORTAL.x, PORTAL.z, 0.8]
+    ],
     obstaculos: [
-      ...[[-4, -3], [4, -3], [-4, 3], [4, 3]].map(([x, z]) => ({ x, z, ancho: 0.2, fondo: 0.2 })),
-      { x: 0, z: 0.75, ancho: 2.3, fondo: 0.6, activo: () => atril.visible },
-      { x: 2.2, z: 1.0, ancho: 1.4, fondo: 0.7 },
-      { x: -1.2, z: -2.9, ancho: 5.2, fondo: 0.3 },
-      { x: 7.5, z: -3, ancho: 1.6, fondo: 1.6 }
+      { x: BASTIDOR.x, z: BASTIDOR.z - 0.15, ancho: 2.7, fondo: 0.9 },
+      ...GALERIA.zs.map(z => ({ x: GALERIA.x - 0.05, z, ancho: 0.5, fondo: 1.3 }))
     ]
   });
   avisarCambioLienzo();
-  if (hayObraPrevia) { irATrabajo({ instantaneo: true }); decirMati("Aquí está tu obra, tal como la dejaste.", { segundos: 6 }); }
-  else irALlegada();
+  // se sale del portal: la cámara empieza dentro del remolino y el destello se apaga mientras avanza
+  mundo.colocar(portal.centro.clone().addScaledVector(portal.normal, -0.6), portal.centro.clone().addScaledVector(portal.normal, 4));
+  requestAnimationFrame(() => requestAnimationFrame(async () => {
+    $("velo").classList.remove("on");
+    if (hayObraPrevia) {
+      mostrarPanel("trabajo"); marcarEjes();
+      await mundo.irA(ENCUADRES.trabajo, { ms: 1500 });
+      decirMati("Aquí está tu obra, tal como la dejaste.", { segundos: 6 });
+    } else {
+      mostrarPanel("llegada"); $("estado").textContent = "Llegada";
+      const v = vistaLlegada();
+      await mundo.viajar(v.pos, v.mira, 1500);
+      saludoDeMati();
+    }
+  }));
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden && mundo) mundo.pedirCuadro(); });
 window.__listo = true;
 </script>
 </body>
