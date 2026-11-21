@@ -533,7 +533,7 @@ export function construirRonda(mundo, { zonaLibre = () => false } = {}) {
 }
 
 // El piso hexagonal de las paradas, como el emblema de LIVIMA: borde del color del grado y centro de baldosa.
-export function pisoDeParada(mundo, { radio = 6, color = "#8BD46A", tinta = "#2F6E1C" } = {}) {
+export function pisoDeParada(mundo, { radio = 6, color = "#8BD46A", tinta = "#2F6E1C", huecos = [] } = {}) {   // huecos: tramos [desde, hasta] en grados sin matas
   const { escena, malla, M } = mundo, R = radio;
   const g = new THREE.Group(); escena.add(g);
   const borde = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
@@ -545,6 +545,7 @@ export function pisoDeParada(mundo, { radio = 6, color = "#8BD46A", tinta = "#2F
   const matas = [], petalos = [], azar = azarConSemilla(17);
   for (let grados = 150; grados <= 390; grados += 13) {
     const a = grados * Math.PI / 180 + (azar() - 0.5) * 0.12, rr = R + 1.1 + azar() * 0.5, tam = 0.4 + azar() * 0.3, x = Math.cos(a) * rr, z = Math.sin(a) * rr;
+    if (huecos.some(([desde, hasta]) => { const g = ((grados % 360) + 360) % 360; return desde <= hasta ? g >= desde && g <= hasta : g >= desde || g <= hasta; })) continue;
     const m = new THREE.SphereGeometry(tam, 9, 7); m.scale(1.15, 0.8, 1.15); m.translate(x, mundo.alturaLocal(x, z) + tam * 0.5, z); matas.push(m);
     for (let k = 0; k < 4; k++) { const b = azar() * 6.28, f = new THREE.SphereGeometry(0.08, 6, 5); f.translate(x + Math.cos(b) * tam * 0.6, mundo.alturaLocal(x, z) + tam * 1.08 + azar() * 0.08, z + Math.sin(b) * tam * 0.6); petalos.push(f); }
   }
