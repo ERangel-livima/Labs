@@ -36,7 +36,7 @@
   #libro{position:fixed;z-index:10;display:flex;perspective:2200px;opacity:0;transition:opacity .45s ease}
   #libro.abierto{opacity:1}
   .cara{position:relative;flex:1;min-width:0;height:100%}
-  .pagina{position:absolute;inset:0;overflow:auto;background:var(--papel);padding:5.5% 7% 6%;
+  .pagina{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;background:var(--papel);padding:5.5% 7% 6%;
     container-type:size;font-size:clamp(12px,3.35cqw,16px);line-height:1.5}
   /* si el texto no cabe, la página lo dice al pie y se desliza */
   .pagina.sigue::after{content:"Desliza para ver más";position:sticky;bottom:-6%;display:block;margin:0 -8% -7%;padding:1.6em 0 .6em;text-align:center;
@@ -59,7 +59,7 @@
   .pagina .sub{color:var(--gris);margin-top:-.3em}
   .etiqueta{font-weight:700;color:var(--marino);margin-top:.9em}
   .campo{display:flex;flex-wrap:wrap;gap:.5em 1.4em;margin:.6em 0}
-  .campo label{font-weight:700;color:var(--marino);display:flex;align-items:center;gap:.4em;flex:1 1 12em;font-size:.95em}
+  .campo label{font-weight:700;color:var(--marino);display:flex;align-items:center;gap:.4em;flex:1 1 9em;min-width:0;font-size:.95em}
   .pagina input[type=text]{flex:1;min-width:3.5em;border:none;border-bottom:1.5px dotted #a9b2bb;background:rgba(74,155,46,.05);padding:.25em .3em;font-size:1em;color:var(--tinta);min-height:32px}
   .pagina input[type=text]:focus{outline:none;border-bottom-color:var(--verde);background:rgba(74,155,46,.12)}
   table{width:100%;border-collapse:collapse;font-size:.92em;margin-top:.6em}
