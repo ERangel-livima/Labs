@@ -227,8 +227,10 @@ const fragCielo = [
 const HORA_MAPA = 0.46;
 const CLAVE_MANANA = { t: 0.38, arriba: "#4F8FD0", abajo: "#CFE6EE", sol: "#FFF4DD", isol: 2.5, ihemi: 0.95, elev: 1.0, expo: 1.05 };
 const CLAVE_TARDE = { t: 0.72, arriba: "#3D5A9A", abajo: "#F2A866", sol: "#FF9C55", isol: 1.6, ihemi: 0.6, elev: 0.2, expo: 1.0 };
+// la misma orilla de noche: la usa la sala del juego, para que el neón brille sobre oscuro
+const CLAVE_NOCHE = { t: 0, arriba: "#060E22", abajo: "#1B3A6B", sol: "#AFC4E8", isol: 0.45, ihemi: 0.7, elev: 0.55, expo: 0.95 };
 
-export function crearMundo(canvas, { slot = 1 } = {}) {
+export function crearMundo(canvas, { slot = 1, noche = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -270,7 +272,7 @@ export function crearMundo(canvas, { slot = 1 } = {}) {
   sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.05;
   escena.add(sol, sol.target);
   {
-    const f = (HORA_MAPA - CLAVE_MANANA.t) / (CLAVE_TARDE.t - CLAVE_MANANA.t), A = CLAVE_MANANA, B = CLAVE_TARDE, L = (a, b) => a + (b - a) * f;
+    const f = noche ? 0 : (HORA_MAPA - CLAVE_MANANA.t) / (CLAVE_TARDE.t - CLAVE_MANANA.t), A = noche ? CLAVE_NOCHE : CLAVE_MANANA, B = CLAVE_TARDE, L = (a, b) => a + (b - a) * f;
     cieloMat.uniforms.arriba.value.set(A.arriba).lerp(new THREE.Color(B.arriba), f);
     cieloMat.uniforms.abajo.value.set(A.abajo).lerp(new THREE.Color(B.abajo), f);
     escena.fog.color.copy(cieloMat.uniforms.abajo.value);   // la niebla toma el color del horizonte, como en el mapa
@@ -280,7 +282,7 @@ export function crearMundo(canvas, { slot = 1 } = {}) {
     // misma dirección del sol que en el mapa, pero cerca, para que la sombra cubra la estación con detalle
     const dirSol = new THREE.Vector3(Math.cos(az) * 160, 40 + elev * 150, Math.sin(az) * 70 + 60).normalize();
     sol.position.copy(dirSol).multiplyScalar(120); sol.target.position.set(0, 0, 0);
-    cieloMat.uniforms.lum.value = 0.1 + 0.9 * Math.min(1, sol.intensity / 2.3);
+    cieloMat.uniforms.lum.value = noche ? 0.06 : 0.1 + 0.9 * Math.min(1, sol.intensity / 2.3);
     cieloMat.uniforms.solDir.value.copy(dirSol); cieloMat.uniforms.solCol.value.copy(sol.color);
   }
   // el cielo también ilumina y se refleja en el agua y en el espejo
@@ -313,7 +315,7 @@ export function crearMundo(canvas, { slot = 1 } = {}) {
   };
 
   /* imagen: el resplandor suave del mapa */
-  let composer = null;
+  let composer = null, resplandor = null;
   if (!CALIDAD_LIGERA) {
     try {
       composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
@@ -324,7 +326,8 @@ export function crearMundo(canvas, { slot = 1 } = {}) {
         vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
         fragmentShader: "uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec4 c=texture2D(tDiffuse,vUv); if(!(c.r>=0.0 && c.g>=0.0 && c.b>=0.0)) c.rgb=vec3(0.0); c.rgb=min(c.rgb,vec3(16.0)); gl_FragColor=vec4(c.rgb,1.0); }"
       }));
-      composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.2, 0.55, 1.0));
+      resplandor = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.2, 0.55, 1.0);
+      composer.addPass(resplandor);
       composer.addPass(new OutputPass());
     } catch (error) { console.warn("La estación abre sin resplandor:", error); composer = null; }
   }
@@ -406,7 +409,7 @@ export function crearMundo(canvas, { slot = 1 } = {}) {
   ajustarTamano();
   return {
     THREE, renderer, escena, camara, mira, reloj, pedirCuadro, alAnimar, irA, viajar, colocar, soltarEncuadre, caja, material, malla, M,
-    uvBajoPuntero, alturaLocal, rioLocal, texHojas, conViento, NIVEL_LOCAL_AGUA: NIVEL_AGUA - S.h, slot: S, colorSuelo, CALIDAD_LIGERA
+    uvBajoPuntero, alturaLocal, rioLocal, texHojas, conViento, NIVEL_LOCAL_AGUA: NIVEL_AGUA - S.h, slot: S, colorSuelo, CALIDAD_LIGERA, resplandor
   };
 }
 
