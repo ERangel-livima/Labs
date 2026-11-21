@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Espejos Vivos 3D, LIVIMA</title>
 <meta name="theme-color" content="#1B3A6B">
+<script>
+  // el mapa y el pasaporte abren el juego y la guía con #juego y #guia: esos siguen en el simulador clásico
+  if (location.hash === "#juego" || location.hash === "#guia") location.replace("02-lienzo-simetria-espejos-vivos.html" + location.hash);
+</script>
 <style>
   /* colores de la estación: la paleta de los simuladores se cambia aquí y en ESTACION */
   :root{
@@ -92,6 +96,7 @@
 <div class="barra" id="panelLlegada" hidden>
   <div class="fila">
     <button class="btn" id="btnSaltar">Saltar la llegada</button>
+    <button class="btn" data-recorrer>Recorrer el taller</button>
     <button class="btn principal" id="btnAlBastidor">Ir al bastidor</button>
   </div>
 </div>
@@ -107,8 +112,17 @@
     <button class="btn" id="btnMas" aria-expanded="false">Muestras</button>
   </div>
   <div class="fila">
+    <button class="btn" data-recorrer>Recorrer</button>
     <button class="btn" id="btnPrecision">Vista de precisión</button>
     <button class="btn principal" id="btnTermine">Terminé mi obra</button>
+  </div>
+</div>
+
+<!-- recorrido libre -->
+<div class="barra" id="panelRecorrido" hidden>
+  <div class="fila">
+    <button class="btn" id="btnVerGaleria">Ver la galería</button>
+    <button class="btn principal" id="btnVolverBastidor">Ir al bastidor</button>
   </div>
 </div>
 
@@ -142,6 +156,7 @@
 <div class="barra" id="panelObra" hidden>
   <div class="fila">
     <button class="btn" id="btnSeguir">Seguir dibujando</button>
+    <button class="btn" data-recorrer>Recorrer</button>
     <a class="btn" href="02-lienzo-simetria-espejos-vivos.html#juego">Jugar Criaturas del espejo</a>
     <button class="btn principal" id="btnDescargar">Descargar mi obra</button>
   </div>
@@ -150,7 +165,7 @@
 <noscript><p style="padding:80px 16px">Esta estación necesita JavaScript. Abre la versión clásica: 02-lienzo-simetria-espejos-vivos.html</p></noscript>
 
 <script type="module">
-import { THREE, hayWebGL, almacen, crearMundo, construirOrilla, figuraGuia } from "./3d/livima3d.js";
+import { THREE, hayWebGL, almacen, crearMundo, construirOrilla, figuraGuia, crearRecorrido } from "./3d/livima3d.js";
 
 const ESTACION = { id: "espejos", acento: "#4A9B2E", clave: "livima_espejos3d_obra" };
 const COLORES = ["#1B3A6B", "#1F8A8A", "#4A9B2E", "#D9701A", "#6B3FA0", "#C0392B", "#E8B800", "#111111"];
@@ -207,12 +222,13 @@ const MUESTRAS = {
       { c: "#6B3FA0", a: 6, p: [[-112,-112],[-118,-132],[-138,-138]] },
       { c: "#1B3A6B", a: 7, p: elipse(0, 0, 38, 38, -Math.PI / 2, -0.75 * Math.PI, 6) }
     ] },
-  blanco: { ejes: 1, nombre: "Lienzo en blanco", nota: "Tu criatura", pista: "Lienzo en blanco: inventa tu propia criatura del Sinú.", trazos: [] }
+  blanco: { ejes: 1, nombre: "Lienzo en blanco", nota: "Tu creación", pista: "El bastidor está en blanco: dibuja lo que imagines y el espejo lo completa.", trazos: [] }
 };
 
 const $ = id => document.getElementById(id);
 const guardado = almacen(ESTACION.clave);
-const estado = { vista: "llegada", ejes: 1, color: COLORES[2], grosor: 8, muestra: "babilla", trazos: [], nombre: "" };
+// el bastidor empieza en blanco: las criaturas del Sinú son ideas opcionales, no una plantilla
+const estado = { vista: "llegada", ejes: 1, color: COLORES[2], grosor: 8, muestra: "blanco", trazos: [], nombre: "" };
 
 /* ---------- el lienzo: se pinta en 2D y la misma imagen va al bastidor 3D ---------- */
 const nuevoCanvas = () => { const c = document.createElement("canvas"); c.width = PX_ANCHO; c.height = PX_ALTO; return c; };
@@ -291,13 +307,13 @@ function guardarObra() {
 function recuperarObra() {
   const previo = guardado.leer();
   if (!previo || !Array.isArray(previo.trazos)) return false;
-  Object.assign(estado, previo, { muestra: MUESTRAS[previo.muestra] ? previo.muestra : "babilla" });
+  Object.assign(estado, previo, { muestra: MUESTRAS[previo.muestra] ? previo.muestra : "blanco" });
   return estado.trazos.length > 0;
 }
 
 /* ---------- el mundo 3D o la vista ligera ---------- */
 const usarLigera = new URLSearchParams(location.search).has("ligera") || !hayWebGL();
-let mundo = null, tela = null, atril = null, mati = null, cuadrosGaleria = [], texTrabajo = null, texObra = null;
+let mundo = null, tela = null, atril = null, mati = null, recorrido = null, cuadrosGaleria = [], texTrabajo = null, texObra = null;
 const ENCUADRES = {
   llegada: { mira: [0, 1.7, 0], desde: [0, 0.062, 1], ancho: 10.5, alto: 9, margen: 1.15, distanciaMax: 17 },
   trabajo: { mira: [0, 1.74, 0.8], desde: [0.08, 0.06, 1], ancho: 2.35, alto: 1.8, margen: 1.3 },
@@ -307,6 +323,19 @@ const avisarCambioLienzo = () => { if (texTrabajo) { texTrabajo.needsUpdate = tr
 
 // el papel brilla un poco por sí mismo: bajo el techo de palma la sombra lo volvía gris
 const materialLamina = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.45 });
+
+// Mati acompaña en todo el recorrido: al lado del bastidor mientras se pinta y junto a la galería al final
+const LUGARES_MATI = { llegada: [-1.9, 1.3], trabajo: [-1.65, 0.5], obra: [2.05, -2.2] };
+function moverMati([x, z]) {
+  const desde = mati.position.clone(), inicio = performance.now();
+  const paso = ahora => {
+    const t = Math.min((ahora - inicio) / 900, 1);
+    mati.position.x = desde.x + (x - desde.x) * t; mati.position.z = desde.z + (z - desde.z) * t;
+    mundo.pedirCuadro();
+    if (t < 1) requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+}
 
 function construirTaller() {
   const { escena, caja, material } = mundo;
@@ -494,17 +523,18 @@ $("btnVolverTaller").onclick = () => { $("precision").hidden = true; marcarEjes(
 /* ---------- las tres vistas de la estación ---------- */
 function mostrarPanel(vista) {
   estado.vista = vista;
-  // Mati recibe en la llegada; en el taller y la galería habla desde el globo para no tapar la obra
-  if (mati) mati.visible = vista === "llegada";
+  if (mati && LUGARES_MATI[vista]) moverMati(LUGARES_MATI[vista]);
+  if (recorrido && vista !== "recorrido") recorrido.desactivar();
   $("panelLlegada").hidden = vista !== "llegada";
   $("panelTrabajo").hidden = vista !== "trabajo";
   $("panelObra").hidden = vista !== "obra";
+  $("panelRecorrido").hidden = vista !== "recorrido";
   cerrarHojas();
 }
 function irALlegada() {
   mostrarPanel("llegada"); $("estado").textContent = "Llegada";
   if (mundo) mundo.irA(ENCUADRES.llegada, { instantaneo: true });
-  decirMati("<b>Mati:</b> A esta babilla le falta su reflejo. Elige uno, dos o cuatro ejes y dibuja: el espejo completa la criatura.");
+  decirMati("<b>Mati:</b> Bienvenido al taller de los espejos. El bastidor está en blanco para que crees lo que quieras: elige uno, dos o cuatro ejes y el espejo hace el resto. Si buscas ideas, mira las criaturas del Sinú en Muestras.");
 }
 async function irATrabajo({ instantaneo = false } = {}) {
   mostrarPanel("trabajo"); marcarEjes();
@@ -546,12 +576,27 @@ $("btnDescargar").onclick = () => {
   });
 };
 
+/* ---------- recorrido libre por el taller y la orilla ---------- */
+const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
+async function irARecorrido() {
+  mostrarPanel("recorrido"); $("estado").textContent = "Recorrido libre";
+  atril.visible = true;
+  await recorrido.activar();
+  decirMati(ES_TACTIL
+    ? "Camina con el control redondo y arrastra el dedo para mirar a tu alrededor. Cuando quieras pintar, toca Ir al bastidor."
+    : "Camina con W, A, S, D o con las flechas y arrastra con el ratón para mirar. Cuando quieras pintar, toca Ir al bastidor.", { segundos: 9 });
+}
+document.querySelectorAll("[data-recorrer]").forEach(b => b.onclick = () => { $("globo").hidden = true; irARecorrido(); });
+$("btnVolverBastidor").onclick = () => { $("globo").hidden = true; irATrabajo(); };
+$("btnVerGaleria").onclick = () => { $("globo").hidden = true; irAObra(); };
+
 /* ---------- arranque ---------- */
 const hayObraPrevia = recuperarObra();
 $("nombreObra").value = estado.nombre;
 marcarColor(); marcarMuestra(); redibujarTrabajo();
 if (usarLigera) {
   $("mundo").hidden = true; $("ligera").append(lienzoTrabajo); $("enlaceLigera").hidden = true;
+  document.querySelectorAll("[data-recorrer]").forEach(b => { b.hidden = true; });
   if (!hayWebGL()) avisar("Este equipo no pudo abrir el 3D: estás en la vista ligera, con las mismas herramientas.");
   irATrabajo();
   decirMati(hayObraPrevia ? "Aquí está tu obra, tal como la dejaste." : MUESTRAS[estado.muestra].pista, { segundos: 8 });
@@ -559,6 +604,18 @@ if (usarLigera) {
   mundo = crearMundo($("mundo"));
   construirOrilla(mundo);
   construirTaller();
+  recorrido = crearRecorrido(mundo, {
+    limites: { xMin: -14, xMax: 14, zMin: -9.5, zMax: 16 },
+    // la plataforma del taller está 30 cm sobre el pasto
+    piso: (x, z) => (Math.abs(x) < 4.5 && Math.abs(z) < 3.5 ? 0.3 : 0),
+    obstaculos: [
+      ...[[-4, -3], [4, -3], [-4, 3], [4, 3]].map(([x, z]) => ({ x, z, ancho: 0.2, fondo: 0.2 })),
+      { x: 0, z: 0.75, ancho: 2.3, fondo: 0.6, activo: () => atril.visible },
+      { x: 2.2, z: 1.0, ancho: 1.4, fondo: 0.7 },
+      { x: -1.2, z: -2.9, ancho: 5.2, fondo: 0.3 },
+      { x: 7.5, z: -3, ancho: 1.6, fondo: 1.6 }
+    ]
+  });
   avisarCambioLienzo();
   if (hayObraPrevia) { irATrabajo({ instantaneo: true }); decirMati("Aquí está tu obra, tal como la dejaste.", { segundos: 6 }); }
   else irALlegada();
