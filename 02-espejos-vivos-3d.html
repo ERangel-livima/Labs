@@ -626,6 +626,7 @@ $("btnDescargar").onclick = () => {
 
 /* ---------- mundo libre: el estudiante camina como Mati ---------- */
 const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
+const PASO_EXTRA_TERCERA = 1.8;   // la cámara va 3,4 m detrás de Mati
 const PISTA_CAMINAR = (ES_TACTIL
   ? "Eres Mati. Mueve la palanca para caminar y arrastra la pantalla para mirar. Acércate al bastidor para pintar."
   : "Eres Mati. Camina con W, A, S, D o las flechas, salta con la barra espaciadora y mantén el clic para mirar. Acércate al bastidor y pulsa E para pintar.")
@@ -725,7 +726,8 @@ if (usarLigera) {
   const desde = new URLSearchParams(location.search).get("desde");
   const { puerta, paso } = rincon.puertaDeLlegada(desde, portal);
   mundo.colocar(puerta.centro.clone().addScaledVector(puerta.normal, -0.6), puerta.centro.clone().addScaledVector(puerta.normal, 4));
-  const salida = puerta.centro.clone().addScaledVector(puerta.normal, paso);
+  // se llega viendo a Mati desde atrás: un paso más lejos, para que la cámara no quede dentro del portal
+  const salida = puerta.centro.clone().addScaledVector(puerta.normal, paso + PASO_EXTRA_TERCERA);
   requestAnimationFrame(() => requestAnimationFrame(async () => {
     $("velo").classList.remove("on");
     await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-puerta.normal.x, -puerta.normal.z), ms: 1500 });
