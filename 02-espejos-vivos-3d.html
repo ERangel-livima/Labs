@@ -11,58 +11,15 @@
   if (location.hash === "#guia") location.replace("02-espejos-vivos-guia.html");
 </script>
 <script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
+<link rel="stylesheet" href="3d/estacion.css">
 <style>
-  /* colores de la estación: la paleta de los simuladores se cambia aquí y en ESTACION */
-  :root{
-    --marino:#1B3A6B; --acento:#4A9B2E; --acento-hondo:#2f6f1c; --accion:#D9701A;
-    --papel:#FBFAF6; --tinta:#1d2733; --gris:#5B6573; --linea:#d9d4c7; --cielo:#bcd8ec;
-  }
-  *{box-sizing:border-box}
-  [hidden]{display:none!important}
-  /* el destello de luz al cruzar un portal: el mismo del mapa, para que el paso de un lugar al otro sea uno solo */
-  #velo{position:fixed;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;pointer-events:none;z-index:80;opacity:0;transform:scale(.05);
-    background:radial-gradient(circle,#fff 0%,#fff 12%,#8BD46A 38%,#10284D 72%);transition:opacity .5s ease,transform .75s cubic-bezier(.5,0,.75,0)}
-  #velo.on{opacity:1;transform:scale(1.6)}
-  /* el portal del juego lleva al registro arcade; el atril, a la guía de papel */
-  #velo.arcade{background:radial-gradient(circle,#fff 0%,#fff 10%,#7CFF4F 26%,#33E0D6 44%,#0B1A33 72%)}
-  #velo.papel{background:radial-gradient(circle,#fff 0%,#FBF6EA 40%,#1B3A6B 76%)}
-  @media (prefers-reduced-motion: reduce){ #velo{transition:opacity .3s ease} }
-  html,body{margin:0;height:100%;overflow:hidden;background:var(--cielo);color:var(--tinta);
-    font:16px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
-  #mundo{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
-  button,input,select{font:inherit}
-  .hud{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));
-    display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none;z-index:5}
-  .hud > *{pointer-events:auto}
-  .hud .volver{margin-left:auto;text-decoration:none;color:var(--marino);background:#ffffffe6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:600;min-height:36px;display:inline-flex;align-items:center}
-
-  .globo{position:fixed;top:calc(62px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));max-width:min(380px,calc(100vw - 24px));
-    display:flex;gap:10px;align-items:flex-start;background:#fffffff2;border:2px solid var(--acento);border-radius:14px;padding:10px 12px;z-index:6}
-    .globo p{margin:0;font-size:15px}
-  .globo b{color:var(--acento-hondo)}
-  .globo .cerrar{margin-left:auto;background:none;border:0;color:var(--gris);font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer}
-
-  .barra{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(720px,calc(100vw - 24px));
-    display:flex;flex-direction:column;gap:8px;z-index:5}
-  .fila{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .btn{min-height:44px;background:#fff;color:var(--marino);border:1.5px solid var(--marino);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;
-    text-decoration:none;display:inline-flex;align-items:center;gap:8px;justify-content:center}
-  .btn.principal{background:var(--accion);border-color:var(--accion);color:#fff}
-  .btn:focus-visible,.seg button:focus-visible,.color:focus-visible{outline:3px solid var(--accion);outline-offset:2px}
-  .seg{display:inline-flex;border:1.5px solid var(--marino);border-radius:10px;overflow:hidden;background:#fff}
-  .seg button{min-height:44px;border:0;background:none;color:var(--marino);font-weight:600;padding:8px 12px;cursor:pointer}
-  .seg button[aria-pressed="true"]{background:var(--marino);color:#fff}
+  /* color del grado y estilos de la actividad: lo común está en 3d/estacion.css */
+  :root{ --acento:#4A9B2E; --acento-hondo:#2f6f1c; }
+  .color:focus-visible{outline:3px solid var(--accion);outline-offset:2px}
   .punto-color{width:18px;height:18px;border-radius:50%;border:2px solid #fff;outline:1.5px solid var(--linea)}
-
-  .hoja{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(128px + env(safe-area-inset-bottom,0px));width:min(520px,calc(100vw - 24px));
-    background:var(--papel);border:1.5px solid var(--linea);border-radius:14px;padding:14px 16px;z-index:7;box-shadow:0 6px 18px #1b3a6b2e}
-  .hoja h2{font:700 17px Georgia,serif;color:var(--marino);margin:0 0 10px}
-  .hoja label{display:block;font-size:14px;font-weight:600;color:var(--marino);margin:12px 0 6px}
   .colores{display:flex;flex-wrap:wrap;gap:8px}
   .color{width:40px;height:40px;border-radius:10px;border:3px solid #fff;outline:1.5px solid var(--linea);cursor:pointer}
   .color[aria-pressed="true"]{outline:3px solid var(--marino)}
-  input[type=range]{width:100%;accent-color:var(--acento);min-height:32px}
-  input[type=text]{width:100%;min-height:44px;border:1.5px solid var(--linea);border-radius:10px;padding:8px 12px;background:#fff}
   .muestras{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .muestras button{min-height:52px;text-align:left;border:1.5px solid var(--linea);background:#fff;border-radius:10px;padding:6px 10px;cursor:pointer;color:var(--tinta)}
   .muestras button small{display:block;color:var(--gris);font-size:13px}
@@ -77,27 +34,6 @@
   .ligera{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#e9eef3;
     padding:calc(110px + env(safe-area-inset-top,0px)) 12px calc(130px + env(safe-area-inset-bottom,0px))}
   .ligera canvas{max-width:100%;max-height:100%;width:auto;height:auto;border:8px solid #6b4a2e;border-radius:4px;touch-action:none;cursor:crosshair}
-  /* inscripción al portal del juego: el mismo registro arcade de la pestaña Juego */
-  .registro{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100vw - 24px));
-    background:#0B1A33;color:#DDE8F7;border:2px solid #33E0D6;border-radius:14px;padding:16px 18px;z-index:7;box-shadow:0 0 22px #33E0D655}
-  .registro h2{margin:0 0 4px;font:800 20px "Segoe UI",system-ui,sans-serif;color:#7CFF4F;letter-spacing:.02em}
-  .registro p{margin:0 0 10px;font-size:15px}
-  .registro label{display:block;font-size:14px;font-weight:600;color:#33E0D6;margin:10px 0 4px}
-  .registro input{width:100%;min-height:44px;border:1.5px solid #33E0D6;border-radius:10px;padding:8px 12px;background:#081329;color:#fff}
-  .registro input:focus-visible{outline:3px solid #7CFF4F;outline-offset:1px}
-  .registro .error{color:#FF8A7A;min-height:1.4em;margin:8px 0 0;font-weight:600}
-  .registro .fila{justify-content:flex-end;margin-top:6px}
-  .registro .btn{background:transparent;color:#DDE8F7;border-color:#5d7194}
-  .registro .btn.encender{background:#FFA24A;border-color:#FFA24A;color:#0B1A33}
-  .registro .btn:focus-visible{outline-color:#7CFF4F}
-  .guia{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100vw - 24px));
-    background:var(--papel);border:1.5px solid var(--linea);border-radius:14px;padding:16px 18px;z-index:7;box-shadow:0 6px 18px #1b3a6b2e}
-  .guia h2{font:700 19px Georgia,serif;color:var(--marino);margin:0 0 6px}
-  .guia p{margin:0 0 12px;font-size:15px}
-  .guia .fila{justify-content:flex-end}
-  .aviso{position:fixed;left:50%;transform:translateX(-50%);top:calc(62px + env(safe-area-inset-top,0px));background:var(--marino);color:#fff;border-radius:10px;padding:10px 16px;
-    z-index:9;max-width:calc(100vw - 24px);font-size:15px}
-  @media (max-width:520px){ .seg button{padding:8px 10px} .btn{padding:8px 11px} .globo{top:calc(56px + env(safe-area-inset-top,0px))} }
 </style>
 </head>
 <body>
@@ -192,36 +128,13 @@
   </div>
 </div>
 
-<!-- portal del juego: se enciende con el nombre y el grupo del estudiante -->
-<section class="registro" id="registro" hidden aria-labelledby="regTitulo">
-  <h2 id="regTitulo">Criaturas del espejo</h2>
-  <p>Escribe tu nombre para encender el portal. Con él se guardan tu progreso y tu tarjeta de guardián.</p>
-  <label for="regNombre">Nombre y apellido</label>
-  <input type="text" id="regNombre" maxlength="40" autocomplete="off" placeholder="Ej: Ana Martínez">
-  <label for="regGrupo">Grado y grupo</label>
-  <input type="text" id="regGrupo" maxlength="8" autocomplete="off" placeholder="Ej: 6°B">
-  <p class="error" id="regError" role="alert"></p>
-  <div class="fila">
-    <button class="btn" id="regSeguir">Seguir caminando</button>
-    <button class="btn encender" id="regEncender">Encender el portal</button>
-  </div>
-</section>
-
-<!-- atril de la guía -->
-<section class="guia" id="panelGuia" hidden aria-labelledby="guiaTitulo">
-  <h2 id="guiaTitulo">La guía del taller</h2>
-  <p>Trae las misiones, las preguntas y la rúbrica de Espejos Vivos. Puedes leerla en pantalla o guardarla en PDF para imprimirla.</p>
-  <div class="fila">
-    <button class="btn" id="guiaSeguir">Seguir caminando</button>
-    <button class="btn" id="guiaLeer">Leer la guía</button>
-    <button class="btn principal" id="guiaPdf">Descargar en PDF</button>
-  </div>
-</section>
 
 <noscript><p style="padding:80px 16px">Esta estación necesita JavaScript. Abre la versión clásica: 02-lienzo-simetria-espejos-vivos.html</p></noscript>
 
 <script type="module">
 import { THREE, hayWebGL, almacen, crearMundo, construirRonda, pisoDeParada, ALTO_PISO_PARADA, crearPortal, personajes, crearRecorrido } from "./3d/livima3d.js";
+import { texturaLetrero, conLuz, puntal as puntalComun, totemDeParada } from "./3d/piezas.js";
+import { crearRincon, crearCruce } from "./3d/rincon.js";
 
 const ESTACION = { id: "espejos", acento: "#4A9B2E", clave: "livima_espejos3d_obra" };
 const COLORES = ["#1B3A6B", "#1F8A8A", "#4A9B2E", "#D9701A", "#6B3FA0", "#C0392B", "#E8B800", "#111111"];
@@ -378,9 +291,8 @@ const PORTAL = { x: 1.8, z: 5.7 };   // al frente del stand: al salir del portal
 // el terreno baja hacia la derecha: la losa del juego queda al nivel del taller, como un mirador sobre la ladera
 const JUEGO = { x: 8.6, z: 0.2, semi: 1.25, losa: 1.9 };   // semi: del centro del rombo a cada vértice
 const ATRIL = { x: 7.0, z: 3.7 };
-const JUGADOR = almacen("livima_jugador");                 // el último nombre escrito, para no tener que repetirlo
 const DESTINO_JUEGO = "02-espejos-vivos-juego.html", DESTINO_GUIA = "02-espejos-vivos-guia.html";
-let portalJuego = null, letreroJuego = null, encendido = { valor: 0, meta: 0 };
+let rincon = null, cruce = null;
 const ENCUADRES = {
   trabajo: { mira: [0, 1.76, BASTIDOR.z + 0.09], desde: [0.03, 0.05, 1], ancho: 2.6, alto: 2.0, margen: 1.25 },
   obra:    { mira: [GALERIA.x, 0.95, 0], desde: [1, 0.2, 0.08], ancho: 5.6, alto: 1.5, margen: 1.08, distanciaMax: 7 }
@@ -439,8 +351,8 @@ function construirEstacion() {
   portal = crearPortal(mundo, { x: PORTAL.x, z: PORTAL.z, giro: Math.atan2(-PORTAL.x, -PORTAL.z), color: "#8BD46A" });
   techoMariposa();
   letreros();
-  rinconDelJuego();
-  atrilDeLaGuia();
+  rincon = crearRincon(mundo, OPCIONES_RINCON);
+  LUGARES.push(...rincon.lugares);
   // Mati, el mismo del mapa en 3D: es el estudiante. Se ve cuando se mira desde atrás y en la galería
   guias = personajes(mundo);
   R_MATI = guias.crearPersonaje("mati"); R_MATI.raiz.visible = false;
@@ -450,12 +362,7 @@ function construirEstacion() {
 // Techo mariposa: dos alas que suben desde el eje central, una el reflejo de la otra.
 // El valle es el eje de simetría del stand, marcado con una línea de luz del color del grado.
 const TECHO = { altoEje: 3.5, ala: 6.4, fondo: 12.8, inclinacion: THREE.MathUtils.degToRad(13), grosor: 0.16 };
-function puntal(desde, hasta, material) {
-  const largo = desde.distanceTo(hasta);
-  const m = mundo.malla(new THREE.CylinderGeometry(0.07, 0.09, largo, 10), material, (desde.x + hasta.x) / 2, (desde.y + hasta.y) / 2, (desde.z + hasta.z) / 2);
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), hasta.clone().sub(desde).normalize());
-  return m;
-}
+const puntal = (desde, hasta, material) => puntalComun(mundo, desde, hasta, material);
 function techoMariposa() {
   const { M, malla, escena } = mundo, T = TECHO;
   const g = new THREE.Group(); g.position.y = ALTO_PISO_PARADA; escena.add(g);
@@ -484,13 +391,8 @@ function techoMariposa() {
 }
 
 // Letreros que identifican el lugar: el nombre colgado del eje del techo y un tótem a la entrada
-function texturaLetrero(ancho, alto, pintar) {
-  const c = document.createElement("canvas"); c.width = ancho; c.height = alto; pintar(c.getContext("2d"), ancho, alto);
-  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; return tx;
-}
 function letreros() {
   const { malla, M } = mundo;
-  const conLuz = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.7, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.25 });
   // nombre colgado del valle del techo, al frente: las letras se leen simétricas alrededor del eje
   const nombre = texturaLetrero(1024, 256, (x, w, h) => {
     x.fillStyle = "#1B3A6B"; x.fillRect(0, 0, w, h);
@@ -502,127 +404,33 @@ function letreros() {
   const panel = malla(new THREE.BoxGeometry(2.6, 0.62, 0.08), [M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), conLuz(nombre), M("#1B3A6B")], 0, ALTO_PISO_PARADA + TECHO.altoEje - 0.62, TECHO.fondo / 2 - 0.25);
   [-1.0, 1.0].forEach(x => malla(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 6), M("#2b2724"), x, ALTO_PISO_PARADA + TECHO.altoEje - 0.15, TECHO.fondo / 2 - 0.25));
   // tótem de la parada, junto a la llegada: grado, expedición, nombre del lugar y su lema
-  const totem = texturaLetrero(512, 1024, (x, w, h) => {
-    x.fillStyle = "#FBF6EA"; x.fillRect(0, 0, w, h);
-    x.fillStyle = "#8BD46A"; x.fillRect(0, 0, w, 210);
-    x.fillStyle = "#1B3A6B"; x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = "800 150px 'Segoe UI', Arial, sans-serif"; x.fillText("6°", w / 2, 108);
-    x.font = "600 34px 'Segoe UI', Arial, sans-serif"; x.fillText("Parada 2 - Expedición", w / 2, 280);
-    x.font = "700 70px Georgia, serif"; x.fillText("Espejos", w / 2, 380); x.fillText("Vivos", w / 2, 460);
-    x.fillStyle = "#2F6E1C"; x.fillRect(80, 520, w - 160, 6);
-    x.font = "italic 600 40px Georgia, serif"; x.fillText("El lienzo", w / 2, 600); x.fillText("del espejo", w / 2, 650);
-    x.fillStyle = "#1d2733"; x.font = "500 31px 'Segoe UI', Arial, sans-serif";
-    ["Dibuja de un lado,", "el espejo hace", "el resto"].forEach((l, k) => x.fillText(l, w / 2, 780 + k * 44));
-    x.fillStyle = "#1B3A6B"; x.fillRect(0, h - 40, w, 40);
-  });
-  const tx = -2.9, tz = 7.2, ty = mundo.alturaLocal(tx, tz);
-  const t = new THREE.Group(); t.position.set(tx, ty, tz); t.rotation.y = 0.35; mundo.escena.add(t);
-  malla(new THREE.BoxGeometry(1.15, 2.3, 0.12), [M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), conLuz(totem), M("#FBF6EA")], 0, 1.35, 0, t);
-  malla(new THREE.BoxGeometry(1.35, 0.2, 0.4), M("#A8A296"), 0, 0.1, 0, t);
+  totemDeParada(mundo, { x: -2.9, z: 7.2, giro: 0.35, grado: "6°", parada: 2, nombre: ["Espejos", "Vivos"], lema: ["El lienzo", "del espejo"],
+    frase: ["Dibuja de un lado,", "el espejo hace", "el resto"], acento: "#8BD46A", hondo: "#2F6E1C" });
 }
 
-// Portal del juego: un rombo (dos ejes de simetría, como el juego), en los neones de la pestaña Juego.
-// Por dentro, rombos concéntricos que viajan hacia el centro; apagado late despacio, encendido corre.
-const fragRombo = "uniform float t; uniform float encendido; varying vec2 vUv; void main(){ vec2 p=abs(vUv*2.0-1.0); float d=max(p.x,p.y); if(d>1.0) discard;"
-  + " float velocidad=mix(0.25,1.6,encendido); float anillo=pow(0.5+0.5*sin((d*7.0+t*velocidad)*6.2832),6.0);"
-  + " float ejes=smoothstep(0.035,0.0,abs(p.x-p.y))+smoothstep(0.03,0.0,min(p.x,p.y));"
-  + " vec3 cian=vec3(0.2,0.88,0.84), verde=vec3(0.49,1.0,0.31), naranja=vec3(1.0,0.64,0.29);"
-  + " vec3 c=mix(cian,verde,d)*anillo+naranja*ejes*0.8+vec3(1.0)*pow(1.0-d,6.0)*encendido*1.4;"
-  + " float brillo=mix(0.22+0.08*sin(t*1.5),1.0,encendido); gl_FragColor=vec4(c*brillo, (0.35+0.65*anillo)*mix(0.55,0.95,encendido)); }";
-function pintarLetreroJuego(nombre) {
-  const c = letreroJuego.image, x = c.getContext("2d"), w = c.width, h = c.height;
-  x.fillStyle = "#0B1A33"; x.fillRect(0, 0, w, h);
-  x.strokeStyle = "#33E0D6"; x.lineWidth = 10; x.strokeRect(10, 10, w - 20, h - 20);
-  x.textAlign = "center"; x.textBaseline = "middle";
-  x.shadowColor = "#7CFF4F"; x.shadowBlur = 18; x.fillStyle = "#7CFF4F"; x.font = "800 72px 'Segoe UI', Arial, sans-serif";
-  x.fillText("CRIATURAS DEL ESPEJO", w / 2, h * 0.38);
-  x.shadowColor = nombre ? "#FFA24A" : "#33E0D6"; x.fillStyle = nombre ? "#FFA24A" : "#33E0D6"; x.font = "600 46px 'Segoe UI', Arial, sans-serif";
-  x.fillText(nombre ? `Portal encendido para ${nombre}` : "Escribe tu nombre para encenderlo", w / 2, h * 0.74);
-  letreroJuego.needsUpdate = true;
-}
-function rinconDelJuego() {
-  const { M, malla, escena } = mundo, R = JUEGO.semi, lado = R * Math.SQRT2;
-  const y0 = 0;
-  const g = new THREE.Group(); g.position.set(JUEGO.x, y0, JUEGO.z); g.rotation.y = -Math.PI / 2; escena.add(g);   // su frente mira hacia el stand
-  const noche = M("#0B1A33", { roughness: 0.5 }), acero = M("#1a2233", { metalness: 0.6, roughness: 0.35 });
-  const neon = (color, fuerza) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: fuerza, roughness: 0.4 });
-  // losa en rombo, con su borde de neón: el piso ya anuncia el cambio de mundo
-  const losa = new THREE.Group(); losa.rotation.y = Math.PI / 4; g.add(losa);
-  malla(new THREE.BoxGeometry(JUEGO.losa * 2, 3, JUEGO.losa * 2), noche, 0, -1.35, 0, losa);
-  [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([a, b]) => malla(new THREE.BoxGeometry(a ? 0.07 : JUEGO.losa * 2, 0.04, a ? JUEGO.losa * 2 : 0.07), neon("#33E0D6", 1.4), a * (JUEGO.losa - 0.08), 0.16, b * (JUEGO.losa - 0.08), losa));
-  // el rombo: un cuadrado girado 45 grados, parado sobre un vértice
-  const alto = 0.15 + 0.45 + R;
-  const rombo = new THREE.Group(); rombo.position.y = alto; rombo.rotation.z = Math.PI / 4; g.add(rombo);
-  const barra = (largo, vertical, d, material, grosor) => malla(new THREE.BoxGeometry(vertical ? grosor : largo, vertical ? largo : grosor, grosor), material, vertical ? d : 0, vertical ? 0 : d, 0, rombo);
+// la mariposa de la página derecha del libro del atril: el tema de la guía
+function mariposaDelAtril(x, cx, cy, ancho, alto) {
+  x.setLineDash([12, 10]); x.strokeStyle = "#9aa3ad"; x.lineWidth = 4; x.beginPath(); x.moveTo(cx, 90); x.lineTo(cx, alto - 90); x.stroke(); x.setLineDash([]);
+  x.lineWidth = 9; x.lineJoin = "round";
   for (const s of [-1, 1]) {
-    barra(lado + 0.24, false, s * lado / 2, acero, 0.2); barra(lado + 0.24, true, s * lado / 2, acero, 0.2);
-    barra(lado + 0.2, false, s * (lado / 2 + 0.11), neon("#33E0D6", 2.2), 0.05); barra(lado + 0.2, true, s * (lado / 2 + 0.11), neon("#33E0D6", 2.2), 0.05);
-    barra(lado - 0.14, false, s * (lado / 2 - 0.13), neon("#7CFF4F", 1.8), 0.04); barra(lado - 0.14, true, s * (lado / 2 - 0.13), neon("#7CFF4F", 1.8), 0.04);
+    x.strokeStyle = s < 0 ? "#1F8A8A" : "#4A9B2E";
+    x.beginPath(); x.ellipse(cx + s * 75, cy - 70, 70, 95, s * -0.5, 0, 6.29); x.stroke();
+    x.beginPath(); x.ellipse(cx + s * 60, cy + 85, 50, 65, s * 0.5, 0, 6.29); x.stroke();
   }
-  const uni = { t: { value: 0 }, encendido: { value: 0 } };
-  const lamina = new THREE.Mesh(new THREE.PlaneGeometry(lado - 0.2, lado - 0.2), new THREE.ShaderMaterial({ uniforms: uni, vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
-    fragmentShader: fragRombo, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-  rombo.add(lamina);
-  // pie bajo el vértice de abajo y dos tirantes simétricos hasta los vértices de los lados
-  malla(new THREE.CylinderGeometry(0.22, 0.34, 0.45, 4), acero, 0, 0.15 + 0.225, 0, g).rotation.y = Math.PI / 4;
-  for (const s of [-1, 1]) puntal(new THREE.Vector3(JUEGO.x, y0 + 0.15, JUEGO.z + s * 1.55), new THREE.Vector3(JUEGO.x, y0 + alto, JUEGO.z + s * (R + 0.12)), acero);
-  // letrero arcade sobre el vértice de arriba
-  const lienzo = document.createElement("canvas"); lienzo.width = 1024; lienzo.height = 300;
-  letreroJuego = new THREE.CanvasTexture(lienzo); letreroJuego.colorSpace = THREE.SRGBColorSpace; letreroJuego.anisotropy = 8;
-  const recordado = JUGADOR.leer();
-  pintarLetreroJuego("");
-  malla(new THREE.CylinderGeometry(0.03, 0.03, 0.45, 6), acero, 0, alto + R + 0.32, 0, g);
-  const cartel = malla(new THREE.BoxGeometry(2.5, 0.73, 0.08), [acero, acero, acero, acero, new THREE.MeshBasicMaterial({ map: letreroJuego, toneMapped: false }), acero], 0, alto + R + 0.88, 0, g);
-  cartel.material[4].color.setScalar(1.25);
-  mundo.alAnimar.push((t, dt) => {
-    uni.t.value = t;
-    encendido.valor += (encendido.meta - encendido.valor) * Math.min(1, dt * 3);
-    uni.encendido.value = encendido.valor;
-  });
-  g.updateMatrixWorld(true);
-  const centro = new THREE.Vector3(); lamina.getWorldPosition(centro);
-  portalJuego = { centro, normal: new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion) };
-  if (recordado) { $("regNombre").value = recordado.nombre || ""; $("regGrupo").value = recordado.grupo || ""; }
+  x.fillStyle = "#1B3A6B"; x.fillRect(cx - 8, cy - 140, 16, 290);
 }
-
-// Atril de la guía: madera y papel, el registro de los simuladores y las guías
-function atrilDeLaGuia() {
-  const { M, malla, escena } = mundo, y0 = mundo.alturaLocal(ATRIL.x, ATRIL.z);
-  const g = new THREE.Group(); g.position.set(ATRIL.x, y0, ATRIL.z); g.rotation.y = Math.atan2(-ATRIL.x, -ATRIL.z); escena.add(g);   // mira hacia el stand
-  const madera = M("#7A5230"), piedra = M("#A8A296");
-  malla(new THREE.CylinderGeometry(0.42, 0.5, 0.22, 16), piedra, 0, 0.11, 0, g);
-  malla(new THREE.BoxGeometry(0.16, 1.0, 0.16), madera, 0, 0.7, 0, g);
-  const tapa = new THREE.Group(); tapa.position.set(0, 1.22, 0.02); tapa.rotation.x = -0.5; g.add(tapa);
-  malla(new THREE.BoxGeometry(0.9, 0.05, 0.62), madera, 0, 0, 0, tapa);
-  malla(new THREE.BoxGeometry(0.9, 0.06, 0.05), madera, 0, 0.04, 0.31, tapa);   // tope para que el libro no se resbale
-  const paginas = texturaLetrero(1024, 704, (x, w, h) => {
-    x.fillStyle = "#FBF6EA"; x.fillRect(0, 0, w, h);
-    x.fillStyle = "#d9d4c7"; x.fillRect(w / 2 - 3, 0, 6, h);
-    x.fillStyle = "#1B3A6B"; x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = "700 30px 'Segoe UI', Arial, sans-serif"; x.fillText("LIVIMA - 6°", w / 4, 110);
-    x.font = "700 64px Georgia, serif"; x.fillText("Guía del", w / 4, 250); x.fillText("taller", w / 4, 330);
-    x.font = "italic 600 42px Georgia, serif"; x.fillStyle = "#2F6E1C"; x.fillText("Espejos Vivos", w / 4, 450);
-    x.fillStyle = "#4A9B2E"; x.fillRect(w / 4 - 120, 520, 240, 6);
-    // página derecha: una mariposa con su eje, el tema de la guía
-    const cx = w * 0.75, cy = h / 2;
-    x.setLineDash([12, 10]); x.strokeStyle = "#9aa3ad"; x.lineWidth = 4; x.beginPath(); x.moveTo(cx, 90); x.lineTo(cx, h - 90); x.stroke(); x.setLineDash([]);
-    x.lineWidth = 9; x.lineJoin = "round";
-    for (const s of [-1, 1]) {
-      x.strokeStyle = s < 0 ? "#1F8A8A" : "#4A9B2E";
-      x.beginPath(); x.ellipse(cx + s * 75, cy - 70, 70, 95, s * -0.5, 0, 6.29); x.stroke();
-      x.beginPath(); x.ellipse(cx + s * 60, cy + 85, 50, 65, s * 0.5, 0, 6.29); x.stroke();
-    }
-    x.fillStyle = "#1B3A6B"; x.fillRect(cx - 8, cy - 140, 16, 290);
-  });
-  const libro = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.56), new THREE.MeshStandardMaterial({ map: paginas, roughness: 0.9, emissive: "#ffffff", emissiveMap: paginas, emissiveIntensity: 0.3 }));
-  libro.rotation.x = -Math.PI / 2; libro.position.y = 0.035; tapa.add(libro);
-  // plaquita en el poste
-  const placa = texturaLetrero(512, 128, (x, w, h) => {
-    x.fillStyle = "#1B3A6B"; x.fillRect(0, 0, w, h); x.fillStyle = "#FBF6EA"; x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = "700 64px Georgia, serif"; x.fillText("La guía", w / 2, h / 2 + 4);
-  });
-  malla(new THREE.BoxGeometry(0.5, 0.125, 0.02), [M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), M("#1B3A6B"), new THREE.MeshStandardMaterial({ map: placa, emissive: "#ffffff", emissiveMap: placa, emissiveIntensity: 0.25 }), M("#1B3A6B")], 0, 0.75, 0.09, g);
-}
+// el rincón del juego y el atril: 3d/rincon.js. Aquí solo va lo de Espejos Vivos
+const OPCIONES_RINCON = {
+  juego: { ...JUEGO, titulo: "Criaturas del espejo", destino: DESTINO_JUEGO, tarjeta: "tu tarjeta de guardián" },
+  guia: { ...ATRIL, destino: DESTINO_GUIA, grado: "6°", nombre: "Espejos Vivos", acento: "#4A9B2E", hondo: "#2F6E1C", dibujo: mariposaDelAtril },
+  vistas: {
+    mostrar: vista => mostrarPanel(vista),
+    recorrer: inicio => irARecorrido(inicio),
+    avisar: texto => avisar(texto),
+    ocultarGlobo: () => { $("globo").hidden = true; },
+    cruzar: (destino, opciones) => cruzarPortal(destino, opciones)
+  }
+};
 
 function colgarMuestrasEnGaleria() {
   const otras = Object.keys(MUESTRAS).filter(k => k !== "blanco" && k !== estado.muestra).slice(0, 2);
@@ -780,8 +588,7 @@ function mostrarPanel(vista) {
   $("panelTrabajo").hidden = vista !== "trabajo";
   $("panelObra").hidden = vista !== "obra";
   $("panelRecorrido").hidden = vista !== "recorrido";
-  $("registro").hidden = vista !== "registro";
-  $("panelGuia").hidden = vista !== "guia";
+  if (rincon) rincon.mostrar(vista);
   cerrarHojas();
 }
 async function irATrabajo({ instantaneo = false } = {}) {
@@ -828,9 +635,8 @@ let cerca = null;
 const LUGARES = [
   { id: "bastidor", x: BASTIDOR.x, z: BASTIDOR.z + 1.3, radio: 1.9, texto: "Pintar en el bastidor", accion: () => irATrabajo() },
   { id: "galeria", x: GALERIA.x + 1.5, z: 0, radio: 2.8, texto: "Ver la galería", accion: () => irAObra() },
-  { id: "portal", x: PORTAL.x, z: PORTAL.z, radio: 1.6, texto: "Volver a la ronda", accion: () => cruzarPortal("index.html#g6") },
-  { id: "juego", x: JUEGO.x - 1.6, z: JUEGO.z, radio: 2.0, texto: "Encender el portal del juego", accion: () => abrirRegistro() },
-  { id: "guia", x: ATRIL.x, z: ATRIL.z, radio: 1.7, texto: "Abrir la guía", accion: () => abrirGuia() }
+  { id: "portal", x: PORTAL.x, z: PORTAL.z, radio: 1.6, texto: "Volver a la ronda", accion: () => cruzarPortal("index.html#g6") }
+  // el portal del juego y el atril se agregan al construir el rincón
 ];
 function actualizarCerca(x, z) {
   let nuevo = null;
@@ -865,102 +671,20 @@ async function irARecorrido(inicio) {
 }
 document.querySelectorAll("[data-recorrer]").forEach(b => b.onclick = () => { $("globo").hidden = true; irARecorrido(); });
 
-/* ---------- el portal del juego y el atril de la guía ---------- */
-// las mismas reglas del registro del juego, para que allá entre directo sin volver a preguntar
-function validarJugador(nombre, grupo) {
-  if (nombre.split(" ").filter(p => p.length >= 2).length < 2) return "Escribe tu nombre y tu apellido.";
-  if (grupo.length < 2) return "Escribe tu grado y grupo, por ejemplo 6°B.";
-  return "";
-}
-// el simulador clásico lee esta nota al abrir: así el juego arranca con el estudiante inscrito, o la guía pide el PDF
-function dejarNota(nota) {
-  try { sessionStorage.setItem("livima_entrada", JSON.stringify(nota)); return true; }
-  catch (error) { console.warn("LIVIMA: el navegador no dejó pasar la nota al simulador", error); return false; }
-}
-// el portal (de la losa al letrero) cabe entero en el espacio que deja libre el formulario, en celular y en computador
-const ALTO_RINCON = 5.2, ANCHO_RINCON = 4.4;
-function encuadrarPortalJuego() {
-  const libre = 1 - Math.min(0.72, ($("registro").getBoundingClientRect().height + 24) / innerHeight);
-  const tanMedio = Math.tan(THREE.MathUtils.degToRad(mundo.camara.fov / 2)), aspecto = innerWidth / innerHeight;
-  const distancia = Math.max(8, ALTO_RINCON / (libre * 2 * tanMedio), ANCHO_RINCON / (2 * tanMedio * aspecto));
-  const medio = portalJuego.centro.clone().setY(portalJuego.centro.y + 0.25);
-  const ojo = medio.clone().addScaledVector(portalJuego.normal, distancia);
-  // se inclina la mirada para que el portal quede en el centro de la parte libre, arriba del formulario
-  return mundo.viajar(ojo, medio.clone().setY(medio.y - distancia * (1 - libre) * tanMedio), 900);
-}
-function abrirRegistro() {
-  if (!portalJuego) { location.href = DESTINO_JUEGO; return; }
-  mostrarPanel("registro"); $("globo").hidden = true; $("regError").textContent = "";
-  encuadrarPortalJuego();
-  if (!ES_TACTIL) setTimeout(() => $($("regNombre").value ? "regEncender" : "regNombre").focus(), 950);
-}
-async function encenderPortal() {
-  const nombre = $("regNombre").value.replace(/\s+/g, " ").trim(), grupo = $("regGrupo").value.trim();
-  const error = validarJugador(nombre, grupo);
-  $("regError").textContent = error; if (error) return;
-  JUGADOR.guardar({ nombre, grupo });
-  if (!dejarNota({ destino: "juego", nombre, grupo })) avisar("El juego te pedirá tu nombre otra vez: este navegador no deja pasarlo.");
-  $("registro").hidden = true;
-  encendido.meta = 1; pintarLetreroJuego(nombre.split(" ")[0]);
-  await new Promise(r => setTimeout(r, 1100));
-  cruzarPortal(DESTINO_JUEGO, { destino: portalJuego, velo: "arcade" });
-}
-$("regEncender").onclick = encenderPortal;
-// al cerrar el formulario o la guía, el estudiante queda de pie frente a lo que estaba mirando, no donde quedó la cámara
-const rumboHacia = (dx, dz) => Math.atan2(-dx, -dz);
-$("regSeguir").onclick = () => irARecorrido({ x: JUEGO.x - 2.9, z: JUEGO.z, yaw: rumboHacia(1, 0), ms: 700 });
-$("guiaSeguir").onclick = () => {
-  const n = Math.hypot(ATRIL.x, ATRIL.z), x = ATRIL.x - ATRIL.x / n * 1.5, z = ATRIL.z - ATRIL.z / n * 1.5;
-  irARecorrido({ x, z, yaw: rumboHacia(ATRIL.x - x, ATRIL.z - z), ms: 700 });
-};
-["regNombre", "regGrupo"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") encenderPortal(); }));
-$("btnIrJuego").onclick = () => {
-  if (!portalJuego) { location.href = DESTINO_JUEGO; return; }
-  irARecorrido({ x: JUEGO.x - 2.9, z: JUEGO.z, yaw: rumboHacia(1, 0), ms: 1 }).then(abrirRegistro);
-};
-function abrirGuia() {
-  mostrarPanel("guia"); $("globo").hidden = true;
-  if (mundo) mundo.viajar(new THREE.Vector3(ATRIL.x, 0, ATRIL.z).setY(mundo.alturaLocal(ATRIL.x, ATRIL.z) + 2.4).add(new THREE.Vector3(-ATRIL.x, 0, -ATRIL.z).normalize().multiplyScalar(1.5)),
-    new THREE.Vector3(ATRIL.x, mundo.alturaLocal(ATRIL.x, ATRIL.z) + 1.2, ATRIL.z), 800);
-}
-const atrilComoDestino = () => {
-  const normal = new THREE.Vector3(-ATRIL.x, 0, -ATRIL.z).normalize();
-  return { centro: new THREE.Vector3(ATRIL.x, mundo.alturaLocal(ATRIL.x, ATRIL.z) + 1.25, ATRIL.z), normal };
-};
-$("guiaLeer").onclick = () => cruzarPortal(DESTINO_GUIA, { destino: mundo && atrilComoDestino(), velo: "papel" });
-$("guiaPdf").onclick = () => { dejarNota({ destino: "guia-pdf" }); cruzarPortal(DESTINO_GUIA, { destino: mundo && atrilComoDestino(), velo: "papel" }); };
-
-/* ---------- cruzar el portal: el mismo destello del mapa, de ida y de vuelta ---------- */
-let cruzando = false;
-async function cruzarPortal(destino, { destino: puerta = portal, velo = "" } = {}) {
-  if (cruzando) return; cruzando = true;
-  $("globo").hidden = true; cerrarHojas(); mostrarPanel("cruce");
-  $("velo").classList.remove("arcade", "papel"); if (velo) $("velo").classList.add(velo);
-  if (mundo) {
-    if (recorrido) recorrido.desactivar();
-    mundo.soltarEncuadre();
-    await mundo.viajar(puerta.centro.clone().addScaledVector(puerta.normal, 3.2), puerta.centro.clone(), 800);
-    $("velo").classList.add("on");
-    await mundo.viajar(puerta.centro.clone().addScaledVector(puerta.normal, -1.2), puerta.centro.clone().addScaledVector(puerta.normal, -6), 700);
-  } else {
-    $("velo").classList.add("on");
-    await new Promise(r => setTimeout(r, 700));
-  }
-  location.href = destino;
-}
+/* ---------- el portal del juego, el atril y el cruce de portales (3d/rincon.js) ---------- */
+$("btnIrJuego").onclick = () => rincon.irAlPortal();
+// sin puerta explícita se cruza por el portal de la ronda
+const cruzarPortal = (destino, opciones = {}) => cruce.cruzar(destino, { puerta: portal, ...opciones });
 document.querySelector(".hud .volver").addEventListener("click", e => { e.preventDefault(); cruzarPortal(e.currentTarget.getAttribute("href")); });
-// si el estudiante vuelve con el botón Atrás del navegador, la estación se ve sin destello
-addEventListener("pageshow", () => {
-  if (!cruzando) return;
-  cruzando = false; $("velo").classList.remove("on"); encendido.meta = 0; if (letreroJuego) pintarLetreroJuego("");
-  if (recorrido) irARecorrido();
-});
 
 /* ---------- arranque ---------- */
 const hayObraPrevia = recuperarObra();
 $("nombreObra").value = estado.nombre;
 marcarColor(); marcarMuestra(); redibujarTrabajo();
+const antesDeCruzar = () => { $("globo").hidden = true; cerrarHojas(); mostrarPanel("cruce"); if (recorrido) recorrido.desactivar(); };
 if (usarLigera) {
+  rincon = crearRincon(null, OPCIONES_RINCON);
+  cruce = crearCruce({ mundo: null, antes: antesDeCruzar });
   $("mundo").hidden = true; $("ligera").append(lienzoTrabajo); $("enlaceLigera").hidden = true;
   document.querySelectorAll("[data-recorrer]").forEach(b => { b.hidden = true; });
   $("velo").classList.remove("on");
@@ -972,13 +696,14 @@ if (usarLigera) {
   const zonaLibre = (x, z) => x > -4 && x < 8 && z > 4 && z < 18;   // la salida del portal queda despejada
   ({ troncos } = construirRonda(mundo, { zonaLibre }));
   construirEstacion();
+  cruce = crearCruce({ mundo, antes: antesDeCruzar, alVolver: () => { rincon.apagar(); if (recorrido) irARecorrido(); } });
   recorrido = crearRecorrido(mundo, {
     limites: { xMin: -60, xMax: 60, zMin: -40, zMax: 60 },
     permitido: (x, z) => z > mundo.rioLocal(x) + 7.5,   // se puede llegar a la playa, pero no meterse al río
     piso: (x, z) => {
       if (Math.hypot(x, z) < 5.4) return ALTO_PISO_PARADA;
       // sobre la losa en rombo del portal del juego
-      if (Math.abs(x - JUEGO.x) + Math.abs(z - JUEGO.z) < JUEGO.losa * Math.SQRT2) return 0.15;
+      const enLaLosa = rincon.piso(x, z); if (enLaLosa !== null) return enLaLosa;
       return mundo.alturaLocal(x, z);
     },
     alMoverse: moverMati,
@@ -986,7 +711,7 @@ if (usarLigera) {
       ...troncos,
       ...[-4.6, 4.6].flatMap(x => [[x, -4.1, 0.4], [x, 4.1, 0.4]]),
       [ESTANQUE.x, ESTANQUE.z, ESTANQUE.r + 0.1], [3.1, -2.1, 0.55], [PORTAL.x, PORTAL.z, 0.8],
-      [JUEGO.x, JUEGO.z, 0.6], [JUEGO.x, JUEGO.z - 1.55, 0.2], [JUEGO.x, JUEGO.z + 1.55, 0.2], [ATRIL.x, ATRIL.z, 0.5]
+      ...rincon.circulos
     ],
     obstaculos: [
       { x: BASTIDOR.x, z: BASTIDOR.z - 0.15, ancho: 2.7, fondo: 0.9 },
@@ -997,9 +722,9 @@ if (usarLigera) {
   // se sale del portal: la cámara empieza dentro del remolino, el destello se apaga y el estudiante ya camina como Mati
   // se sale por donde se entró: el portal del mapa, el del juego o el atril de la guía
   const desde = new URLSearchParams(location.search).get("desde");
-  const puerta = desde === "juego" ? portalJuego : desde === "guia" ? atrilComoDestino() : portal;
+  const { puerta, paso } = rincon.puertaDeLlegada(desde, portal);
   mundo.colocar(puerta.centro.clone().addScaledVector(puerta.normal, -0.6), puerta.centro.clone().addScaledVector(puerta.normal, 4));
-  const salida = puerta.centro.clone().addScaledVector(puerta.normal, desde === "guia" ? 1.5 : 2.3);
+  const salida = puerta.centro.clone().addScaledVector(puerta.normal, paso);
   requestAnimationFrame(() => requestAnimationFrame(async () => {
     $("velo").classList.remove("on");
     await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-puerta.normal.x, -puerta.normal.z), ms: 1500 });

@@ -4,7 +4,7 @@
 // fuerza la descarga de los 19 de entrada, para no pesar el primer uso). Con internet
 // siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v68";
+const CACHE_NAME = "livima-v69";
 
 const APP_SHELL = [
   "./",
@@ -25,6 +25,13 @@ const SIMULADORES = [
   "02-espejos-vivos-juego.html",
   "02-espejos-vivos-guia.html",
   "3d/livima3d.js",
+  "3d/piezas.js",
+  "3d/rincon.js",
+  "3d/sala-arcade.js",
+  "3d/libro.js",
+  "3d/estacion.css",
+  "3d/sala.css",
+  "3d/libro.css",
   "3d/three.addons.min.js",
   "3d/three.core.min.js",
   "3d/three.module.min.js",
@@ -32,6 +39,9 @@ const SIMULADORES = [
   "03-mosaico-baldosas-de-mi-tierra.html",
   "04-tejedor-de-pintas-hilo-de-los-zenu.html",
   "05-detector-de-simetrias.html",
+  "05-detector-de-simetrias-3d.html",
+  "05-detector-de-simetrias-juego.html",
+  "05-detector-de-simetrias-guia.html",
   "06-arbol-fractal-bosque-infinito.html",
   "07-el-jardin-de-las-espirales.html",
   "01-a-escala-humana.html",

@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Detector de Simetrías 3D, LIVIMA</title>
+<meta name="theme-color" content="#1B3A6B">
+<script>
+  // el mapa y el pasaporte abren el juego y la guía con #juego y #guia: cada uno tiene su propio lugar
+  if (location.hash === "#juego") location.replace("05-detector-de-simetrias-juego.html");
+  if (location.hash === "#guia") location.replace("05-detector-de-simetrias-guia.html");
+</script>
+<script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
+<link rel="stylesheet" href="3d/estacion.css">
+<style>
+  /* color del grado y estilos de la mesa del detective: lo común está en 3d/estacion.css */
+  :root{ --acento:#4A9B2E; --acento-hondo:#2f6f1c; --morado:#6B3FA0; }
+  .mesa{gap:6px}
+  .mesa .control{display:grid;grid-template-columns:minmax(0,13em) minmax(0,1fr);gap:0 12px;align-items:center;background:#ffffffee;border:1.5px solid var(--linea);border-radius:10px;padding:4px 12px}
+  .mesa .control label{font-size:14px;font-weight:600;color:var(--marino);display:flex;justify-content:space-between;gap:8px}
+  .mesa .control output{font-weight:700;color:var(--tinta);white-space:nowrap}
+  .mesa .control.desplazar label{color:var(--morado)}
+  .mesa .lectura{margin:0;background:#ffffffee;border:1.5px solid var(--linea);border-left:5px solid var(--marino);border-radius:10px;padding:6px 12px;font-size:14.5px}
+  .mesa .lectura.calza{border-left-color:var(--acento);background:#EEF6E7}
+  .mesa .lectura small{color:var(--gris);font-size:13px}
+  /* en el celular la barra se aprieta para que la tornamesa quede a la vista */
+  @media (max-width:520px){
+    .mesa{gap:5px}
+    .mesa .seg button{min-height:40px;font-size:14px;padding:6px 10px}
+    .mesa .control{grid-template-columns:1fr;padding:3px 10px}
+    .mesa .control input[type=range]{min-height:26px}
+    .mesa .lectura{font-size:13.5px;padding:5px 10px}
+    .mesa .btn{min-height:42px;padding:6px 10px}
+  }
+  .hallazgos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  @media (max-width:420px){ .hallazgos{gap:6px} .hallazgos button{font-size:12px;padding:4px 2px} .hallazgos button canvas{width:38px;height:38px} }
+  @media (max-width:360px){ .hallazgos button canvas{width:32px;height:32px} #hojaHallazgos h2{font-size:15px;margin-bottom:6px} }
+  .mesa button{-webkit-tap-highlight-color:transparent}
+  #hojaHallazgos,#hojaCestas{overflow:auto}
+  .hallazgos button{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;border:1.5px solid var(--linea);background:#fff;border-radius:10px;padding:6px 4px;cursor:pointer;color:var(--tinta);font-size:13px;font-weight:600}
+  .hallazgos button canvas{width:56px;height:56px}
+  .hallazgos button[aria-pressed="true"]{border-color:var(--acento);box-shadow:inset 0 0 0 1.5px var(--acento)}
+  .hallazgos button.hecho::after{content:"✓";position:absolute;top:4px;right:6px;color:var(--acento-hondo);font-weight:800}
+  .hallazgos button:disabled{opacity:.55;cursor:default}
+  .cestas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .cestas button{min-height:52px;border:1.5px solid var(--marino);background:#fff;border-radius:10px;padding:8px;cursor:pointer;color:var(--marino);font-weight:700}
+  .llevando{position:fixed;left:max(12px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;max-width:min(360px,calc(100vw - 24px));
+    background:#fffffff2;border:2px dashed var(--acento);border-radius:14px;padding:8px 12px;z-index:6;font-size:14.5px}
+  .llevando canvas{width:48px;height:48px;flex:none}
+  .ligera{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;background:#e9eef3;
+    padding:calc(64px + env(safe-area-inset-top,0px)) 12px 0}
+  .ligera canvas{width:min(92vw,calc(100vh - 440px),480px);height:auto;border-radius:50%;border:10px solid #8A6A44;background:#F5F1E4}
+</style>
+</head>
+<body>
+<div id="velo" class="on" aria-hidden="true"></div>
+<script>
+  // al volver del juego o de la guía, el destello que se apaga es el mismo con el que se salió
+  { const desde = new URLSearchParams(location.search).get("desde"); if (desde === "juego") document.getElementById("velo").classList.add("arcade"); if (desde === "guia") document.getElementById("velo").classList.add("papel"); }
+</script>
+<script>
+  // si el 3D no arranca (navegador muy antiguo), no se queda la pantalla encendida: se ofrece la versión clásica
+  setTimeout(() => {
+    if (window.__listo) return;
+    document.getElementById("velo").classList.remove("on");
+    const p = document.createElement("p");
+    p.style.cssText = "position:fixed;inset:auto 16px 40% 16px;background:#fff;padding:16px;border-radius:12px;z-index:90;font:16px/1.4 system-ui";
+    p.innerHTML = 'Este navegador no pudo abrir la estación. <a href="?ligera=1">Abrir la vista ligera</a> o <a href="05-detector-de-simetrias.html">el simulador clásico</a>.';
+    document.body.append(p);
+  }, 15000);
+</script>
+<canvas id="mundo" aria-label="Kiosco del Detector de Simetrías a la orilla del río Sinú"></canvas>
+<div class="ligera" id="ligera" hidden></div>
+
+<header class="hud">
+  <a class="volver" href="index.html">Volver a la ronda</a>
+</header>
+
+<div class="globo" id="globo" role="status" hidden>
+  <p id="globoTexto"></p>
+  <button class="cerrar" id="globoCerrar" aria-label="Cerrar la pista">×</button>
+</div>
+<div class="aviso" id="aviso" role="alert" hidden></div>
+<div class="llevando" id="llevando" role="status" hidden><canvas id="llevandoFigura" width="96" height="96" aria-hidden="true"></canvas><p id="llevandoTexto" style="margin:0"></p></div>
+
+<!-- la mesa del detective: las dos pruebas -->
+<div class="barra mesa" id="panelMesa" hidden>
+  <div class="fila">
+    <div class="seg" role="group" aria-label="Prueba">
+      <button data-prueba="espejo" aria-pressed="true">Prueba del espejo</button><button data-prueba="giro" aria-pressed="false">Prueba del giro</button>
+    </div>
+  </div>
+  <div class="control">
+    <label for="angulo"><span id="anguloNombre">Girar el espejo</span><output id="anguloValor" for="angulo"></output></label>
+    <input type="range" id="angulo" min="0" max="180" step="1" value="20">
+  </div>
+  <div class="control desplazar" id="controlDesplazar">
+    <label for="desplazar"><span>Correr el espejo</span><output id="desplazarValor" for="desplazar"></output></label>
+    <input type="range" id="desplazar" min="-94" max="94" step="2" value="0">
+  </div>
+  <p class="lectura" id="lectura" aria-live="polite"></p>
+  <div class="fila">
+    <button class="btn" id="btnHallazgos" aria-expanded="false">Otro hallazgo</button>
+    <button class="btn" data-recorrer>Seguir caminando</button>
+    <button class="btn principal" id="btnLlevar">Llevar a una cesta</button>
+  </div>
+</div>
+
+<!-- mundo libre: el estudiante es Mati -->
+<div class="barra" id="panelRecorrido" hidden>
+  <div class="fila">
+    <button class="btn" id="btnVista" aria-pressed="false">Ver a Mati</button>
+    <button class="btn" id="btnSalto" hidden>Saltar</button>
+    <button class="btn principal" id="btnAccion">Ir a la mesa</button>
+  </div>
+</div>
+
+<section class="hoja" id="hojaHallazgos" hidden aria-label="Hallazgos de la estantería">
+  <h2>La estantería de hallazgos</h2>
+  <div class="hallazgos" id="hallazgos"></div>
+  <p id="progreso" style="margin:10px 0 0;font-size:14px;color:var(--gris)"></p>
+</section>
+<section class="hoja" id="hojaCestas" hidden aria-label="Las cuatro cestas">
+  <h2>¿En qué cesta va?</h2>
+  <div class="cestas" id="botonesCestas"></div>
+</section>
+
+<noscript><p style="padding:80px 16px">Esta estación necesita JavaScript. Abre la versión clásica: 05-detector-de-simetrias.html</p></noscript>
+
+<script type="module">
+import { THREE, hayWebGL, almacen, crearMundo, construirRonda, pisoDeParada, ALTO_PISO_PARADA, crearPortal, personajes, crearRecorrido } from "./3d/livima3d.js";
+import { texturaLetrero, conLuz, puntal as puntalComun, totemDeParada, neon } from "./3d/piezas.js";
+import { crearRincon, crearCruce, rumboHacia } from "./3d/rincon.js";
+
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2, D2R = Math.PI / 180;
+const NAVY = "#1B3A6B", TEAL = "#1F8A8A", GREEN = "#4A9B2E", ORANGE = "#D9701A", PURPLE = "#6B3FA0";
+
+/* ---------- los 8 hallazgos y sus pruebas: las mismas del simulador clásico ---------- */
+function drawHoja(g){
+  g.fillStyle="#7FB95C"; g.strokeStyle="#3F7A22"; g.lineWidth=4;
+  g.beginPath(); g.moveTo(210,66);
+  g.bezierCurveTo(292,112, 300,224, 210,352);
+  g.bezierCurveTo(120,224, 128,112, 210,66);
+  g.closePath(); g.fill(); g.stroke();
+  g.strokeStyle="#3F7A22"; g.lineWidth=3;
+  g.beginPath(); g.moveTo(210,78); g.lineTo(210,340); g.stroke();
+  g.lineWidth=2;
+  [130,175,220,265].forEach((y,i)=>{
+    const dx=58-i*8;
+    g.beginPath(); g.moveTo(210,y); g.lineTo(210-dx,y+26); g.stroke();
+    g.beginPath(); g.moveTo(210,y); g.lineTo(210+dx,y+26); g.stroke();
+  });
+}
+function drawMariposa(g){
+  g.fillStyle=PURPLE; g.globalAlpha=0.82;
+  g.beginPath(); g.ellipse(146,166,54,44,-0.5,0,TAU); g.fill();
+  g.beginPath(); g.ellipse(274,166,54,44,0.5,0,TAU); g.fill();
+  g.fillStyle=ORANGE;
+  g.beginPath(); g.ellipse(158,254,38,32,0.35,0,TAU); g.fill();
+  g.beginPath(); g.ellipse(262,254,38,32,-0.35,0,TAU); g.fill();
+  g.globalAlpha=1;
+  g.fillStyle="#F5F1E4";
+  g.beginPath(); g.arc(146,160,10,0,TAU); g.fill();
+  g.beginPath(); g.arc(274,160,10,0,TAU); g.fill();
+  g.fillStyle=NAVY;
+  g.beginPath(); g.ellipse(210,206,11,52,0,0,TAU); g.fill();
+  g.beginPath(); g.arc(210,142,11,0,TAU); g.fill();
+  g.strokeStyle=NAVY; g.lineWidth=3;
+  g.beginPath(); g.moveTo(204,134); g.quadraticCurveTo(186,102,172,96); g.stroke();
+  g.beginPath(); g.moveTo(216,134); g.quadraticCurveTo(234,102,248,96); g.stroke();
+}
+function drawFlor(g){
+  for(let k=0;k<5;k++){
+    g.save(); g.translate(210,210); g.rotate(k*72*D2R);
+    g.fillStyle=PURPLE; g.globalAlpha=0.8;
+    g.beginPath(); g.ellipse(0,-78,30,64,0,0,TAU); g.fill();
+    g.globalAlpha=1; g.restore();
+  }
+  g.fillStyle="#E8B71A"; g.beginPath(); g.arc(210,210,30,0,TAU); g.fill();
+  g.strokeStyle="#B98E0D"; g.lineWidth=3; g.stroke();
+}
+function drawReja(g){
+  g.strokeStyle=ORANGE; g.lineWidth=7;
+  g.strokeRect(76,122,268,176);
+  g.strokeStyle=NAVY; g.lineWidth=4;
+  [116,163,210,257,304].forEach(x=>{ g.beginPath(); g.moveTo(x,132); g.lineTo(x,288); g.stroke(); });
+  g.beginPath(); g.moveTo(86,210); g.lineTo(334,210); g.stroke();
+  g.fillStyle=TEAL;
+  [116,163,210,257,304].forEach(x=>{ g.beginPath(); g.arc(x,210,6,0,TAU); g.fill(); });
+}
+function drawTri(g){
+  g.fillStyle="#D9EEED"; g.strokeStyle=TEAL; g.lineWidth=6;
+  g.beginPath(); g.moveTo(210,84); g.lineTo(319,273); g.lineTo(101,273); g.closePath();
+  g.fill(); g.stroke();
+  g.fillStyle=TEAL; g.beginPath(); g.arc(210,210,7,0,TAU); g.fill();
+}
+function drawCua(g){
+  g.fillStyle="#DCE4F0"; g.strokeStyle=NAVY; g.lineWidth=6;
+  g.strokeRect(112,112,196,196); g.fillRect(112,112,196,196);
+  g.strokeStyle=TEAL; g.lineWidth=4;
+  g.beginPath(); g.moveTo(210,112); g.lineTo(308,210); g.lineTo(210,308); g.lineTo(112,210); g.closePath(); g.stroke();
+}
+function drawCopo(g){
+  // copo de nieve: 6 brazos con ramitas y un hexágono al centro (6 ejes, calza cada 60°)
+  const C=210, arms=[], OUT="#5E8FCB", FILL="#A9CDF5", HI="#DCEBFC";
+  for(let k=0;k<6;k++){
+    const a=(-90+k*60)*D2R, ux=Math.cos(a), uy=Math.sin(a);
+    const seg=[[C+ux*36,C+uy*36,C+ux*150,C+uy*150]];
+    [[74,40],[114,30]].forEach(([d,l])=>{
+      const bx=C+ux*d, by=C+uy*d;
+      [-1,1].forEach(s=>{ const b=a+s*48*D2R; seg.push([bx,by,bx+Math.cos(b)*l,by+Math.sin(b)*l]); });
+    });
+    arms.push(seg);
+  }
+  const strokeAll=(col,w)=>{ g.strokeStyle=col; g.lineWidth=w; g.lineCap="round";
+    arms.forEach(seg=>seg.forEach(([x1,y1,x2,y2])=>{ g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke(); })); };
+  strokeAll(OUT,20); strokeAll(FILL,13); strokeAll(HI,3);
+  const hex=(r)=>{ g.beginPath(); for(let k=0;k<6;k++){ const a=(-90+k*60)*D2R; const x=C+Math.cos(a)*r, y=C+Math.sin(a)*r; k?g.lineTo(x,y):g.moveTo(x,y); } g.closePath(); };
+  hex(40); g.fillStyle=FILL; g.fill(); g.lineWidth=5; g.strokeStyle=OUT; g.lineJoin="round"; g.stroke();
+  hex(22); g.fillStyle=HI; g.fill(); g.lineWidth=3; g.strokeStyle=OUT; g.stroke();
+}
+function drawRemo(g){
+  // remolino: 4 aspas curvas iguales (calza cada 90°, ningún espejo lo deja igual)
+  const blade=()=>{ g.beginPath(); g.moveTo(-6,-22);
+    g.bezierCurveTo(70,-34, 104,-96, 54,-150);
+    g.bezierCurveTo(50,-146, 46,-144, 44,-140);
+    g.bezierCurveTo(70,-98, 40,-52, -14,-34);
+    g.closePath(); };
+  for(let k=0;k<4;k++){
+    g.save(); g.translate(210,210); g.rotate(k*90*D2R);
+    blade(); g.fillStyle="#9B6AD6"; g.fill();
+    g.lineWidth=7; g.lineJoin="round"; g.strokeStyle="#6B3FA0"; g.stroke();
+    g.beginPath(); g.moveTo(8,-32); g.bezierCurveTo(58,-44, 82,-90, 58,-128);
+    g.lineWidth=5; g.lineCap="round"; g.strokeStyle="rgba(255,255,255,0.45)"; g.stroke();
+    g.restore();
+  }
+  g.fillStyle=NAVY; g.beginPath(); g.arc(210,210,16,0,TAU); g.fill();
+  g.fillStyle="rgba(255,255,255,0.5)"; g.beginPath(); g.arc(205,204,5,0,TAU); g.fill();
+}
+// articulo: para decir "la hoja", "el remolino" en los mensajes
+const FIGS = [
+  { id:"hoja", corto:"Hoja",     name:"Hoja",              art:"la",  axes:[90],                 order:1, draw:drawHoja,
+    exp:"Tiene 1 eje de espejo (vertical) y no calza al girar: simetría bilateral, la de casi todo lo vivo." },
+  { id:"mariposa", corto:"Mariposa", name:"Mariposa",          art:"la",  axes:[90],                 order:1, draw:drawMariposa,
+    exp:"Un solo eje vertical, como tu cara en el espejo: bilateral." },
+  { id:"flor", corto:"Flor",     name:"Flor de 5 pétalos", art:"la",  axes:[18,54,90,126,162],   order:5, draw:drawFlor,
+    exp:"5 ejes de espejo y calza cada 72 grados: tiene espejo y giro, las dos." },
+  { id:"reja", corto:"Reja",     name:"Reja del barrio",   art:"la",  axes:[0,90],               order:2, draw:drawReja,
+    exp:"2 ejes (horizontal y vertical) y calza al girar 180 grados: las dos simetrías." },
+  { id:"tri", corto:"Triángulo",      name:"Triángulo",         art:"el",  axes:[30,90,150],          order:3, draw:drawTri,
+    exp:"3 ejes de espejo y calza cada 120 grados: espejo y giro." },
+  { id:"cua", corto:"Cuadrado",      name:"Cuadrado",          art:"el",  axes:[0,45,90,135],        order:4, draw:drawCua,
+    exp:"4 ejes de espejo y calza cada 90 grados: espejo y giro." },
+  { id:"copo", corto:"Copo",     name:"Copo de 6 puntas",  art:"el",  axes:[0,30,60,90,120,150], order:6, draw:drawCopo,
+    exp:"6 ejes y calza cada 60 grados: la reina del espejo y el giro." },
+  { id:"remo", corto:"Remolino",     name:"Remolino",          art:"el",  axes:[],                   order:4, draw:drawRemo,
+    exp:"Calza cada 90 grados pero ningún espejo lo deja igual: simetría radial pura. La trampa del detective." }
+];
+const nombreCon = f => `${f.art} ${f.name.charAt(0).toLowerCase()}${f.name.slice(1)}`;
+const mayuscula = s => s.charAt(0).toUpperCase() + s.slice(1);
+const CESTAS = [
+  { id: "bilateral", texto: "Solo espejo" },
+  { id: "radial",    texto: "Solo giro" },
+  { id: "ambas",     texto: "Espejo y giro" },
+  { id: "ninguna",   texto: "Ninguna" }
+];
+function clase(f) {
+  const conEje = f.axes.length > 0, conGiro = f.order > 1;
+  return conEje && conGiro ? "ambas" : conEje ? "bilateral" : conGiro ? "radial" : "ninguna";
+}
+// tolerancias del clásico: grados para el espejo y el giro, píxeles para el corrimiento del eje
+const TOL_ESPEJO = 4, TOL_GIRO = 5, TOL_CORRER = 8;
+const INSIGNIA_EN = 5;
+const normalEje = a => ((a % 180) + 180) % 180;
+const cercaDeEje = (f, a) => f.axes.find(ax => { const d = Math.abs(normalEje(a) - ax); return Math.min(d, 180 - d) <= TOL_ESPEJO; });
+function ejeQueCalza(f, a, correr) { return Math.abs(correr) > TOL_CORRER ? undefined : cercaDeEje(f, a); }
+function giroQueCalza(f, a) {
+  if (f.order < 2) return undefined;
+  const paso = 360 / f.order;
+  for (let k = 1; k < f.order; k++) if (Math.abs(a - k * paso) <= TOL_GIRO) return k * paso;
+  return undefined;
+}
+
+/* ---------- sonido corto y suave, como en el clásico ---------- */
+let audio = null;
+function tono(freq, t0, dur, vol, tipo = "sine") {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + t0;
+    o.type = tipo; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur + 0.05);
+  } catch (error) { console.warn("LIVIMA: este navegador no dejó sonar el aviso", error); audio = null; }
+}
+const sonarEje = () => { tono(880, 0, 0.12, 0.11); tono(1320, 0.07, 0.15, 0.09); };
+const sonarGiro = () => { tono(660, 0, 0.12, 0.11); tono(990, 0.07, 0.15, 0.09); };
+const sonarBien = () => { tono(523, 0, 0.12, 0.11); tono(659, 0.09, 0.12, 0.11); tono(784, 0.18, 0.2, 0.11); };
+const sonarNo = () => tono(220, 0, 0.18, 0.09, "triangle");
+
+/* ---------- estado del estudiante ---------- */
+const guardado = almacen("livima_detector3d");
+const ESTADO = FIGS.map(() => ({ ejes: [], giro: null, hecho: false }));
+const mesa = { fig: 0, prueba: "espejo", angulo: 20, correr: 0, llevando: null };
+let ultimoEje = false, ultimoGiro = false;
+function guardar() {
+  if (!guardado.guardar({ estado: ESTADO, fig: mesa.fig })) avisarUnaVez("Este navegador no deja guardar: tus hallazgos siguen aquí, pero se perderán si cierras la página.");
+}
+function recuperar() {
+  const previo = guardado.leer();
+  if (!previo || !Array.isArray(previo.estado) || previo.estado.length !== FIGS.length) return false;
+  previo.estado.forEach((s, i) => Object.assign(ESTADO[i], { ejes: Array.isArray(s.ejes) ? s.ejes : [], giro: s.giro ?? null, hecho: !!s.hecho }));
+  mesa.fig = Number.isInteger(previo.fig) && !ESTADO[previo.fig]?.hecho ? previo.fig : siguientePendiente();
+  return ESTADO.some(s => s.hecho || s.ejes.length || s.giro !== null);
+}
+const siguientePendiente = () => { const i = ESTADO.findIndex(s => !s.hecho); return i < 0 ? null : i; };
+const clasificados = () => ESTADO.filter(s => s.hecho).length;
+
+/* ---------- la tornamesa: el lienzo de las dos pruebas (las mismas cuentas del clásico) ---------- */
+const LADO = 680, CENTRO = 340, ESCALA_FIG = 1.08, TAM_FIG = 420 * ESCALA_FIG, ORIGEN_FIG = CENTRO - TAM_FIG / 2;
+const figuras = FIGS.map(f => { const c = document.createElement("canvas"); c.width = c.height = 420; f.draw(c.getContext("2d")); return c; });
+const lienzoMesa = document.createElement("canvas"); lienzoMesa.width = lienzoMesa.height = LADO;
+function lineaDeEje(g, ang, color, ancho, raya, correr = 0) {
+  const r = 480, x = Math.cos(ang * D2R), y = Math.sin(ang * D2R), cx = CENTRO - y * correr, cy = CENTRO + x * correr;
+  g.save(); g.strokeStyle = color; g.lineWidth = ancho; if (raya) g.setLineDash(raya);
+  g.beginPath(); g.moveTo(cx - x * r, cy - y * r); g.lineTo(cx + x * r, cy + y * r); g.stroke(); g.restore();
+}
+// pinta la tornamesa y devuelve lo que la prueba encontró, para el texto de abajo
+function pintarMesa() {
+  const g = lienzoMesa.getContext("2d");
+  g.fillStyle = "#F5F1E4"; g.fillRect(0, 0, LADO, LADO);
+  if (mesa.fig === null || mesa.llevando !== null) {
+    g.fillStyle = "#b8ad94"; g.font = "600 34px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(mesa.llevando !== null ? "Llévalo a su cesta" : "Elige un hallazgo", CENTRO, CENTRO - 22);
+    g.fillText(mesa.llevando !== null ? "" : "de la estantería", CENTRO, CENTRO + 22);
+    return { vacia: true };
+  }
+  const f = FIGS[mesa.fig], st = ESTADO[mesa.fig], fig = figuras[mesa.fig], v = mesa.angulo;
+  st.ejes.forEach(ax => lineaDeEje(g, ax, "rgba(74,155,46,0.55)", 2, [6, 5]));
+  if (mesa.prueba === "espejo") {
+    g.drawImage(fig, ORIGEN_FIG, ORIGEN_FIG, TAM_FIG, TAM_FIG);
+    // reflejo sobre el eje corrido: es la cuenta real de la reflexión, no un efecto
+    const t = v * D2R, c2 = Math.cos(2 * t), s2 = Math.sin(2 * t), cx = CENTRO - Math.sin(t) * mesa.correr, cy = CENTRO + Math.cos(t) * mesa.correr;
+    g.save(); g.globalAlpha = 0.45; g.translate(cx, cy); g.transform(c2, s2, s2, -c2, 0, 0); g.translate(-cx, -cy);
+    g.drawImage(fig, ORIGEN_FIG, ORIGEN_FIG, TAM_FIG, TAM_FIG); g.restore();
+    const eje = ejeQueCalza(f, v, mesa.correr);
+    lineaDeEje(g, v, eje !== undefined ? GREEN : NAVY, 3, eje !== undefined ? null : [9, 7], mesa.correr);
+    return { eje, anguloBien: cercaDeEje(f, v) !== undefined };
+  }
+  g.save(); g.globalAlpha = 0.32; g.drawImage(fig, ORIGEN_FIG, ORIGEN_FIG, TAM_FIG, TAM_FIG); g.restore();
+  g.save(); g.globalAlpha = 0.85; g.translate(CENTRO, CENTRO); g.rotate(v * D2R); g.translate(-CENTRO, -CENTRO);
+  g.drawImage(fig, ORIGEN_FIG, ORIGEN_FIG, TAM_FIG, TAM_FIG); g.restore();
+  g.fillStyle = NAVY; g.beginPath(); g.arc(CENTRO, CENTRO, 6, 0, TAU); g.fill();
+  const giro = giroQueCalza(f, v);
+  if (giro !== undefined && (st.giro === null || giro < st.giro)) st.giro = giro;
+  // huella del giro encontrado: un arco desde arriba hasta el menor giro que calza
+  if (st.giro !== null) {
+    const a0 = -Math.PI / 2, a1 = a0 + st.giro * D2R;
+    g.save(); g.strokeStyle = "rgba(74,155,46,0.55)"; g.lineWidth = 5; g.setLineDash([7, 6]);
+    g.beginPath(); g.arc(CENTRO, CENTRO, 200, a0, a1); g.stroke(); g.setLineDash([]);
+    g.fillStyle = "rgba(74,155,46,0.85)"; g.beginPath(); g.arc(CENTRO + Math.cos(a1) * 200, CENTRO + Math.sin(a1) * 200, 7, 0, TAU); g.fill();
+    g.font = "700 22px Georgia, serif"; g.textAlign = "center";
+    g.fillText(st.giro + "°", CENTRO + Math.cos((a0 + a1) / 2) * 232, CENTRO + Math.sin((a0 + a1) / 2) * 232 + 7);
+    g.restore();
+  }
+  return { giro };
+}
+const cuadros = n => `${n} ${n === 1 ? "eje" : "ejes"}`;
+function actualizarMesa() {
+  const r = pintarMesa();
+  if (texMesa) texMesa.needsUpdate = true;
+  moverPiezasDeLaMesa();
+  const lectura = $("lectura");
+  $("anguloValor").textContent = mesa.angulo + "°";
+  $("desplazarValor").textContent = mesa.correr === 0 ? "por el centro" : `${Math.abs(mesa.correr)} hacia ${mesa.correr > 0 ? "un lado" : "el otro"}`;
+  if (r.vacia) { lectura.className = "lectura"; lectura.innerHTML = mesa.llevando !== null ? `Llevas ${nombreCon(FIGS[mesa.llevando])}. Camina hasta la cesta que le corresponde.` : "Toma un hallazgo de la estantería o toca <b>Otro hallazgo</b>."; return; }
+  const f = FIGS[mesa.fig], st = ESTADO[mesa.fig];
+  let texto, calza = false;
+  if (mesa.prueba === "espejo") {
+    if (r.eje !== undefined) {
+      calza = true; texto = `Calza: el reflejo queda igual. Eje de simetría a ${r.eje} grados.`;
+      if (!st.ejes.includes(r.eje)) { st.ejes.push(r.eje); guardar(); }
+      if (!ultimoEje) sonarEje();
+    } else if (r.anguloBien) texto = "El ángulo es correcto, pero el espejo no pasa por el centro de la figura: córrelo hasta el medio.";
+    else texto = "El reflejo no coincide. Sigue girando el espejo.";
+    ultimoEje = r.eje !== undefined;
+  } else {
+    if (r.giro !== undefined) { calza = true; texto = `Calza girando ${r.giro} grados, sin dar la vuelta completa.`; guardar(); if (!ultimoGiro) sonarGiro(); }
+    else if (mesa.angulo >= 356) texto = "Vuelta completa: todas las figuras calzan así, eso no cuenta.";
+    else texto = st.giro !== null ? "En este ángulo no calza. El giro que ya encontraste queda marcado." : "Todavía no calza. Sigue girando.";
+    ultimoGiro = r.giro !== undefined;
+  }
+  lectura.className = "lectura" + (calza ? " calza" : "");
+  lectura.innerHTML = `<b>${f.name}.</b> ${texto} <small>Ejes: ${st.ejes.length}. Giro que calza: ${st.giro === null ? "aún no" : st.giro + "°"}.</small>`;
+}
+function elegirPrueba(prueba) {
+  mesa.prueba = prueba;
+  document.querySelectorAll("[data-prueba]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.prueba === prueba)));
+  const ang = $("angulo");
+  ang.max = prueba === "espejo" ? 180 : 360;
+  mesa.angulo = prueba === "espejo" ? 20 : 30; ang.value = mesa.angulo;
+  $("anguloNombre").textContent = prueba === "espejo" ? "Girar el espejo" : "Girar la tornamesa";
+  $("controlDesplazar").hidden = prueba !== "espejo";
+  if (prueba === "giro") mesa.correr = 0;
+  $("desplazar").value = mesa.correr;
+  ultimoEje = ultimoGiro = false;
+  actualizarMesa();
+  // la barra cambia de alto: el encuadre de la mesa se acomoda
+  if (estadoVista() === "mesa" && mundo) encuadrarMesa(400);
+}
+document.querySelectorAll("[data-prueba]").forEach(b => b.onclick = () => elegirPrueba(b.dataset.prueba));
+$("angulo").oninput = e => { mesa.angulo = +e.target.value; actualizarMesa(); };
+$("desplazar").oninput = e => { mesa.correr = +e.target.value; actualizarMesa(); };
+function ponerEnLaMesa(i) {
+  mesa.fig = i; mesa.correr = 0;
+  elegirPrueba("espejo");
+  marcarHallazgos(); colocarHallazgos(); guardar();
+}
+
+/* ---------- mensajes de Mati y avisos ---------- */
+let globoTimer = 0, avisoTimer = 0, yaAvisado = false;
+const bajoLaBarra = () => `${document.querySelector(".hud").getBoundingClientRect().bottom + 8}px`;
+function decirMati(html, { segundos = 0 } = {}) {
+  $("globoTexto").innerHTML = html; $("globo").style.top = bajoLaBarra(); $("globo").hidden = false;
+  clearTimeout(globoTimer);
+  if (segundos) globoTimer = setTimeout(() => { $("globo").hidden = true; }, segundos * 1000);
+}
+$("globoCerrar").onclick = () => { $("globo").hidden = true; };
+function avisar(texto) {
+  $("aviso").textContent = texto; $("aviso").style.top = bajoLaBarra(); $("aviso").hidden = false;
+  clearTimeout(avisoTimer); avisoTimer = setTimeout(() => { $("aviso").hidden = true; }, 4500);
+}
+function avisarUnaVez(texto) { if (!yaAvisado) { yaAvisado = true; avisar(texto); } }
+
+/* ---------- la estantería en pantalla y las cestas de la vista ligera ---------- */
+function miniatura(canvas, i) {
+  const g = canvas.getContext("2d"), w = canvas.width;
+  g.clearRect(0, 0, w, w); g.fillStyle = "#F5F1E4"; g.beginPath(); g.arc(w / 2, w / 2, w / 2, 0, TAU); g.fill();
+  g.drawImage(figuras[i], w * 0.08, w * 0.08, w * 0.84, w * 0.84);
+}
+FIGS.forEach((f, i) => {
+  const b = document.createElement("button"); b.type = "button"; b.dataset.fig = i;
+  const c = document.createElement("canvas"); c.width = c.height = 112; miniatura(c, i);
+  b.append(c, document.createTextNode(f.corto));
+  b.setAttribute("aria-label", f.name);
+  b.onclick = () => { if (ESTADO[i].hecho || mesa.llevando !== null) return; ponerEnLaMesa(i); cerrarHojas(); if (estadoVista() !== "mesa") irAMesa(); };
+  $("hallazgos").append(b);
+});
+function marcarHallazgos() {
+  document.querySelectorAll("#hallazgos button").forEach(b => {
+    const i = +b.dataset.fig; b.classList.toggle("hecho", ESTADO[i].hecho); b.disabled = ESTADO[i].hecho || mesa.llevando !== null;
+    b.setAttribute("aria-pressed", String(i === mesa.fig));
+    b.title = ESTADO[i].hecho ? "Ya está en su cesta" : "";
+  });
+  $("progreso").textContent = `Hallazgos clasificados: ${clasificados()} de ${FIGS.length}.`;
+}
+CESTAS.forEach(c => {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = c.texto;
+  b.onclick = () => { cerrarHojas(); clasificar(c.id); };
+  $("botonesCestas").append(b);
+});
+function alternarHoja(hoja, boton) {
+  const abrir = $(hoja).hidden; cerrarHojas();
+  if (!abrir) return;
+  // la hoja se abre justo encima de la barra de la mesa, que es más alta que las demás
+  const alto = $("panelMesa").getBoundingClientRect().height + 20;
+  $(hoja).style.bottom = `calc(${alto}px + env(safe-area-inset-bottom, 0px))`;
+  $(hoja).style.maxHeight = `calc(100vh - ${alto + 70}px)`;
+  $(hoja).hidden = false; if (boton) $(boton).setAttribute("aria-expanded", "true");
+}
+function cerrarHojas() {
+  ["hojaHallazgos", "hojaCestas"].forEach(h => { $(h).hidden = true; });
+  $("btnHallazgos").setAttribute("aria-expanded", "false");
+}
+$("btnHallazgos").onclick = () => { marcarHallazgos(); alternarHoja("hojaHallazgos", "btnHallazgos"); };
+
+/* ---------- llevar el hallazgo a una cesta y clasificarlo ---------- */
+$("btnLlevar").onclick = () => {
+  if (mesa.fig === null) { decirMati("Primero toma un hallazgo de la estantería y ponle las dos pruebas.", { segundos: 6 }); return; }
+  if (usarLigera) { alternarHoja("hojaCestas"); return; }
+  mesa.llevando = mesa.fig;
+  mostrarLlevando(); actualizarMesa(); colocarHallazgos();
+  // el estudiante queda frente a las cestas, con el hallazgo en la mano
+  const inicio = alrededor(1.05, 298), medioCestas = alrededor(ARCO_CESTAS.radio, ARCO_CESTAS.desde + 1.5 * ARCO_CESTAS.paso);
+  irARecorrido({ ...inicio, yaw: rumboHacia(medioCestas.x - inicio.x, medioCestas.z - inicio.z), ms: 700 });
+  decirMati(`Llevas ${nombreCon(FIGS[mesa.llevando])}. Déjalo en la cesta que le corresponde: solo espejo, solo giro, espejo y giro, o ninguna.`, { segundos: 8 });
+};
+function mostrarLlevando() {
+  const llevando = mesa.llevando !== null;
+  $("llevando").hidden = !llevando || estadoVista() !== "recorrido";
+  if (llevando) {
+    miniatura($("llevandoFigura"), mesa.llevando);
+    $("llevandoTexto").innerHTML = `Llevas <b>${nombreCon(FIGS[mesa.llevando])}</b>. Déjalo en su cesta.`;
+    $("llevando").style.top = bajoLaBarra();
+  }
+  if (figuraEnLaMano) {
+    figuraEnLaMano.visible = llevando;
+    if (llevando) { const m = figuraEnLaMano.material; m.map = m.emissiveMap = texturasFig[mesa.llevando]; m.needsUpdate = true; }
+  }
+}
+function clasificar(cesta) {
+  const i = usarLigera ? mesa.fig : mesa.llevando;
+  if (i === null) return;
+  const f = FIGS[i], st = ESTADO[i];
+  mesa.llevando = null;
+  if (cesta === clase(f)) {
+    sonarBien();
+    st.hecho = true;
+    // en el 3D la mesa queda libre para el próximo hallazgo; en la vista ligera pasa solo el siguiente
+    if (mesa.fig === i) mesa.fig = usarLigera ? siguientePendiente() : null;
+    if (usarLigera && mesa.fig !== null) elegirPrueba("espejo");
+    guardar(); colocarHallazgos(); llenarCestas();
+    const n = clasificados();
+    let texto = `<b>Correcto.</b> ${f.exp}`;
+    if (n === INSIGNIA_EN) texto += ` <b>Insignia Explorador de Simetrías:</b> clasificaste ${INSIGNIA_EN} hallazgos con las pruebas del espejo y el giro.`;
+    if (n === FIGS.length) texto += " <b>Colección completa:</b> clasificaste los 8 hallazgos. Nadie te esconde una simetría.";
+    else texto += ` Llevas ${n} de ${FIGS.length}. ${usarLigera ? "Sigue con el próximo hallazgo." : "Toma otro hallazgo de la estantería."}`;
+    decirMati(texto, { segundos: 12 });
+  } else {
+    sonarNo();
+    mesa.fig = i;
+    decirMati(`<b>Todavía no.</b> Pista: llevas ${st.ejes.length} de ${f.axes.length} eje(s) que tiene esta figura, y el giro ${st.giro === null ? "aún no te ha calzado" : "te calzó en " + st.giro + " grados"}. ${mayuscula(nombreCon(f))} vuelve a la mesa: explora más con las dos pruebas antes de decidir.`, { segundos: 12 });
+    colocarHallazgos();
+  }
+  mostrarLlevando(); marcarHallazgos(); actualizarMesa();
+}
+
+/* ---------- el mundo 3D o la vista ligera ---------- */
+const usarLigera = new URLSearchParams(location.search).has("ligera") || !hayWebGL();
+let mundo = null, recorrido = null, portal = null, R_MATI = null, guias = null, troncos = [];
+let texMesa = null, rincon = null, cruce = null, figuraEnLaMano = null;
+let piezasMesa = null;          // espejo, aro de la tornamesa
+let pedestales = [], contenidoCestas = [], partesDelTecho = [];
+// en la vista de la mesa la cámara mira desde arriba: el techo de paja se aparta para no tapar la tornamesa
+const verTecho = visible => partesDelTecho.forEach(p => { p.visible = visible; });
+const texturasFig = [];
+// el kiosco hexagonal se corre un poco hacia el río: adelante queda la llegada del portal
+const KIOSCO = { x: 0, z: -0.6, radio: 4.4, alero: 2.8, cumbre: 1.9 };
+const MESA = { x: 0, z: -0.4, alto: 0.88, radioTornamesa: 0.5 };
+const ESTANTERIA = { radio: 3.3, desde: 125, hasta: 235 };   // grados alrededor de la mesa; 180 es el fondo
+const ARCO_CESTAS = { radio: 3.2, desde: 262, paso: 24 };
+const ALTO_BANQUITO = 0.32;
+const PORTAL = { x: 1.8, z: 5.7 };
+const JUEGO = { x: 8.6, z: 0.2 };
+const ATRIL = { x: 7.0, z: 3.7 };
+const DESTINO_JUEGO = "05-detector-de-simetrias-juego.html", DESTINO_GUIA = "05-detector-de-simetrias-guia.html";
+// alrededor de la mesa: ángulo en grados, 0 hacia la llegada (+z) y 90 hacia el rincón del juego (+x)
+const alrededor = (radio, grados) => ({ x: MESA.x + radio * Math.sin(grados * D2R), z: MESA.z + radio * Math.cos(grados * D2R) });
+const POS_PEDESTALES = FIGS.map((f, i) => alrededor(ESTANTERIA.radio, ESTANTERIA.desde + i * (ESTANTERIA.hasta - ESTANTERIA.desde) / (FIGS.length - 1)));
+const POS_CESTAS = CESTAS.map((c, i) => alrededor(ARCO_CESTAS.radio, ARCO_CESTAS.desde + i * ARCO_CESTAS.paso));
+const puntal = (desde, hasta, material, opciones) => puntalComun(mundo, desde, hasta, material, opciones);
+
+// el papel brilla un poco por sí mismo, para que las figuras se lean a la sombra del techo
+const materialPapel = mapa => new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.9, emissive: "#ffffff", emissiveMap: mapa, emissiveIntensity: 0.32, transparent: true });
+function texturaFigura(i) {
+  const c = document.createElement("canvas"); c.width = c.height = 256; miniatura(c, i);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+
+// Kiosco de palma con planta de hexágono: seis postes, seis vigas que salen del centro como el copo de 6 puntas.
+// Una cara plana queda hacia la llegada, así se entra entre dos postes.
+function kiosco() {
+  const { M, malla, escena } = mundo, K = KIOSCO, y0 = ALTO_PISO_PARADA;
+  const madera = M("#8A5A32"), maderaClara = M("#B98A52");
+  const paja = new THREE.MeshStandardMaterial({ map: texturaPaja(), color: "#E3C27E", roughness: 1, side: THREE.DoubleSide });
+  const vertice = k => { const a = (30 + k * 60) * D2R; return new THREE.Vector3(K.x + K.radio * Math.sin(a), 0, K.z + K.radio * Math.cos(a)); };
+  const cima = new THREE.Vector3(K.x, y0 + K.alero + K.cumbre - 0.25, K.z);
+  for (let k = 0; k < 6; k++) {
+    const v = vertice(k), siguiente = vertice(k + 1);
+    malla(new THREE.CylinderGeometry(0.11, 0.13, K.alero, 10), madera, v.x, y0 + K.alero / 2, v.z);
+    malla(new THREE.CylinderGeometry(0.24, 0.3, 0.2, 8), M("#A8A296"), v.x, y0 + 0.1, v.z);
+    // viga del borde entre dos postes y viga que sube al centro
+    puntal(v.clone().setY(y0 + K.alero), siguiente.clone().setY(y0 + K.alero), maderaClara, { radioArriba: 0.07, radioAbajo: 0.07 });
+    puntal(v.clone().setY(y0 + K.alero), cima, maderaClara, { radioArriba: 0.06, radioAbajo: 0.08 });
+  }
+  // techo: un cono de seis caras, girado para que coincida con los postes
+  const techo = malla(new THREE.ConeGeometry(K.radio + 0.75, K.cumbre, 6, 1, true), paja, K.x, y0 + K.alero + K.cumbre / 2 - 0.05, K.z);
+  techo.rotation.y = Math.PI / 6;
+  // borde de paja que cuelga del alero
+  const fleco = malla(new THREE.CylinderGeometry(K.radio + 0.78, K.radio + 0.8, 0.28, 6, 1, true), paja, K.x, y0 + K.alero - 0.14, K.z);
+  fleco.rotation.y = Math.PI / 6;
+  const remate = malla(new THREE.ConeGeometry(0.16, 0.5, 6), madera, K.x, y0 + K.alero + K.cumbre + 0.12, K.z);
+  partesDelTecho = [techo, fleco, remate];
+  // nombre del lugar colgado de la viga de adelante
+  const nombre = texturaLetrero(1024, 220, (x, w, h) => {
+    x.fillStyle = "#1B3A6B"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#8BD46A"; x.fillRect(0, h - 18, w, 18);
+    x.fillStyle = "#FBF6EA"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "700 96px Georgia, 'Times New Roman', serif";
+    x.fillText("Detector de Simetrías", w / 2, h / 2 - 6);
+  });
+  const frente = vertice(0).add(vertice(5)).multiplyScalar(0.5);
+  const panel = malla(new THREE.BoxGeometry(2.8, 0.6, 0.06), [M(NAVY), M(NAVY), M(NAVY), M(NAVY), conLuz(nombre), M(NAVY)], frente.x, y0 + K.alero - 0.55, frente.z + 0.02);
+  [-1.1, 1.1].forEach(dx => malla(new THREE.CylinderGeometry(0.012, 0.012, 0.25, 6), M("#2b2724"), frente.x + dx, y0 + K.alero - 0.13, frente.z + 0.02));
+  return { postes: [0, 1, 2, 3, 4, 5].map(vertice) };
+}
+// El molino de colores del mapa de la ronda, a la medida de la parada: seis aspas, simetría de giro de orden 6
+const MOLINO = { x: 5.6, z: -4.6, escala: 0.5 };
+function molinoDeColores() {
+  const { M, malla, escena } = mundo;
+  const g = new THREE.Group(); g.position.set(MOLINO.x, mundo.alturaLocal(MOLINO.x, MOLINO.z), MOLINO.z); g.scale.setScalar(MOLINO.escala);
+  g.rotation.y = Math.atan2(-MOLINO.x, PORTAL.z - MOLINO.z) * 0.6; escena.add(g);   // la rueda mira hacia la llegada
+  malla(new THREE.CylinderGeometry(1.9, 2.2, 0.6, 8), M("#A8A296"), 0, 0.3, 0, g);
+  malla(new THREE.CylinderGeometry(0.56, 1.15, 7.7, 8), M("#F2EAD8"), 0, 4.45, 0, g);
+  [[1.6, 1.04], [3.9, 0.87], [6.2, 0.7]].forEach(([y, r]) => malla(new THREE.CylinderGeometry(r + 0.03, r + 0.05, 0.16, 8), M("#7A5230"), 0, y, 0, g));
+  malla(new THREE.BoxGeometry(0.74, 1.45, 0.14), M("#7A5230"), 0, 1.35, 1.07, g);
+  malla(new THREE.BoxGeometry(0.42, 0.5, 0.1), M("#27324A", { roughness: 0.2 }), 0, 4.6, 0.84, g);
+  malla(new THREE.ConeGeometry(0.95, 1.25, 8), M("#B5532A"), 0, 8.92, 0, g);
+  malla(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 8), M("#5c3d22"), 0, 7.9, 0.42, g).rotation.x = Math.PI / 2;
+  const rueda = new THREE.Group(); rueda.position.set(0, 7.9, 0.86); g.add(rueda);
+  const aspa = new THREE.Shape(); aspa.moveTo(0, 0); aspa.lineTo(0.9, 3.4); aspa.lineTo(-0.5, 3.0); aspa.closePath();
+  const aspaGeo = new THREE.ExtrudeGeometry(aspa, { depth: 0.12, bevelEnabled: false });
+  const colores = ["#D9701A", "#1F8A8A", "#C99A2E", "#D9701A", "#1F8A8A", "#C99A2E"];
+  for (let k = 0; k < 6; k++) { const a = malla(aspaGeo, M(colores[k], { roughness: 0.6 }), 0, 0, 0, rueda); a.rotation.z = k * Math.PI / 3; }
+  malla(new THREE.SphereGeometry(0.45, 10, 8), M(NAVY), 0, 0, 0.15, rueda);
+  mundo.alAnimar.push((tiempo, dt) => { rueda.rotation.z -= dt * 0.9; });
+}
+function texturaPaja() {
+  const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d");
+  x.fillStyle = "#C9A45C"; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 900; i++) {
+    const px = Math.random() * 256, py = Math.random() * 256, l = 18 + Math.random() * 30;
+    x.strokeStyle = Math.random() < 0.5 ? "#A9823E" : "#E2C27F"; x.lineWidth = 1 + Math.random() * 1.5;
+    x.beginPath(); x.moveTo(px, py); x.lineTo(px + (Math.random() - 0.5) * 6, py + l); x.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 2); return t;
+}
+
+// La mesa del detective: una tornamesa con el hallazgo y un espejo de pie que se gira y se corre sobre ella.
+function mesaDelDetective() {
+  const { M, malla, escena } = mundo, y0 = ALTO_PISO_PARADA, madera = M("#7A5230");
+  const g = new THREE.Group(); g.position.set(MESA.x, y0, MESA.z); escena.add(g);
+  malla(new THREE.CylinderGeometry(0.78, 0.78, 0.06, 32), madera, 0, MESA.alto, 0, g);
+  malla(new THREE.CylinderGeometry(0.09, 0.12, MESA.alto - 0.05, 10), M("#5c3d22"), 0, (MESA.alto - 0.05) / 2, 0, g);
+  malla(new THREE.CylinderGeometry(0.42, 0.48, 0.06, 20), M("#5c3d22"), 0, 0.03, 0, g);
+  const arriba = MESA.alto + 0.03;
+  // tornamesa: el papel con la figura y un aro de madera con su perilla, que gira en la prueba del giro
+  texMesa = new THREE.CanvasTexture(lienzoMesa); texMesa.colorSpace = THREE.SRGBColorSpace; texMesa.anisotropy = 8;
+  malla(new THREE.CylinderGeometry(MESA.radioTornamesa + 0.04, MESA.radioTornamesa + 0.06, 0.04, 40), M("#B98A52"), 0, arriba + 0.02, 0, g);
+  const papel = new THREE.Mesh(new THREE.CircleGeometry(MESA.radioTornamesa, 64), new THREE.MeshStandardMaterial({ map: texMesa, roughness: 0.92, emissive: "#ffffff", emissiveMap: texMesa, emissiveIntensity: 0.35 }));
+  papel.rotation.x = -Math.PI / 2; papel.position.y = arriba + 0.042; papel.receiveShadow = true; g.add(papel);
+  const aro = new THREE.Group(); aro.position.y = arriba + 0.045; g.add(aro);
+  const toro = new THREE.Mesh(new THREE.TorusGeometry(MESA.radioTornamesa + 0.03, 0.022, 8, 48), M("#8A5A32")); toro.rotation.x = Math.PI / 2; aro.add(toro);
+  malla(new THREE.SphereGeometry(0.04, 12, 8), neon("#D9701A", 0.4), 0, 0.03, -(MESA.radioTornamesa + 0.03), aro);   // perilla, arriba del papel
+  // el espejo de pie: un vidrio sobre el eje, con marco que se ilumina en verde cuando el reflejo calza
+  const espejo = new THREE.Group(); espejo.position.y = arriba + 0.045; g.add(espejo);
+  const ANCHO_ESPEJO = MESA.radioTornamesa * 2 + 0.06, ALTO_ESPEJO = 0.36;
+  const vidrio = new THREE.Mesh(new THREE.PlaneGeometry(ANCHO_ESPEJO, ALTO_ESPEJO), new THREE.MeshPhysicalMaterial({ color: "#CFE8F5", roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }));
+  vidrio.position.y = ALTO_ESPEJO / 2; espejo.add(vidrio);
+  const marcoApagado = M(NAVY, { roughness: 0.5 }), marcoCalza = neon("#7CC74F", 0.9);
+  const marco = [
+    malla(new THREE.BoxGeometry(ANCHO_ESPEJO + 0.04, 0.03, 0.03), marcoApagado, 0, ALTO_ESPEJO, 0, espejo),
+    malla(new THREE.BoxGeometry(0.03, ALTO_ESPEJO, 0.03), marcoApagado, -ANCHO_ESPEJO / 2, ALTO_ESPEJO / 2, 0, espejo),
+    malla(new THREE.BoxGeometry(0.03, ALTO_ESPEJO, 0.03), marcoApagado, ANCHO_ESPEJO / 2, ALTO_ESPEJO / 2, 0, espejo)
+  ];
+  marco.forEach(m => { m.castShadow = false; });
+  piezasMesa = { aro, espejo, marco, marcoApagado, marcoCalza, papel };
+}
+// el espejo y el aro siguen a los controles: el eje del lienzo es el eje del espejo sobre la tornamesa
+const METROS_POR_PIXEL = MESA.radioTornamesa / CENTRO;
+function moverPiezasDeLaMesa() {
+  if (!piezasMesa) return;
+  const { aro, espejo, marco, marcoApagado, marcoCalza } = piezasMesa;
+  const hayFigura = mesa.fig !== null && mesa.llevando === null;
+  espejo.visible = hayFigura && mesa.prueba === "espejo";
+  const t = mesa.angulo * D2R;
+  if (mesa.prueba === "espejo") {
+    // en el lienzo, x va a la derecha y y hacia el estudiante: así se pasa a la mesa
+    espejo.rotation.y = -t;
+    espejo.position.x = -Math.sin(t) * mesa.correr * METROS_POR_PIXEL;
+    espejo.position.z = Math.cos(t) * mesa.correr * METROS_POR_PIXEL;
+    const calza = hayFigura && ejeQueCalza(FIGS[mesa.fig], mesa.angulo, mesa.correr) !== undefined;
+    marco.forEach(m => { m.material = calza ? marcoCalza : marcoApagado; });
+    aro.rotation.y = 0;
+  } else aro.rotation.y = hayFigura ? -t : 0;
+}
+
+// Estantería: cada hallazgo en su pedestal, mirando hacia la mesa
+function estanteria() {
+  const { M, malla, escena } = mundo, y0 = ALTO_PISO_PARADA;
+  pedestales = POS_PEDESTALES.map((p, i) => {
+    const g = new THREE.Group(); g.position.set(p.x, y0, p.z); g.rotation.y = Math.atan2(MESA.x - p.x, MESA.z - p.z); escena.add(g);
+    malla(new THREE.CylinderGeometry(0.2, 0.24, 0.95, 12), M("#D8D2C4"), 0, 0.475, 0, g);
+    malla(new THREE.CylinderGeometry(0.27, 0.27, 0.05, 12), M("#B98A52"), 0, 0.97, 0, g);
+    // la lámina con el hallazgo, sostenida de pie por un atril pequeño
+    malla(new THREE.BoxGeometry(0.04, 0.4, 0.04), M("#7A5230"), 0, 1.15, -0.08, g).rotation.x = -0.25;
+    const lamina = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46), materialPapel(texturasFig[i]));
+    lamina.position.set(0, 1.26, 0); lamina.rotation.x = -0.25; g.add(lamina);
+    const placa = texturaLetrero(512, 96, (x, w, h) => {
+      x.fillStyle = NAVY; x.fillRect(0, 0, w, h); x.fillStyle = "#FBF6EA"; x.textAlign = "center"; x.textBaseline = "middle";
+      let tam = 54; x.font = `700 ${tam}px Georgia, serif`;
+      while (x.measureText(FIGS[i].name).width > w - 30 && tam > 30) { tam -= 2; x.font = `700 ${tam}px Georgia, serif`; }
+      x.fillText(FIGS[i].name, w / 2, h / 2 + 3);
+    });
+    const p2 = malla(new THREE.BoxGeometry(0.42, 0.08, 0.015), [M(NAVY), M(NAVY), M(NAVY), M(NAVY), conLuz(placa), M(NAVY)], 0, 0.82, 0.205, g);
+    p2.castShadow = false;
+    return { grupo: g, lamina };
+  });
+}
+// cesta de caña flecha: crema con franjas negras en zigzag, como las pintas del sombrero vueltiao
+function texturaCanaFlecha() {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 128; const x = c.getContext("2d");
+  x.fillStyle = "#EFE3C2"; x.fillRect(0, 0, 512, 128);
+  x.fillStyle = "#1d1a17";
+  [[18, 30], [78, 26]].forEach(([y, alto]) => {
+    x.beginPath(); x.moveTo(0, y + alto);
+    for (let px = 0; px <= 512; px += 32) { x.lineTo(px + 16, y); x.lineTo(px + 32, y + alto); }
+    x.lineTo(512, y + alto + 6); x.lineTo(0, y + alto + 6); x.closePath(); x.fill();
+  });
+  x.strokeStyle = "#c9b98f"; x.lineWidth = 1;
+  for (let py = 0; py < 128; py += 6) { x.beginPath(); x.moveTo(0, py); x.lineTo(512, py); x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.set(2, 1); return t;
+}
+function cestas() {
+  const { M, malla, escena } = mundo, y0 = ALTO_PISO_PARADA, tejido = texturaCanaFlecha();
+  const materialCesta = new THREE.MeshStandardMaterial({ map: tejido, roughness: 0.95, side: THREE.DoubleSide });
+  contenidoCestas = POS_CESTAS.map((p, i) => {
+    // cada cesta va sobre un banquito, para que se vea desde lejos y al caminar con el hallazgo en la mano
+    const base = new THREE.Group(); base.position.set(p.x, y0, p.z); base.rotation.y = Math.atan2(MESA.x - p.x, MESA.z - p.z); escena.add(base);
+    malla(new THREE.CylinderGeometry(0.4, 0.4, 0.06, 20), M("#8A5A32"), 0, ALTO_BANQUITO - 0.03, 0, base);
+    [0, 1, 2].forEach(k => malla(new THREE.CylinderGeometry(0.035, 0.04, ALTO_BANQUITO - 0.06, 6), M("#6E4E2E"), Math.cos(k * 2.1) * 0.3, (ALTO_BANQUITO - 0.06) / 2, Math.sin(k * 2.1) * 0.3, base));
+    const g = new THREE.Group(); g.position.y = ALTO_BANQUITO; base.add(g);
+    malla(new THREE.CylinderGeometry(0.36, 0.28, 0.46, 24, 1, true), materialCesta, 0, 0.23, 0, g);
+    malla(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 24), M("#C9B98F"), 0, 0.01, 0, g);
+    malla(new THREE.TorusGeometry(0.36, 0.025, 6, 32), M("#1d1a17"), 0, 0.46, 0, g).rotation.x = Math.PI / 2;
+    // letrero en una estaca, detrás de la cesta
+    const letrero = texturaLetrero(512, 160, (x, w, h) => {
+      x.fillStyle = "#FBF6EA"; x.fillRect(0, 0, w, h); x.fillStyle = "#8BD46A"; x.fillRect(0, 0, w, 16);
+      x.fillStyle = NAVY; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "700 64px Georgia, serif";
+      x.fillText(CESTAS[i].texto, w / 2, h / 2 + 8);
+    });
+    malla(new THREE.CylinderGeometry(0.025, 0.025, 0.95, 6), M("#7A5230"), 0, 0.48, -0.42, g);
+    const cartel = malla(new THREE.BoxGeometry(0.66, 0.2, 0.03), [M(NAVY), M(NAVY), M(NAVY), M(NAVY), conLuz(letrero), M("#FBF6EA")], 0, 0.92, -0.4, g);
+    cartel.castShadow = false;
+    return { grupo: g, laminas: [] };
+  });
+}
+// cada hallazgo bien clasificado queda acostado en su cesta, uno encima del otro
+function llenarCestas() {
+  if (!mundo) return;
+  contenidoCestas.forEach(c => { c.laminas.forEach(l => c.grupo.remove(l)); c.laminas = []; });
+  FIGS.forEach((f, i) => {
+    if (!ESTADO[i].hecho) return;
+    const c = contenidoCestas[CESTAS.findIndex(x => x.id === clase(f))], k = c.laminas.length;
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), materialPapel(texturasFig[i]));
+    l.rotation.set(-Math.PI / 2 + 0.5, 0, (k * 0.7) % 1.2 - 0.6); l.position.set((k % 2 ? 0.06 : -0.06), 0.36 + k * 0.03, 0.04); c.grupo.add(l); c.laminas.push(l);
+  });
+}
+// la lámina está en su pedestal si no está en la mesa, en la mano ni en una cesta
+function colocarHallazgos() {
+  pedestales.forEach((p, i) => { p.lamina.visible = !ESTADO[i].hecho && i !== mesa.fig && i !== mesa.llevando; });
+}
+
+function construirEstacion() {
+  pisoDeParada(mundo, { radio: 6, color: "#8BD46A", tinta: "#2F6E1C", huecos: [[335, 25]] });   // el jardín se abre hacia el rincón del juego
+  FIGS.forEach((f, i) => texturasFig.push(texturaFigura(i)));
+  const { postes } = kiosco();
+  molinoDeColores();
+  mesaDelDetective();
+  estanteria();
+  cestas();
+  llenarCestas(); colocarHallazgos();
+  portal = crearPortal(mundo, { x: PORTAL.x, z: PORTAL.z, giro: Math.atan2(-PORTAL.x, -PORTAL.z), color: "#8BD46A" });
+  totemDeParada(mundo, { x: -2.9, z: 7.2, giro: 0.35, grado: "6°", parada: 5, nombre: ["Detector de", "Simetrías"], lema: ["Espejo y giro"],
+    frase: ["Dos pruebas", "para cada", "hallazgo"], acento: "#8BD46A", hondo: "#2F6E1C" });
+  rincon = crearRincon(mundo, OPCIONES_RINCON);
+  LUGARES.push(...rincon.lugares);
+  // Mati, el mismo del mapa en 3D: es el estudiante. Encima lleva el hallazgo cuando va hacia las cestas
+  guias = personajes(mundo);
+  R_MATI = guias.crearPersonaje("mati"); R_MATI.raiz.visible = false;
+  figuraEnLaMano = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), materialPapel(texturasFig[0]));
+  figuraEnLaMano.material.side = THREE.DoubleSide; figuraEnLaMano.visible = false;
+  mundo.escena.add(figuraEnLaMano);
+  mundo.alAnimar.push((tiempo, dt) => {
+    if (!recorrido || !recorrido.activo) guias.animarPersonaje(R_MATI, tiempo, dt, 0);
+    if (figuraEnLaMano.visible) {
+      // flota sobre la cabeza de Mati, o adelante de los ojos cuando se mira en primera persona
+      const c = mundo.camara, frente = new THREE.Vector3(); c.getWorldDirection(frente);
+      if (R_MATI.raiz.visible) figuraEnLaMano.position.copy(R_MATI.raiz.position).add(new THREE.Vector3(0, 2.05 + Math.sin(tiempo * 2) * 0.04, 0));
+      else figuraEnLaMano.position.copy(c.position).addScaledVector(frente, 1.1).add(new THREE.Vector3(0.36, -0.3, 0).applyQuaternion(c.quaternion));
+      figuraEnLaMano.quaternion.copy(c.quaternion);
+    }
+  });
+  return { postes };
+}
+
+/* ---------- el rincón del juego y el atril: 3d/rincon.js ---------- */
+// en el libro del atril va el copo de 6 puntas, la figura con más simetrías de la mesa
+function copoDelAtril(x, cx, cy) { x.translate(cx - 210 * 0.85, cy - 210 * 0.85); x.scale(0.85, 0.85); drawCopo(x); }
+const OPCIONES_RINCON = {
+  juego: { ...JUEGO, titulo: "La máquina misteriosa", destino: DESTINO_JUEGO, tarjeta: "tu tarjeta de detective" },
+  guia: { ...ATRIL, destino: DESTINO_GUIA, grado: "6°", nombre: "Detector de Simetrías", acento: "#4A9B2E", hondo: "#2F6E1C", dibujo: copoDelAtril },
+  vistas: {
+    mostrar: vista => mostrarPanel(vista),
+    recorrer: inicio => irARecorrido(inicio),
+    avisar: texto => avisar(texto),
+    ocultarGlobo: () => { $("globo").hidden = true; },
+    cruzar: (destino, opciones) => cruzarPortal(destino, opciones)
+  }
+};
+
+/* ---------- las vistas de la estación ---------- */
+let vista = "llegada";
+const estadoVista = () => vista;
+function mostrarPanel(nueva) {
+  vista = nueva;
+  verTecho(nueva !== "mesa");
+  if (recorrido && nueva !== "recorrido") recorrido.desactivar();
+  if (R_MATI && nueva !== "recorrido") R_MATI.raiz.visible = false;
+  $("panelMesa").hidden = nueva !== "mesa";
+  $("panelRecorrido").hidden = nueva !== "recorrido";
+  if (rincon) rincon.mostrar(nueva);
+  cerrarHojas(); mostrarLlevando();
+}
+// la tornamesa se ve desde arriba y adelante, entera en el espacio que deja libre la barra de la mesa
+const DIRECCION_MESA = new THREE.Vector3(0, 1.55, 1).normalize();
+const DISTANCIA_MAX_MESA = 4.2;
+function encuadrarMesa(ms = 900) {
+  const centro = new THREE.Vector3(MESA.x, ALTO_PISO_PARADA + MESA.alto + 0.08, MESA.z);
+  const libre = 1 - Math.min(0.66, ($("panelMesa").getBoundingClientRect().height + 20) / innerHeight);
+  const arriba = Math.min(0.12, (document.querySelector(".hud").getBoundingClientRect().bottom + 6) / innerHeight);
+  const visible = Math.max(0.2, libre - arriba);
+  const tanMedio = Math.tan(THREE.MathUtils.degToRad(mundo.camara.fov / 2)), aspecto = innerWidth / innerHeight;
+  const TAM = (MESA.radioTornamesa + 0.08) * 2;
+  // con un tope: en un celular muy alto se prefiere recortar un poco el aro antes que alejarse demasiado
+  const distancia = Math.min(DISTANCIA_MAX_MESA, Math.max(1.0, TAM / (visible * 2 * tanMedio), TAM / (2 * tanMedio * aspecto)));
+  const ojo = centro.clone().addScaledVector(DIRECCION_MESA, distancia);
+  // la mirada baja lo justo para que la tornamesa quede en el medio de la franja libre
+  const subir = new THREE.Vector3(0, 1, 0).addScaledVector(DIRECCION_MESA, -DIRECCION_MESA.y).normalize();
+  const correrVista = distancia * tanMedio * (1 - libre - arriba);
+  return mundo.viajar(ojo, centro.clone().addScaledVector(subir, -correrVista), ms);
+}
+async function irAMesa() {
+  mostrarPanel("mesa"); $("globo").hidden = true;
+  if (mesa.llevando !== null) { mesa.fig = mesa.llevando; mesa.llevando = null; colocarHallazgos(); mostrarLlevando(); }
+  actualizarMesa();
+  if (usarLigera) { $("ligera").hidden = false; return; }
+  mundo.soltarEncuadre();
+  await encuadrarMesa();
+  if (mesa.fig === null) { marcarHallazgos(); alternarHoja("hojaHallazgos", "btnHallazgos"); }
+}
+addEventListener("resize", () => { if (vista === "mesa" && mundo) encuadrarMesa(0); });
+
+/* ---------- mundo libre: el estudiante camina como Mati ---------- */
+const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
+const PISTA_CAMINAR = (ES_TACTIL
+  ? "Eres Mati. Mueve la palanca para caminar y arrastra la pantalla para mirar. En la estantería toma un hallazgo y llévalo a la mesa del detective."
+  : "Eres Mati. Camina con W, A, S, D o las flechas y mantén el clic para mirar. Acércate a un hallazgo de la estantería y pulsa E para llevarlo a la mesa.")
+  + " A la derecha del kiosco están el portal del juego y la guía.";
+// lo que hay cerca decide el botón principal, como los portales del mapa
+let cerca = null;
+const LUGARES = [
+  ...CESTAS.map((c, i) => ({ id: "cesta-" + c.id, x: POS_CESTAS[i].x, z: POS_CESTAS[i].z, radio: 0.95, cuando: () => mesa.llevando !== null,
+    texto: () => `Dejarlo en «${c.texto}»`, accion: () => clasificar(c.id) })),
+  ...FIGS.map((f, i) => ({ id: "hallazgo-" + f.id, x: POS_PEDESTALES[i].x, z: POS_PEDESTALES[i].z, radio: 0.8,
+    cuando: () => !ESTADO[i].hecho && mesa.llevando === null && i !== mesa.fig,
+    texto: () => `Llevar ${nombreCon(f)} a la mesa`, accion: () => { ponerEnLaMesa(i); irAMesa(); } })),
+  { id: "mesa", x: MESA.x, z: MESA.z, radio: 1.9, cuando: () => mesa.llevando === null, texto: () => "Usar la mesa del detective", accion: () => irAMesa() },
+  { id: "portal", x: PORTAL.x, z: PORTAL.z, radio: 1.6, texto: () => "Volver a la ronda", accion: () => cruzarPortal("index.html#g6") }
+  // el portal del juego y el atril se agregan al construir el rincón
+];
+const textoDe = l => typeof l.texto === "function" ? l.texto() : l.texto;
+function actualizarCerca(x, z, forzar = false) {
+  let nuevo = null;
+  for (const l of LUGARES) if ((!l.cuando || l.cuando()) && Math.hypot(x - l.x, z - l.z) < l.radio) { nuevo = l; break; }
+  if (nuevo === cerca && !forzar) return;
+  cerca = nuevo;
+  const porDefecto = mesa.llevando !== null ? "Busca la cesta" : "Ir a la mesa";
+  $("btnAccion").textContent = cerca ? textoDe(cerca) + (ES_TACTIL ? "" : " (E)") : porDefecto;
+}
+$("btnAccion").onclick = () => {
+  $("globo").hidden = true;
+  if (cerca) { cerca.accion(); return; }
+  if (mesa.llevando !== null) { decirMati("Camina hasta una de las cuatro cestas, a la izquierda de la mesa, y deja ahí el hallazgo.", { segundos: 6 }); return; }
+  irAMesa();
+};
+addEventListener("keydown", e => {
+  if (e.code !== "KeyE" || !recorrido || !recorrido.activo || !cerca || e.target.closest("input, textarea")) return;
+  e.preventDefault(); $("globo").hidden = true; cerca.accion();
+});
+let ultimaPos = { x: 0, z: 0 };
+function moverMati({ x, y, z, rumbo, vel, tercera, dt }) {
+  ultimaPos = { x, z };
+  actualizarCerca(x, z);
+  R_MATI.raiz.visible = tercera;
+  R_MATI.raiz.position.set(x, y, z);
+  let giro = rumbo - R_MATI.raiz.rotation.y; giro = Math.atan2(Math.sin(giro), Math.cos(giro));
+  R_MATI.raiz.rotation.y += giro * Math.min(1, dt * 9);
+  guias.animarPersonaje(R_MATI, mundo.reloj.t, dt, vel);
+}
+$("btnVista").onclick = () => {
+  const atras = !recorrido.tercera; recorrido.verDesdeAtras(atras);
+  $("btnVista").setAttribute("aria-pressed", String(atras)); $("btnVista").textContent = atras ? "Ver con mis ojos" : "Ver a Mati";
+};
+$("btnSalto").hidden = !ES_TACTIL;
+$("btnSalto").onclick = () => recorrido.saltar();
+async function irARecorrido(inicio) {
+  if (!recorrido) return;
+  mostrarPanel("recorrido");
+  cerca = undefined; actualizarCerca(inicio ? inicio.x : ultimaPos.x, inicio ? inicio.z : ultimaPos.z, true);
+  await recorrido.activar(inicio);
+}
+document.querySelectorAll("[data-recorrer]").forEach(b => b.onclick = () => { $("globo").hidden = true; irARecorrido({ x: MESA.x, z: MESA.z + 1.6, yaw: rumboHacia(0, -1), ms: 700 }); });
+
+/* ---------- el portal del juego, el atril y el cruce de portales (3d/rincon.js) ---------- */
+const cruzarPortal = (destino, opciones = {}) => cruce.cruzar(destino, { puerta: portal, ...opciones });
+document.querySelector(".hud .volver").addEventListener("click", e => { e.preventDefault(); cruzarPortal(e.currentTarget.getAttribute("href")); });
+
+/* ---------- arranque ---------- */
+const habiaAvance = recuperar();
+const antesDeCruzar = () => { $("globo").hidden = true; cerrarHojas(); mostrarPanel("cruce"); if (recorrido) recorrido.desactivar(); };
+marcarHallazgos();
+if (usarLigera) {
+  rincon = crearRincon(null, OPCIONES_RINCON);
+  cruce = crearCruce({ mundo: null, antes: antesDeCruzar });
+  $("mundo").hidden = true; $("ligera").append(lienzoMesa);
+  document.querySelectorAll("[data-recorrer]").forEach(b => { b.hidden = true; });
+  // en la vista ligera no hay estantería ni cestas que caminar: se eligen con botones
+  $("btnLlevar").textContent = "Clasificar";
+  $("velo").classList.remove("on");
+  if (!hayWebGL()) avisar("Este equipo no pudo abrir el 3D: estás en la vista ligera, con las mismas pruebas.");
+  if (mesa.fig === null) mesa.fig = siguientePendiente();
+  irAMesa();
+  decirMati(habiaAvance ? "Aquí están tus hallazgos, tal como los dejaste." : "Ponle el espejo al hallazgo: si al reflejarlo queda igual, encontraste un eje. Luego gíralo: si calza antes de la vuelta completa, tiene simetría de giro.", { segundos: 9 });
+} else {
+  mundo = crearMundo($("mundo"), { slot: 4 });
+  const zonaLibre = (x, z) => x > -4 && x < 8 && z > 4 && z < 18;   // la salida del portal queda despejada
+  ({ troncos } = construirRonda(mundo, { zonaLibre }));
+  const { postes } = construirEstacion();
+  cruce = crearCruce({ mundo, antes: antesDeCruzar, alVolver: () => { rincon.apagar(); irARecorrido(); } });
+  recorrido = crearRecorrido(mundo, {
+    limites: { xMin: -60, xMax: 60, zMin: -40, zMax: 60 },
+    permitido: (x, z) => z > mundo.rioLocal(x) + 7.5,   // se puede llegar a la playa, pero no meterse al río
+    piso: (x, z) => {
+      if (Math.hypot(x, z) < 5.4) return ALTO_PISO_PARADA;
+      const enLaLosa = rincon.piso(x, z); if (enLaLosa !== null) return enLaLosa;
+      return mundo.alturaLocal(x, z);
+    },
+    alMoverse: moverMati,
+    circulos: [
+      ...troncos,
+      ...postes.map(p => [p.x, p.z, 0.3]),
+      [MESA.x, MESA.z, 0.85],
+      ...POS_PEDESTALES.map(p => [p.x, p.z, 0.3]),
+      ...POS_CESTAS.map(p => [p.x, p.z, 0.42]),
+      [PORTAL.x, PORTAL.z, 0.8], [MOLINO.x, MOLINO.z, 2.2 * MOLINO.escala],
+      ...rincon.circulos
+    ]
+  });
+  actualizarMesa();
+  // se sale por donde se entró: el portal del mapa, el del juego o el atril de la guía
+  const desde = new URLSearchParams(location.search).get("desde");
+  const { puerta, paso } = rincon.puertaDeLlegada(desde, portal);
+  mundo.colocar(puerta.centro.clone().addScaledVector(puerta.normal, -0.6), puerta.centro.clone().addScaledVector(puerta.normal, 4));
+  const salida = puerta.centro.clone().addScaledVector(puerta.normal, paso);
+  requestAnimationFrame(() => requestAnimationFrame(async () => {
+    $("velo").classList.remove("on");
+    await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-puerta.normal.x, -puerta.normal.z), ms: 1500 });
+    if (!desde) decirMati(habiaAvance ? `Ya clasificaste ${clasificados()} de ${FIGS.length} hallazgos. ` + PISTA_CAMINAR : PISTA_CAMINAR, { segundos: 12 });
+  }));
+}
+window.__estacion = { get mundo() { return mundo; }, get recorrido() { return recorrido; }, mesa, ESTADO, irAMesa, clasificar, ponerEnLaMesa };   // para las pruebas automáticas
+window.__listo = true;
+</script>
+</body>
+</html>
