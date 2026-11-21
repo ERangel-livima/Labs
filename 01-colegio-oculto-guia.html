@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guía del Colegio Oculto, LIVIMA</title>
+<meta name="theme-color" content="#1B3A6B">
+<script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
+<link rel="stylesheet" href="3d/libro.css">
+<style>
+  /* el texto que presenta el recuadro del boceto no se separa de él al imprimir */
+  @media print{ .todas .pagina:has(.boceto){break-inside:avoid} }
+  /* color del grado: el libro y sus estilos están en 3d/libro.css */
+  :root{ --acento:#4A9B2E; --acento-hondo:#2F6E1C; --acento-suave:#EEF6E7; --acento-campo:rgba(74,155,46,.05); --acento-foco:rgba(74,155,46,.12); }
+  /* la leyenda de colores del mapa */
+  .leyenda{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35em 1em;margin:.5em 0}
+  .leyenda span{display:flex;align-items:center;gap:.5em}
+  .leyenda i{width:1em;height:1em;border-radius:50%;flex:none}
+</style>
+</head>
+<body>
+<div id="velo" class="on" aria-hidden="true"></div>
+<canvas id="mundo" aria-label="Atril de la guía frente a la I. E. Juan XXIII"></canvas>
+<a class="volver" id="volver" href="01-colegio-oculto-3d.html?desde=guia">Volver al colegio</a>
+
+<div id="libro" aria-label="Guía de la expedición Operación Colegio Oculto">
+  <div class="cara izq" id="caraIzq"></div>
+  <div class="cara der" id="caraDer"></div>
+  <div class="todas" id="todas"></div>
+</div>
+
+<nav class="mandos" aria-label="Pasar páginas">
+  <button class="btn" id="atras">Página anterior</button>
+  <span class="folio" id="folio" aria-live="polite"></span>
+  <button class="btn" id="adelante">Página siguiente</button>
+  <button class="btn principal" id="pdf">Guardar en PDF</button>
+</nav>
+
+<!-- las páginas de la guía: el mismo contenido del taller, una idea por página -->
+<template id="paginas">
+  <article class="pagina"><div class="portada">
+    <span class="grado">6° - Parada 1 de la expedición</span>
+    <div><h1>Operación Colegio Oculto</h1><div class="lema">Guía de la expedición: el mapa de color emocional del colegio</div></div>
+    <img src="3d/mati.webp" alt="Mati, el que observa, con su lupa">
+    <div class="pie">LIVIMA - Laboratorios Vivos de Matemática y Arte<br>Institución Educativa Juan XXIII, Montería</div>
+  </div></article>
+
+  <article class="pagina">
+    <h2>Ficha del equipo cartógrafo</h2>
+    <p class="sub">Una misión de cartografía en equipos de cuatro agentes.</p>
+    <div class="campo"><label>Nombre del equipo: <input type="text"></label><label>Fecha: <input type="text"></label></div>
+    <div class="campo"><label>Cartógrafo (traza el plano): <input type="text"></label><label>Geómetra (clasifica las figuras): <input type="text"></label></div>
+    <div class="campo"><label>Registrador (lleva la leyenda): <input type="text"></label><label>Vocero (presenta en la galería): <input type="text"></label></div>
+    <p>Tu colegio parece un edificio común y corriente, pero esconde dos secretos. El primero es geométrico: cada espacio está hecho de figuras (la cancha es un rectángulo, una baldosa un cuadrado, un techo guarda triángulos). El segundo es invisible: cada lugar te hace sentir algo distinto.</p>
+    <div class="caja mati"><b>Pregunta orientadora:</b> ¿las zonas redondeadas del colegio se sienten distinto a las angulosas?</div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">1</span>Observo, la misión</h2>
+    <p>Con tu equipo vas a cartografiar el colegio: dibujar su plano, marcar la figura de cada zona y pintar cómo se siente el curso en ella.</p>
+    <ul class="pasos">
+      <li>Recorre el colegio y divídelo en zonas: la cancha, el patio, la cafetería, los baños, la entrada, un pasillo, tu salón.</li>
+      <li>En cada zona fíjate en dos cosas: qué figura predomina y cómo se siente tu equipo ahí.</li>
+    </ul>
+    <p class="etiqueta">Las zonas que vamos a mapear</p>
+    <div class="campo"><label>1. <input type="text" aria-label="Zona 1"></label><label>2. <input type="text" aria-label="Zona 2"></label><label>3. <input type="text" aria-label="Zona 3"></label></div>
+    <div class="campo"><label>4. <input type="text" aria-label="Zona 4"></label><label>5. <input type="text" aria-label="Zona 5"></label><label>6. <input type="text" aria-label="Zona 6"></label></div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">2</span>Investigo, las dos capas del mapa</h2>
+    <p>La capa geométrica clasifica la figura de cada zona; la capa emocional la pinta según cómo se siente el equipo.</p>
+    <table>
+      <tr><th>Zona</th><th>Figura que predomina</th><th>Lados y vértices</th><th>Ángulos</th><th>Emoción (color)</th></tr>
+      <tr><td><i>La cancha</i></td><td><i>Rectángulo</i></td><td><i>4 y 4</i></td><td><i>Rectos</i></td><td><i>Verde</i></td></tr>
+      <tr><td><input type="text" aria-label="Zona, fila 2"></td><td><input type="text" aria-label="Figura, fila 2"></td><td><input type="text" aria-label="Lados y vértices, fila 2"></td><td><input type="text" aria-label="Ángulos, fila 2"></td><td><input type="text" aria-label="Emoción, fila 2"></td></tr>
+      <tr><td><input type="text" aria-label="Zona, fila 3"></td><td><input type="text" aria-label="Figura, fila 3"></td><td><input type="text" aria-label="Lados y vértices, fila 3"></td><td><input type="text" aria-label="Ángulos, fila 3"></td><td><input type="text" aria-label="Emoción, fila 3"></td></tr>
+      <tr><td><input type="text" aria-label="Zona, fila 4"></td><td><input type="text" aria-label="Figura, fila 4"></td><td><input type="text" aria-label="Lados y vértices, fila 4"></td><td><input type="text" aria-label="Ángulos, fila 4"></td><td><input type="text" aria-label="Emoción, fila 4"></td></tr>
+      <tr><td><input type="text" aria-label="Zona, fila 5"></td><td><input type="text" aria-label="Figura, fila 5"></td><td><input type="text" aria-label="Lados y vértices, fila 5"></td><td><input type="text" aria-label="Ángulos, fila 5"></td><td><input type="text" aria-label="Emoción, fila 5"></td></tr>
+      <tr><td><input type="text" aria-label="Zona, fila 6"></td><td><input type="text" aria-label="Figura, fila 6"></td><td><input type="text" aria-label="Lados y vértices, fila 6"></td><td><input type="text" aria-label="Ángulos, fila 6"></td><td><input type="text" aria-label="Emoción, fila 6"></td></tr>
+    </table>
+  </article>
+
+  <article class="pagina">
+    <h2>La leyenda de colores</h2>
+    <p>Todo el curso usa la misma leyenda, así los mapas de los equipos se pueden comparar.</p>
+    <div class="leyenda">
+      <span><i style="background:#4A9B2E"></i><b>Verde:</b> feliz</span><span><i style="background:#2E6FA8"></i><b>Azul:</b> tranquilo</span>
+      <span><i style="background:#E8B800"></i><b>Amarillo:</b> neutral</span><span><i style="background:#D9701A"></i><b>Naranja:</b> aburrido</span>
+      <span><i style="background:#C0392B"></i><b>Rojo:</b> zona no permitida o peligrosa</span><span><i style="background:#6B3FA0"></i><b>Morado:</b> miedo</span>
+    </div>
+    <div class="caja mati"><b>En el colegio 3D:</b> cada equipo vota en la zona donde está parado. El piso se pinta con la emoción que más votó el curso, y en el plano del patio la lupa compara las zonas angulosas con las redondeadas.</div>
+    <div class="campo"><label>Lo que dice la lupa del curso: <input type="text"></label></div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">3</span>Descubro la matemática</h2>
+    <p>Para clasificar bien hay que hablar como matemático. Las figuras planas de lados rectos se llaman polígonos y se nombran según cuántos lados tienen.</p>
+    <table>
+      <tr><th>Nombre</th><th>Lados</th><th>Vértices</th></tr>
+      <tr><td><b>Triángulo</b></td><td>3</td><td>3</td></tr>
+      <tr><td><b>Cuadrilátero</b></td><td>4</td><td>4</td></tr>
+      <tr><td><b>Pentágono</b></td><td>5</td><td>5</td></tr>
+      <tr><td><b>Hexágono</b></td><td>6</td><td>6</td></tr>
+    </table>
+    <div class="caja mati"><b>Pon a prueba tu clasificación:</b> en el portal del Radar de figuras atrapas triángulos, figuras con ángulos rectos, polígonos sin ángulos agudos y más, en 10 niveles.</div>
+  </article>
+
+  <article class="pagina">
+    <h2>Los ángulos también tienen nombre</h2>
+    <table>
+      <tr><td><b>Ángulo recto</b></td><td>Mide exactamente 90°. Es la esquina de una hoja doblada en cuatro.</td></tr>
+      <tr><td><b>Ángulo agudo</b></td><td>Mide menos de 90°. Es más cerrado, como la punta de un triángulo afilado.</td></tr>
+      <tr><td><b>Ángulo obtuso</b></td><td>Mide más de 90°. Es más abierto, como un libro casi acostado.</td></tr>
+    </table>
+    <div class="campo"><label>Un ángulo recto que encontré en el colegio: <input type="text"></label></div>
+    <div class="campo"><label>Un ángulo agudo o uno obtuso: <input type="text"></label></div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">4</span>Creo, del boceto al pliego</h2>
+    <p>La obra final no va en esta hoja: va en un pliego grande. Aquí solo la planeas, por capas:</p>
+    <ol class="pasos">
+      <li><b>Capa cartográfica:</b> traza el plano del colegio con sus zonas.</li>
+      <li><b>Capa geométrica:</b> en cada zona escribe y dibuja la figura que predomina.</li>
+      <li><b>Capa emocional:</b> pinta cada zona con el color de su emoción, como un mapa de calor.</li>
+      <li><b>Cartela:</b> ponle título de agente y completa sus datos.</li>
+    </ol>
+  </article>
+
+  <article class="pagina">
+    <h2>Boceto del mapa</h2>
+    <p class="etiqueta">Un boceto pequeño para planear el pliego. Materiales: lápiz, regla y colores.</p>
+    <div class="boceto">Dibuja aquí en la hoja impresa</div>
+  </article>
+
+  <article class="pagina">
+    <h2><span class="num">5</span>Socializo, la galería</h2>
+    <p>Cuelguen todos los pliegos juntos: al verlos en fila, el salón se convierte en un solo mapa de calor del colegio según cómo se siente el curso. Recorran la galería y conversen.</p>
+    <div class="cartela">
+      <label>Título del mapa: <input type="text"></label>
+      <label>Cartógrafos: <input type="text"></label>
+      <label>Figuras representadas: <input type="text"></label>
+      <label>La emoción que más se repitió: <input type="text"></label>
+    </div>
+  </article>
+
+  <article class="pagina">
+    <h2>Cómo revisamos nuestro trabajo</h2>
+    <table>
+      <tr><th>Criterio</th><th>Aún no</th><th>En proceso</th><th>Logrado</th></tr>
+      <tr><td><b>Cartografía y zonas</b></td><td>No trazamos el plano</td><td>Plano sin zonas claras</td><td>Plano completo y por zonas</td></tr>
+      <tr><td><b>Clasificación geométrica</b></td><td>No nombramos figuras</td><td>Nombramos, dudamos del ángulo</td><td>Figura, lados y ángulos por zona</td></tr>
+      <tr><td><b>Mapa de calor emocional</b></td><td>Sin color</td><td>Color sin seguir la leyenda</td><td>Leyenda de seis colores bien usada</td></tr>
+      <tr><td><b>Mirada crítica</b></td><td>No relacionamos nada</td><td>Idea suelta de forma y emoción</td><td>Relacionamos forma y emoción con pistas</td></tr>
+    </table>
+  </article>
+
+  <article class="pagina">
+    <h2>Para seguir en casa</h2>
+    <table>
+      <tr><th>Observar</th><th>Preguntarte</th><th>Crear y compartir</th></tr>
+      <tr>
+        <td>Cartografía tu casa o tu cuadra: identifica sus figuras y pinta cómo te sientes en cada rincón.</td>
+        <td>¿Por qué ciertas formas nos hacen sentir tranquilos y otras nos ponen alerta? No busques la respuesta correcta, busca tu idea.</td>
+        <td>Dibuja el mapa de calor de un lugar que quieras (tu cuarto, el parque del barrio) y tráelo al Observatorio LIVIMA.</td>
+      </tr>
+    </table>
+    <p><b>Reto del explorador curioso:</b> busca un lugar donde la forma y la emoción no sigan la tendencia del curso, como un rincón anguloso donde te sientas feliz. Esa excepción también es un dato: guárdala en tu Pasaporte del Explorador.</p>
+  </article>
+</template>
+
+<script type="module">
+import { abrirLibro } from "./3d/libro.js";
+window.__guia = abrirLibro({ clave: "livima_colegio_guia", slot: 0, piso: { color: "#8BD46A", tinta: "#2F6E1C" } });   // para las pruebas automáticas
+window.__listo = true;
+</script>
+</body>
+</html>

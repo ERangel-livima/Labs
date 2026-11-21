@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Colegio Oculto 3D, LIVIMA</title>
+<meta name="theme-color" content="#1B3A6B">
+<script>
+  // el mapa y el pasaporte abren el juego y la guía con #juego y #guia: cada uno tiene su propio lugar
+  if (location.hash === "#juego") location.replace("01-colegio-oculto-juego.html");
+  if (location.hash === "#guia") location.replace("01-colegio-oculto-guia.html");
+</script>
+<script type="importmap">{ "imports": { "three": "./3d/three.module.min.js" } }</script>
+<link rel="stylesheet" href="3d/estacion.css">
+<style>
+  /* color del grado y estilos del voto y del plano: lo común está en 3d/estacion.css */
+  :root{ --acento:#4A9B2E; --acento-hondo:#2f6f1c; --azul-rey:#1D3FB0; }
+  .voto{gap:8px;max-height:calc(100vh - 90px);overflow:auto}
+  .voto .titulo{margin:0;background:#ffffffee;border:1.5px solid var(--linea);border-left:5px solid var(--azul-rey);border-radius:10px;padding:6px 12px;font-size:15px}
+  .voto .titulo b{color:var(--azul-rey)}
+  .voto fieldset{margin:0;border:1.5px solid var(--linea);border-radius:10px;background:#ffffffee;padding:6px 10px 8px;min-width:0}
+  .voto legend{font-size:14px;font-weight:700;color:var(--marino);padding:0 4px}
+  .opciones{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .opciones.emos{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .opciones.zonas{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .opciones button{min-height:44px;border:1.5px solid var(--linea);background:#fff;border-radius:9px;padding:4px 6px;cursor:pointer;color:var(--tinta);
+    font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;line-height:1.15;text-align:center}
+  .opciones.figs button{flex-direction:column;gap:2px;font-size:12.5px;padding:4px 2px}
+  .opciones button svg{width:30px;height:24px;flex:none}
+  .opciones button .sw{width:14px;height:14px;border-radius:50%;flex:none;border:1px solid #0002}
+  .opciones button[aria-pressed="true"]{border-color:var(--marino);background:#E8EEF8;box-shadow:inset 0 0 0 1.5px var(--marino)}
+  .opciones button:focus-visible{outline:3px solid var(--accion);outline-offset:1px}
+  .btn:disabled{opacity:.5;cursor:default}
+  @media (max-width:560px){
+    .opciones.figs{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .opciones.emos{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .opciones.zonas{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .opciones button{min-height:40px;font-size:13px}
+    .opciones.figs button{flex-direction:row;gap:6px}
+    .opciones button svg{width:24px;height:20px}
+    .voto .titulo{font-size:14px;padding:5px 10px}
+  }
+  /* la lupa del detective: zonas angulosas frente a zonas redondeadas */
+  .lupa{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .lupa .grupo{background:#ffffffee;border:1.5px solid var(--linea);border-radius:10px;padding:6px 10px;min-width:0}
+  .lupa h3{margin:0;font-size:14px;color:var(--marino)}
+  .lupa .emo{display:flex;align-items:center;gap:6px;font-weight:700;font-size:14.5px;margin:2px 0}
+  .lupa .emo .sw{width:14px;height:14px;border-radius:50%;background:#ccc;flex:none}
+  .lupa .medidor{height:9px;background:#e7e3d8;border-radius:999px;overflow:hidden}
+  .lupa .medidor i{display:block;height:100%;width:0;border-radius:999px;transition:width .6s ease}
+  .lupa small{display:block;color:var(--gris);font-size:12.5px;margin-top:2px}
+  .lectura{margin:0;background:#ffffffee;border:1.5px solid var(--linea);border-left:5px solid var(--marino);border-radius:10px;padding:6px 12px;font-size:14px}
+  @media (max-width:420px){ .lupa{gap:6px} .lupa .grupo{padding:5px 8px} .lupa .emo{font-size:13.5px} .lectura{font-size:13px;padding:5px 10px} }
+  #hojaRegistro{overflow:auto}
+  .tabla{width:100%;border-collapse:collapse;font-size:14px}
+  .tabla th,.tabla td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--linea)}
+  .tabla th{font-size:12.5px;color:var(--gris);font-weight:600}
+  .tabla .sw{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .tabla button{min-width:40px;min-height:40px;border:1px solid var(--linea);background:#fff;border-radius:8px;color:#C0392B;font-weight:700;cursor:pointer}
+  .confirmar{margin-top:10px;padding:8px 10px;border:1.5px solid #C0392B;border-radius:10px;background:#FDF0EE;font-size:14px}
+  .confirmar .fila{justify-content:flex-start;margin-top:6px}
+  .ligera{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;background:#e9eef3;
+    padding:calc(64px + env(safe-area-inset-top,0px)) 12px 0}
+  /* el plano también en la pantalla: en el celular y en la vista ligera se lee mejor así que en la cartelera 3D */
+  #planoPantalla{position:fixed;left:50%;transform:translateX(-50%);z-index:4;height:auto;border-radius:12px;border:5px solid var(--azul-rey);background:#FBF6EA;box-shadow:0 6px 18px #1b3a6b40}
+</style>
+</head>
+<body>
+<div id="velo" class="on" aria-hidden="true"></div>
+<script>
+  // al volver del juego o de la guía, el destello que se apaga es el mismo con el que se salió
+  { const desde = new URLSearchParams(location.search).get("desde"); if (desde === "juego") document.getElementById("velo").classList.add("arcade"); if (desde === "guia") document.getElementById("velo").classList.add("papel"); }
+</script>
+<script>
+  // si el 3D no arranca (navegador muy antiguo), no se queda la pantalla encendida: se ofrece la versión clásica
+  setTimeout(() => {
+    if (window.__listo) return;
+    document.getElementById("velo").classList.remove("on");
+    const p = document.createElement("p");
+    p.style.cssText = "position:fixed;inset:auto 16px 40% 16px;background:#fff;padding:16px;border-radius:12px;z-index:90;font:16px/1.4 system-ui";
+    p.innerHTML = 'Este navegador no pudo abrir la estación. <a href="?ligera=1">Abrir la vista ligera</a> o <a href="01-mapa-de-color-colegio-oculto.html">el simulador clásico</a>.';
+    document.body.append(p);
+  }, 15000);
+</script>
+<canvas id="mundo" aria-label="La I. E. Juan XXIII a la orilla del río Sinú, con sus zonas para votar"></canvas>
+<div class="ligera" id="ligera" hidden></div>
+<canvas id="planoPantalla" width="1024" height="660" aria-label="Mapa de color del colegio" hidden></canvas>
+
+<header class="hud">
+  <a class="volver" href="index.html">Volver a la ronda</a>
+</header>
+
+<div class="globo" id="globo" role="status" hidden>
+  <p id="globoTexto"></p>
+  <button class="cerrar" id="globoCerrar" aria-label="Cerrar la pista">×</button>
+</div>
+<div class="aviso" id="aviso" role="alert" hidden></div>
+
+<!-- el voto del equipo en la zona donde está parado -->
+<div class="barra voto" id="panelVoto" hidden>
+  <p class="titulo" id="votoTitulo"></p>
+  <fieldset id="campoZona" hidden><legend>¿Qué zona del colegio?</legend><div class="opciones zonas" id="opZonas"></div></fieldset>
+  <fieldset><legend>¿Qué figura predomina aquí?</legend><div class="opciones figs" id="opFiguras"></div></fieldset>
+  <fieldset><legend>¿Cómo se siente tu equipo aquí?</legend><div class="opciones emos" id="opEmos"></div></fieldset>
+  <div class="fila">
+    <button class="btn" id="btnCancelarVoto">Seguir caminando</button>
+    <button class="btn principal" id="btnRegistrar" disabled>Registrar el voto</button>
+  </div>
+</div>
+
+<!-- frente al plano: la lupa del detective -->
+<div class="barra" id="panelPlano" hidden>
+  <div class="lupa">
+    <div class="grupo"><h3>Angulosas</h3><div class="emo"><span class="sw" id="angSw"></span><span id="angEmo">Sin datos</span></div>
+      <div class="medidor"><i id="angBar" style="background:#1F8A8A"></i></div><small id="angDato">Comodidad: sin datos</small></div>
+    <div class="grupo"><h3>Redondeadas</h3><div class="emo"><span class="sw" id="redSw"></span><span id="redEmo">Sin datos</span></div>
+      <div class="medidor"><i id="redBar" style="background:#4A9B2E"></i></div><small id="redDato">Comodidad: sin datos</small></div>
+  </div>
+  <p class="lectura" id="veredicto" aria-live="polite"></p>
+  <div class="fila">
+    <button class="btn" id="btnRegistro" aria-expanded="false">Registro de votos</button>
+    <button class="btn" id="btnVotarLigera" hidden>Registrar un voto</button>
+    <button class="btn principal" data-recorrer>Seguir caminando</button>
+  </div>
+</div>
+
+<!-- mundo libre: el estudiante es Mati -->
+<div class="barra" id="panelRecorrido" hidden>
+  <div class="fila">
+    <button class="btn" id="btnVista" aria-pressed="false">Ver a Mati</button>
+    <button class="btn" id="btnSalto" hidden>Saltar</button>
+    <button class="btn principal" id="btnAccion">Ir al plano</button>
+  </div>
+</div>
+
+<section class="hoja" id="hojaRegistro" hidden aria-label="Registro de votos">
+  <h2>Registro de votos</h2>
+  <p style="margin:0 0 8px;font-size:14px;color:var(--gris)">Cada fila es el voto de un equipo. Si alguien se equivocó, borra solo ese voto.</p>
+  <table class="tabla" id="tablaVotos"></table>
+  <div class="fila" style="justify-content:space-between;margin-top:10px">
+    <button class="btn" id="btnTodos" hidden>Ver todos los votos</button>
+    <button class="btn" id="btnBorrarTodo" style="color:#C0392B;border-color:#C0392B">Borrar todos los votos</button>
+  </div>
+  <div class="confirmar" id="confirmarBorrar" hidden>
+    ¿Seguro? Se borran los votos de todo el curso guardados en este equipo, también los del simulador clásico.
+    <div class="fila"><button class="btn" id="btnBorrarSi" style="color:#C0392B;border-color:#C0392B">Sí, borrar todo</button><button class="btn" id="btnBorrarNo">No, dejarlos</button></div>
+  </div>
+</section>
+
+<noscript><p style="padding:80px 16px">Esta estación necesita JavaScript. Abre la versión clásica: 01-mapa-de-color-colegio-oculto.html</p></noscript>
+
+<script type="module">
+import { THREE, hayWebGL, crearMundo, construirRonda, crearPortal, personajes, crearRecorrido } from "./3d/livima3d.js";
+import { mergeGeometries } from "./3d/three.addons.min.js";
+import { texturaLetrero, conLuz, puntal as puntalComun, totemDeParada } from "./3d/piezas.js";
+import { crearRincon, crearCruce, rumboHacia } from "./3d/rincon.js";
+
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2;
+const NAVY = "#1B3A6B", AZUL_REY = "#1D3FB0";
+
+/* ---------- las zonas, las figuras y las emociones: las mismas del simulador clásico ---------- */
+// rects: [x0, x1, z0, z1] en metros, sobre el piso del colegio. El primero que contiene al estudiante es su zona.
+const ZONAS = [
+  { n: "Entrada principal", art: "la entrada principal", piso: "entrada", rects: [[-4, 4, 5.6, 8.85]] },
+  { n: "Cancha",            art: "la cancha",            piso: "cancha",  rects: [[11.2, 23.6, -3, 8.85]] },
+  { n: "Patio central",     art: "el patio central",     piso: "patio",   etiqueta: [5.2, 1.4], rects: [[-11.5, 11.2, -3, 5.6], [-11.5, -4, 5.6, 8.85], [4, 11.2, 5.6, 8.85]] },
+  { n: "Cafetería",         art: "la cafetería",         piso: "cafe",    rects: [[-20.1, -11.5, -3, 8.85]] },
+  { n: "Baños",             art: "los baños",            piso: "banos",   rects: [[3.1, 6.45, -11, -5.6], [6.55, 9.9, -11, -5.6]] },
+  { n: "Biblioteca",        art: "la biblioteca",        piso: "biblio",  rects: [[-5.9, 3, -11, -5.6]] },
+  { n: "Pasillo",           art: "el pasillo",           piso: "pasillo", rects: [[-15, 10, -5.4, -3]] },
+  { n: "Salón de clase",    art: "el salón de clase",    piso: "salon",   rects: [[-14.9, -6.1, -11, -5.6]] }
+];
+// el orden del clásico, para el registro y el plano
+const ORDEN_CLASICO = ["Cancha", "Patio central", "Cafetería", "Baños", "Entrada principal", "Biblioteca", "Pasillo", "Salón de clase"];
+const FIGURAS = [
+  { n: "Triángulo", g: "ang", lados: 3 }, { n: "Cuadrado", g: "ang", lados: 4 }, { n: "Rectángulo", g: "ang", lados: "rect" },
+  { n: "Pentágono", g: "ang", lados: 5 }, { n: "Hexágono", g: "ang", lados: 6 }, { n: "Círculo o curva", g: "red", lados: 0 }
+];
+const EMOS = [
+  { n: "Feliz", c: "#4A9B2E", v: 5, color: "verde" }, { n: "Tranquilo", c: "#2E6FA8", v: 4, color: "azul" }, { n: "Neutral", c: "#E8B800", v: 3, color: "amarillo" },
+  { n: "Aburrido", c: "#D9701A", v: 2, color: "naranja" }, { n: "No permitida o peligrosa", c: "#C0392B", v: 1.5, color: "rojo" }, { n: "Miedo", c: "#6B3FA0", v: 1, color: "morado" }
+];
+const emoDe = n => EMOS.find(e => e.n === n);
+const zonaDe = n => ZONAS.find(z => z.n === n);
+// el voto "No permitida o peligrosa" marca una zona de cuidado, no un sentimiento: se ve en el mapa pero no entra en el índice
+const CUIDADO = "No permitida o peligrosa";
+const VOTOS_PARA_TENDENCIA = 6, ZONAS_PARA_INSIGNIA = 6, VOTOS_POR_ZONA_INSIGNIA = 2, FILAS_REGISTRO = 8;
+
+/* ---------- los votos del curso: el mismo registro del simulador clásico en este equipo ---------- */
+const CLAVE_VOTOS = "livima_colegio_oculto_votes";
+let votos = [], yaAvisado = false;
+function leerVotos() {
+  try { const v = JSON.parse(localStorage.getItem(CLAVE_VOTOS) || "[]"); return Array.isArray(v) ? v : []; }
+  catch (error) { console.warn("LIVIMA: no se pudieron leer los votos guardados", error); return []; }
+}
+function guardarVotos() {
+  try { localStorage.setItem(CLAVE_VOTOS, JSON.stringify(votos)); }
+  catch (error) { if (!yaAvisado) { yaAvisado = true; avisar("Este navegador no deja guardar: los votos siguen aquí, pero se perderán si cierras la página."); } }
+}
+// si el clásico está abierto en otra pestaña, lo que se vote allá se pinta aquí
+addEventListener("storage", e => { if (e.key === CLAVE_VOTOS) { votos = leerVotos(); pintarTodo(); } });
+
+function moda(lista) {
+  if (!lista.length) return null;
+  const cuenta = {}; lista.forEach(v => { cuenta[v.emo] = (cuenta[v.emo] || 0) + 1; });
+  let mejor = null, n = -1; for (const k in cuenta) if (cuenta[k] > n) { n = cuenta[k]; mejor = k; }
+  return mejor;
+}
+const votosDe = zona => votos.filter(v => v.zona === zona);
+const ganadora = zona => { const d = moda(votosDe(zona)); return d ? emoDe(d) : null; };
+function comodidad(lista) {
+  const sentir = lista.filter(v => v.emo !== CUIDADO);
+  return sentir.length ? sentir.reduce((s, v) => s + (emoDe(v.emo)?.v || 0), 0) / sentir.length : null;
+}
+const zonasCompletas = () => ORDEN_CLASICO.filter(z => votosDe(z).length >= VOTOS_POR_ZONA_INSIGNIA).length;
+
+/* ---------- íconos de las figuras para los botones ---------- */
+function puntosFigura(lados, r = 9, cx = 15, cy = 12) {
+  if (lados === "rect") return [[cx - 13, cy - 7], [cx + 13, cy - 7], [cx + 13, cy + 7], [cx - 13, cy + 7]];
+  return [...Array(lados)].map((_, k) => { const a = -Math.PI / 2 + (lados === 4 ? Math.PI / 4 : 0) + k * TAU / lados; return [cx + Math.cos(a) * (lados === 4 ? r * 1.25 : r * 1.1), cy + Math.sin(a) * (lados === 4 ? r * 1.25 : r * 1.1)]; });
+}
+function iconoFigura(f) {
+  const trazo = 'fill="#D9EEED" stroke="#1F8A8A" stroke-width="2" stroke-linejoin="round"';
+  const forma = f.lados === 0 ? `<circle cx="15" cy="12" r="10" ${trazo}/>` : `<polygon points="${puntosFigura(f.lados).map(p => p.join(",")).join(" ")}" ${trazo}/>`;
+  return `<svg viewBox="0 0 30 24" aria-hidden="true">${forma}</svg>`;
+}
+
+/* ---------- el panel del voto ---------- */
+const eleccion = { zona: null, figura: null, emo: null };
+function botonesDeOpcion(caja, lista, html, alElegir) {
+  lista.forEach(item => {
+    const b = document.createElement("button"); b.type = "button"; b.innerHTML = html(item); b.setAttribute("aria-pressed", "false");
+    b.onclick = () => { caja.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); alElegir(item); revisarVoto(); };
+    caja.append(b);
+  });
+}
+botonesDeOpcion($("opZonas"), ORDEN_CLASICO.map(zonaDe), z => z.n, z => { eleccion.zona = z; $("votoTitulo").innerHTML = `Voto de tu equipo en <b>${z.art}</b>.`; });
+botonesDeOpcion($("opFiguras"), FIGURAS, f => iconoFigura(f) + `<span>${f.n}</span>`, f => { eleccion.figura = f; });
+botonesDeOpcion($("opEmos"), EMOS, e => `<span class="sw" style="background:${e.c}"></span><span>${e.n}</span>`, e => { eleccion.emo = e; });
+function revisarVoto() { $("btnRegistrar").disabled = !(eleccion.zona && eleccion.figura && eleccion.emo); }
+function limpiarVoto() {
+  eleccion.figura = eleccion.emo = null;
+  if (usarLigera) eleccion.zona = null;
+  ["opZonas", "opFiguras", "opEmos"].forEach(id => $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false")));
+  revisarVoto();
+}
+function abrirVoto(zona) {
+  limpiarVoto(); eleccion.zona = zona; $("globo").hidden = true;
+  $("campoZona").hidden = !usarLigera;
+  $("votoTitulo").innerHTML = zona ? `Voto de tu equipo en <b>${zona.art}</b>. Mira bien la zona antes de elegir.` : "Elige la zona, la figura que predomina y cómo se siente tu equipo ahí.";
+  mostrarPanel("voto");
+  // la mirada baja al piso que se va a pintar
+  if (mundo && zona) {
+    const ojo = mundo.camara.position.clone(), d = new THREE.Vector3(); mundo.camara.getWorldDirection(d); d.y = 0; d.normalize();
+    mundo.soltarEncuadre(); mundo.viajar(ojo, ojo.clone().addScaledVector(d, 2.6).add(new THREE.Vector3(0, -2.4, 0)), 500);
+  }
+}
+$("btnRegistrar").onclick = () => {
+  const { zona, figura, emo } = eleccion;
+  if (!(zona && figura && emo)) return;
+  const antes = ganadora(zona.n), completasAntes = zonasCompletas();
+  votos.push({ id: Date.now() + "_" + Math.random().toString(36).slice(2, 7), zona: zona.n, figura: figura.n, grupo: figura.g, emo: emo.n });
+  guardarVotos(); pintarTodo(); destellar(zona.n);
+  const ahora = ganadora(zona.n), n = votosDe(zona.n).length;
+  let texto = `<b>Voto registrado en ${zona.art}.</b> `;
+  texto += !antes || antes.n !== ahora.n
+    ? `El piso se pintó de ${ahora.color}: ahora gana «${ahora.n}».`
+    : `Sigue ganando «${ahora.n}», ahora con ${n} ${n === 1 ? "voto" : "votos"} en la zona.`;
+  if (completasAntes < ZONAS_PARA_INSIGNIA && zonasCompletas() >= ZONAS_PARA_INSIGNIA)
+    texto += " <b>Insignia Cartógrafo del Colegio Oculto:</b> el curso ya pintó seis zonas. Ve al plano del patio y mira qué dice la lupa.";
+  else texto += " Pasa al siguiente equipo, o camina a otra zona.";
+  decirMati(texto, { segundos: 10 });
+  if (usarLigera) { limpiarVoto(); irAPlano(); return; }
+  irARecorrido();
+};
+$("btnCancelarVoto").onclick = () => { if (usarLigera) irAPlano(); else irARecorrido(); };
+
+/* ---------- la lupa del detective y el registro ---------- */
+function pintarLupa() {
+  const grupo = (g, pre) => {
+    const lista = votos.filter(v => v.grupo === g), sentir = lista.filter(v => v.emo !== CUIDADO), cuidado = lista.length - sentir.length;
+    const d = moda(sentir), idx = comodidad(lista);
+    $(pre + "Sw").style.background = d ? emoDe(d).c : "#ccc";
+    $(pre + "Emo").textContent = d ? emoDe(d).n : (cuidado ? "Solo zonas de cuidado" : "Sin datos");
+    $(pre + "Bar").style.width = (idx ? idx / 5 * 100 : 0) + "%";
+    $(pre + "Dato").textContent = `Comodidad: ${idx ? idx.toFixed(1) + " de 5" : "sin datos"} · ${sentir.length} ${sentir.length === 1 ? "voto" : "votos"}` + (cuidado ? ` (+${cuidado} de cuidado)` : "");
+    return { idx, n: sentir.length };
+  };
+  const ang = grupo("ang", "ang"), red = grupo("red", "red");
+  let frase;
+  if (votos.length < VOTOS_PARA_TENDENCIA) frase = `Aún no hay votos suficientes: van ${votos.length}. Registren al menos ${VOTOS_PARA_TENDENCIA} para empezar a ver una tendencia.`;
+  else if (!ang.n || !red.n) frase = `Ya hay votos, pero falta un grupo. Voten también zonas ${ang.n ? "redondeadas" : "angulosas"} para poder comparar.`;
+  else {
+    const diferencia = red.idx - ang.idx;
+    frase = Math.abs(diferencia) < 0.4 ? "Por ahora se sienten <b>parecido</b>: la forma casi no cambia la emoción."
+      : diferencia > 0 ? "Por ahora, las zonas <b>redondeadas</b> se sienten un poco <b>mejor</b> que las angulosas."
+      : "Por ahora, las zonas <b>angulosas</b> se sienten un poco <b>mejor</b> que las redondeadas.";
+    const total = ang.n + red.n;
+    frase += total < 10 ? " Son pocos datos todavía: apenas una pista." : total >= 20 ? " Con este número de votos, la tendencia se ve con más fuerza." : "";
+    frase += " Es una <b>tendencia</b>, no una ley: busquen las excepciones en el plano.";
+  }
+  $("veredicto").innerHTML = frase;
+}
+let verTodos = false;
+function pintarRegistro() {
+  const tabla = $("tablaVotos");
+  if (!votos.length) { tabla.innerHTML = '<tr><td>Todavía no hay votos registrados.</td></tr>'; $("btnTodos").hidden = true; return; }
+  const recientes = votos.slice().reverse(), lista = verTodos ? recientes : recientes.slice(0, FILAS_REGISTRO);
+  tabla.innerHTML = "<tr><th>#</th><th>Zona</th><th>Figura</th><th>Emoción</th><th></th></tr>" + lista.map(v => {
+    const e = emoDe(v.emo); const n = votos.indexOf(v) + 1;
+    return `<tr><td>${n}</td><td>${v.zona}</td><td>${v.figura}</td><td><span class="sw" style="background:${e ? e.c : "#ccc"}"></span>${v.emo}</td>`
+      + `<td><button type="button" data-id="${v.id}" aria-label="Borrar el voto ${n}">✕</button></td></tr>`;
+  }).join("");
+  tabla.querySelectorAll("button[data-id]").forEach(b => b.onclick = () => { votos = votos.filter(v => v.id !== b.dataset.id); guardarVotos(); pintarTodo(); });
+  $("btnTodos").hidden = votos.length <= FILAS_REGISTRO;
+  $("btnTodos").textContent = verTodos ? `Ver solo los últimos ${FILAS_REGISTRO}` : `Ver todos los votos (${votos.length})`;
+}
+$("btnTodos").onclick = () => { verTodos = !verTodos; pintarRegistro(); };
+$("btnBorrarTodo").onclick = () => { $("confirmarBorrar").hidden = false; };
+$("btnBorrarNo").onclick = () => { $("confirmarBorrar").hidden = true; };
+$("btnBorrarSi").onclick = () => { votos = []; guardarVotos(); pintarTodo(); $("confirmarBorrar").hidden = true; decirMati("Se borraron todos los votos. El colegio vuelve a estar sin color: a recorrerlo otra vez.", { segundos: 7 }); };
+$("btnRegistro").onclick = () => {
+  const abrir = $("hojaRegistro").hidden; cerrarHojas(); if (!abrir) return;
+  const alto = $("panelPlano").getBoundingClientRect().height + 20;
+  $("hojaRegistro").style.bottom = `calc(${alto}px + env(safe-area-inset-bottom, 0px))`;
+  $("hojaRegistro").style.maxHeight = `calc(100vh - ${alto + 70}px)`;
+  pintarRegistro(); $("hojaRegistro").hidden = false; $("btnRegistro").setAttribute("aria-expanded", "true");
+};
+function cerrarHojas() { $("hojaRegistro").hidden = true; $("confirmarBorrar").hidden = true; $("btnRegistro").setAttribute("aria-expanded", "false"); }
+
+/* ---------- el plano del colegio: se pinta con la emoción que más votó el curso en cada zona ---------- */
+const PLANO = { ancho: 1024, alto: 660, x0: -20.6, x1: 24.6, z0: -11.8, z1: 9.4, arriba: 96, abajo: 92 };
+const lienzoPlano = document.createElement("canvas"); lienzoPlano.width = PLANO.ancho; lienzoPlano.height = PLANO.alto;
+function pintarPlano() {
+  const g = lienzoPlano.getContext("2d"), W = PLANO.ancho, H = PLANO.alto;
+  const escala = Math.min((W - 40) / (PLANO.x1 - PLANO.x0), (H - PLANO.arriba - PLANO.abajo) / (PLANO.z1 - PLANO.z0));
+  const ox = (W - (PLANO.x1 - PLANO.x0) * escala) / 2, oy = PLANO.arriba;
+  const px = x => ox + (x - PLANO.x0) * escala, pz = z => oy + (z - PLANO.z0) * escala;
+  g.fillStyle = "#FBF6EA"; g.fillRect(0, 0, W, H);
+  g.fillStyle = AZUL_REY; g.fillRect(0, 0, W, 78);
+  g.fillStyle = "#FFFFFF"; g.textAlign = "left"; g.textBaseline = "middle"; g.font = "700 40px Georgia, serif"; g.fillText("Mapa de color del colegio", 24, 30);
+  g.font = "600 22px 'Segoe UI', Arial, sans-serif"; g.fillStyle = "#D8E2FF"; g.fillText("I. E. Juan XXIII · se pinta con los votos de todo el curso", 26, 60);
+  g.textAlign = "right"; g.font = "800 26px 'Segoe UI', Arial, sans-serif"; g.fillStyle = "#FFFFFF";
+  g.fillText(`${votos.length} ${votos.length === 1 ? "voto" : "votos"}`, W - 24, 40);
+  // el lote, la reja y el río detrás
+  g.fillStyle = "#E4DED2"; g.fillRect(px(-20.4), pz(-11.6), (44.8) * escala, (20.9) * escala);
+  g.strokeStyle = "#7d8aa3"; g.lineWidth = 3; g.strokeRect(px(-20.4), pz(-11.6), 44.8 * escala, 20.9 * escala);
+  g.fillStyle = "#9CC3D8"; g.fillRect(px(-20.4), pz(-11.8) - 14, 44.8 * escala, 10);
+  g.fillStyle = "#4b6a86"; g.font = "italic 600 16px Georgia, serif"; g.textAlign = "left"; g.fillText("hacia el río Sinú", px(-20.2), pz(-11.8) - 26);
+  ORDEN_CLASICO.forEach(nombre => {
+    const z = zonaDe(nombre), e = ganadora(nombre), n = votosDe(nombre).length;
+    z.rects.forEach(([a, b, c, d]) => {
+      g.fillStyle = e ? e.c : "#F3EFE6"; g.fillRect(px(a), pz(c), (b - a) * escala, (d - c) * escala);
+      if (!e) { g.save(); g.beginPath(); g.rect(px(a), pz(c), (b - a) * escala, (d - c) * escala); g.clip(); g.strokeStyle = "#d6cfbf"; g.lineWidth = 2;
+        for (let k = -40; k < 60; k++) { g.beginPath(); g.moveTo(px(a) + k * 14, pz(c)); g.lineTo(px(a) + k * 14 + 300, pz(c) + 300); g.stroke(); } g.restore(); }
+      g.strokeStyle = "#1B3A6B"; g.lineWidth = 2; g.strokeRect(px(a), pz(c), (b - a) * escala, (d - c) * escala);
+    });
+    // nombre y votos en el rectángulo más grande de la zona
+    const [a, b, c, d] = z.rects.reduce((m, r) => ((r[1] - r[0]) * (r[3] - r[2]) > (m[1] - m[0]) * (m[3] - m[2]) ? r : m));
+    const cx = px(z.etiqueta ? z.etiqueta[0] : (a + b) / 2), cy = pz(z.etiqueta ? z.etiqueta[1] : (c + d) / 2);
+    const claro = !e || e.n === "Neutral";
+    g.fillStyle = claro ? "#1B3A6B" : "#FFFFFF"; g.textAlign = "center"; g.textBaseline = "middle";
+    let tam = 21; g.font = `700 ${tam}px 'Segoe UI', Arial, sans-serif`;
+    const ancho = (b - a) * escala - 10;
+    const palabras = nombre.split(" "), renglones = ancho < g.measureText(nombre).width && palabras.length > 1 ? [palabras.slice(0, Math.ceil(palabras.length / 2)).join(" "), palabras.slice(Math.ceil(palabras.length / 2)).join(" ")] : [nombre];
+    while (renglones.some(r => g.measureText(r).width > ancho) && tam > 13) { tam -= 1; g.font = `700 ${tam}px 'Segoe UI', Arial, sans-serif`; }
+    renglones.forEach((r, k) => g.fillText(r, cx, cy - (renglones.length - 1) * (tam / 2 + 1) + k * (tam + 2) - 8));
+    g.font = "600 15px 'Segoe UI', Arial, sans-serif";
+    g.fillText(n ? `${n} ${n === 1 ? "voto" : "votos"}` : "sin votos", cx, cy + (renglones.length - 1) * (tam / 2) + 14);
+  });
+  // la ceiba del patio, en su jardinera redonda
+  g.fillStyle = "#5A8F40"; g.beginPath(); g.arc(px(PATIO_CEIBA.x), pz(PATIO_CEIBA.z), 1.8 * escala, 0, TAU); g.fill();
+  g.strokeStyle = "#2F6E1C"; g.lineWidth = 2; g.stroke();
+  // la portada: por donde se entra
+  g.fillStyle = AZUL_REY; g.fillRect(px(-2.4), pz(9.05) - 2, 4.8 * escala, 8);
+  // el plano mismo, en el patio: "Estás aquí"
+  g.fillStyle = "#D9701A"; g.beginPath(); g.arc(px(PLANO_3D.x), pz(PLANO_3D.z), 8, 0, TAU); g.fill();
+  g.fillStyle = "#1B3A6B"; g.font = "700 15px 'Segoe UI', Arial, sans-serif"; g.textAlign = "center"; g.fillText("Estás aquí", px(PLANO_3D.x), pz(PLANO_3D.z) + 22);
+  // leyenda
+  const y = H - PLANO.abajo + 36; g.textAlign = "left"; g.font = "600 17px 'Segoe UI', Arial, sans-serif";
+  const anchoItem = (W - 40) / 3;
+  EMOS.forEach((e, k) => {
+    const x = 24 + (k % 3) * anchoItem, yy = y + Math.floor(k / 3) * 28;
+    g.fillStyle = e.c; g.beginPath(); g.arc(x + 9, yy, 9, 0, TAU); g.fill();
+    g.fillStyle = "#1d2733"; g.fillText(e.n, x + 26, yy + 1);
+  });
+  if (zonasCompletas() >= ZONAS_PARA_INSIGNIA) {
+    g.fillStyle = "#D9701A"; g.textAlign = "right"; g.font = "800 18px 'Segoe UI', Arial, sans-serif"; g.fillText("Insignia Cartógrafo del Colegio Oculto", W - 24, 96 - 6);
+  }
+  if (texPlano) texPlano.needsUpdate = true;
+  const copia = $("planoPantalla"); copia.getContext("2d").drawImage(lienzoPlano, 0, 0);
+}
+
+/* ---------- mensajes de Mati y avisos ---------- */
+let globoTimer = 0, avisoTimer = 0;
+const bajoLaBarra = () => `${document.querySelector(".hud").getBoundingClientRect().bottom + 8}px`;
+function decirMati(html, { segundos = 0 } = {}) {
+  $("globoTexto").innerHTML = html; $("globo").style.top = bajoLaBarra(); $("globo").hidden = false;
+  clearTimeout(globoTimer);
+  if (segundos) globoTimer = setTimeout(() => { $("globo").hidden = true; }, segundos * 1000);
+}
+$("globoCerrar").onclick = () => { $("globo").hidden = true; };
+function avisar(texto) {
+  $("aviso").textContent = texto; $("aviso").style.top = bajoLaBarra(); $("aviso").hidden = false;
+  clearTimeout(avisoTimer); avisoTimer = setTimeout(() => { $("aviso").hidden = true; }, 4500);
+}
+
+/* ---------- el colegio en 3D ---------- */
+const usarLigera = new URLSearchParams(location.search).has("ligera") || !hayWebGL();
+let mundo = null, recorrido = null, portal = null, R_MATI = null, guias = null, troncos = [];
+let rincon = null, cruce = null, texPlano = null;
+// el terreno sube hasta 0,6 m junto a la cancha: el patio queda un poco más alto, con un andén al frente
+const Y0 = 0.7, ANDEN = { z0: 9.4, z1: 10.2, alto: 0.35 };
+const LOTE = { x0: -20.6, x1: 24.6, z0: -11.8, z1: 9.4 };
+const BLOQUE = { x0: -15, x1: 10, atras: -11.2, fachada: -5.5, columnas: -3.3, piso: 3.0, losa: 0.2 };
+const CANCHA = { x0: 11.6, x1: 23.2, z0: -2.6, z1: 8.0, alero: 4.5, cumbre: 5.7 };
+const PATIO_CEIBA = { x: -1.5, z: 1.4 };
+const PLANO_3D = { x: -6.6, z: 3.4, giro: 0.35, ancho: 2.9, alto: 1.87, centro: 1.95 };
+const PORTAL = { x: 0, z: 15.6 };
+const JUEGO = { x: 9.4, z: 13.8 };
+const ATRIL = { x: -7.4, z: 14.4 };
+const DESTINO_JUEGO = "01-colegio-oculto-juego.html", DESTINO_GUIA = "01-colegio-oculto-guia.html";
+const enRect = (x, z, [a, b, c, d]) => x >= a && x <= b && z >= c && z <= d;
+const enLote = (x, z) => x > LOTE.x0 && x < LOTE.x1 && z > LOTE.z0 && z < LOTE.z1;
+const zonaEn = (x, z) => ZONAS.find(zn => zn.rects.some(r => enRect(x, z, r))) || null;
+const obstaculos = [], circulos = [];
+const muroDeChoque = (x0, x1, z0, z1) => obstaculos.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, ancho: Math.abs(x1 - x0), fondo: Math.abs(z1 - z0) });
+
+// Las piezas quietas se juntan por material en una sola malla: el colegio tiene cientos y el celular lo agradece
+const lotes = new Map();
+const matriz = new THREE.Matrix4(), cuaternion = new THREE.Quaternion(), euler = new THREE.Euler(), unidad = new THREE.Vector3(1, 1, 1);
+function pieza(geo, mat, x, y, z, { rx = 0, ry = 0, rz = 0 } = {}) {
+  euler.set(rx, ry, rz); cuaternion.setFromEuler(euler);
+  geo.applyMatrix4(matriz.compose(new THREE.Vector3(x, y, z), cuaternion, unidad));
+  if (geo.index) geo = geo.toNonIndexed();
+  if (!lotes.has(mat)) lotes.set(mat, []);
+  lotes.get(mat).push(geo);
+}
+const caja = (w, h, d, mat, x, y, z, rot) => pieza(new THREE.BoxGeometry(w, h, d), mat, x, y, z, rot);
+// caja por sus bordes: x de x0 a x1, y de y0 a y1 (sobre el piso del colegio), z de z0 a z1
+const bloque = (x0, x1, y0, y1, z0, z1, mat) => caja(x1 - x0, y1 - y0, z1 - z0, mat, (x0 + x1) / 2, Y0 + (y0 + y1) / 2, (z0 + z1) / 2);
+const cilindro = (r1, r2, h, seg, mat, x, y, z, rot) => pieza(new THREE.CylinderGeometry(r1, r2, h, seg), mat, x, y, z, rot);
+function vara(a, b, r, mat) {
+  const largo = a.distanceTo(b), geo = new THREE.CylinderGeometry(r, r, largo, 8);
+  cuaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+  geo.applyMatrix4(matriz.compose(a.clone().add(b).multiplyScalar(0.5), cuaternion, unidad));
+  pieza(geo, mat, 0, 0, 0);
+}
+function juntarLotes() {
+  lotes.forEach((geos, mat) => {
+    const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = m.receiveShadow = true; mundo.escena.add(m);
+  });
+  lotes.clear();
+}
+const V = (x, y, z) => new THREE.Vector3(x, Y0 + y, z);
+
+/* texturas pintadas: pisos, tablero, libros */
+function lienzo(ancho, alto = ancho) { const c = document.createElement("canvas"); c.width = ancho; c.height = alto; return c; }
+function texturaDe(c, repetir = [1, 1]) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repetir); return t; }
+function moteado(x, w, h, n, claro = 0.05, oscuro = 0.06) {
+  for (let i = 0; i < n; i++) { x.fillStyle = Math.random() < 0.5 ? `rgba(255,255,255,${claro})` : `rgba(0,0,0,${oscuro})`; x.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 4, 1 + Math.random() * 4); }
+}
+// cada piso: el dibujo de un tramo y cuántos metros mide ese tramo
+const PISOS = {
+  patio:   { metros: 2.0, pintar(x, w) { x.fillStyle = "#E2DED6"; x.fillRect(0, 0, w, w); moteado(x, w, w, 900); x.strokeStyle = "#bdb6a8"; x.lineWidth = 3; for (let k = 0; k <= 4; k++) { x.beginPath(); x.moveTo(k * w / 4, 0); x.lineTo(k * w / 4, w); x.stroke(); x.beginPath(); x.moveTo(0, k * w / 4); x.lineTo(w, k * w / 4); x.stroke(); } } },
+  entrada: { metros: 1.2, pintar(x, w) { x.fillStyle = "#EDE3D3"; x.fillRect(0, 0, w, w); x.strokeStyle = "#c9b79c"; x.lineWidth = 3; for (let f = 0; f < 6; f++) for (let k = 0; k < 3; k++) { const o = f % 2 ? w / 6 : 0; x.strokeRect(k * w / 3 + o - w / 3, f * w / 6, w / 3, w / 6); x.strokeRect(k * w / 3 + o, f * w / 6, w / 3, w / 6); } moteado(x, w, w, 500); } },
+  salon:   { metros: 0.8, pintar(x, w) { x.fillStyle = "#F1ECE2"; x.fillRect(0, 0, w, w); moteado(x, w, w, 1400, 0.1, 0.08); x.strokeStyle = "#cfc6b5"; x.lineWidth = 3; x.strokeRect(0, 0, w / 2, w / 2); x.strokeRect(w / 2, w / 2, w / 2, w / 2); x.strokeRect(w / 2, 0, w / 2, w / 2); x.strokeRect(0, w / 2, w / 2, w / 2); } },
+  biblio:  { metros: 1.2, pintar(x, w) { for (let k = 0; k < 6; k++) { x.fillStyle = k % 2 ? "#E8D2AE" : "#EFDCBC"; x.fillRect(0, k * w / 6, w, w / 6); x.fillStyle = "#c9a878"; x.fillRect(0, k * w / 6, w, 2); x.fillRect(((k * 97) % 5) * w / 5, k * w / 6, 2, w / 6); } moteado(x, w, w, 600, 0.06, 0.05); } },
+  banos:   { metros: 0.6, pintar(x, w) { x.fillStyle = "#F6F6F2"; x.fillRect(0, 0, w, w); x.strokeStyle = "#c9cbcc"; x.lineWidth = 4; for (let k = 0; k <= 3; k++) { x.beginPath(); x.moveTo(k * w / 3, 0); x.lineTo(k * w / 3, w); x.stroke(); x.beginPath(); x.moveTo(0, k * w / 3); x.lineTo(w, k * w / 3); x.stroke(); } } },
+  pasillo: { metros: 0.8, pintar(x, w) { x.fillStyle = "#ECE7DD"; x.fillRect(0, 0, w, w); moteado(x, w, w, 900); x.strokeStyle = "#cbc2b0"; x.lineWidth = 3; x.strokeRect(1, 1, w - 2, w - 2); x.beginPath(); x.moveTo(w / 2, 0); x.lineTo(w / 2, w); x.moveTo(0, w / 2); x.lineTo(w, w / 2); x.stroke(); } },
+  cafe:    { metros: 0.8, pintar(x, w) { x.fillStyle = "#EFC9A8"; x.fillRect(0, 0, w, w); moteado(x, w, w, 900, 0.07, 0.07); x.strokeStyle = "#c99a74"; x.lineWidth = 4; x.strokeRect(0, 0, w / 2, w / 2); x.strokeRect(w / 2, w / 2, w / 2, w / 2); x.strokeRect(w / 2, 0, w / 2, w / 2); x.strokeRect(0, w / 2, w / 2, w / 2); } }
+};
+function texturaCancha() {
+  const c = lienzo(1024, 640), x = c.getContext("2d"), W = 1024, H = 640;
+  x.fillStyle = "#D6D0C3"; x.fillRect(0, 0, W, H); moteado(x, W, H, 4000, 0.06, 0.06);
+  // la cancha demarcada: un rectángulo con su línea del medio, el círculo central y las áreas
+  const m = 40; x.strokeStyle = "#FBFBF6"; x.lineWidth = 7; x.strokeRect(m, m, W - 2 * m, H - 2 * m);
+  x.beginPath(); x.moveTo(W / 2, m); x.lineTo(W / 2, H - m); x.stroke();
+  x.beginPath(); x.arc(W / 2, H / 2, 70, 0, TAU); x.stroke();
+  x.strokeRect(m, H / 2 - 120, 110, 240); x.strokeRect(W - m - 110, H / 2 - 120, 110, 240);
+  x.fillStyle = "#FBFBF6"; x.beginPath(); x.arc(W / 2, H / 2, 7, 0, TAU); x.fill();
+  return texturaDe(c);
+}
+const matPisos = new Map();   // zona -> materiales de su piso (para pintarlos)
+function pisoDeZona(zona) {
+  const tipo = zona.piso, lista = [];
+  zona.rects.forEach(([a, b, c, d]) => {
+    let tex;
+    if (tipo === "cancha") tex = texturaCancha();
+    else { const cn = lienzo(256); PISOS[tipo].pintar(cn.getContext("2d"), 256); tex = texturaDe(cn, [(b - a) / PISOS[tipo].metros, (d - c) / PISOS[tipo].metros]); }
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: tipo === "banos" ? 0.35 : 0.85, emissive: "#000000" });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(b - a, d - c), mat);
+    m.rotation.x = -Math.PI / 2; m.position.set((a + b) / 2, Y0 + 0.012, (c + d) / 2); m.receiveShadow = true; mundo.escena.add(m);
+    lista.push(mat);
+  });
+  matPisos.set(zona.n, lista);
+}
+// el piso toma el color de la emoción ganadora; sin votos queda con su color de siempre
+const BLANCO = new THREE.Color("#ffffff"), TINTE = 0.72;
+const destellos = new Map();
+function pintarPisos() {
+  matPisos.forEach((mats, nombre) => {
+    const e = ganadora(nombre);
+    mats.forEach(m => {
+      m.color.copy(BLANCO); if (e) m.color.lerp(new THREE.Color(e.c), TINTE);
+      m.emissive.set(e ? e.c : "#000000"); m.userData.base = e ? 0.12 : 0; m.emissiveIntensity = m.userData.base + (destellos.get(nombre) || 0);
+    });
+  });
+}
+function destellar(nombre) { if (mundo) destellos.set(nombre, 0.9); }
+
+/* placas con el nombre de cada zona: muestran su color y sus votos */
+const placas = new Map();
+function placaDeZona(nombre, x, y, z, giro, { poste = false } = {}) {
+  const c = lienzo(512, 176), tex = texturaDe(c);
+  // en el piso abierto la placa va en un poste; bajo techo, colgada o sobre la puerta
+  if (poste) { cilindro(0.04, 0.05, y - 0.26, 8, mundo.M("#6d737b", { metalness: 0.5, roughness: 0.5 }), x, Y0 + (y - 0.26) / 2, z); circulos.push([x, z, 0.15]); }
+  const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.52, 0.05), [mundo.M(NAVY), mundo.M(NAVY), mundo.M(NAVY), mundo.M(NAVY), conLuz(tex, 0.4), mundo.M(NAVY)]);
+  m.position.set(x, Y0 + y, z); m.rotation.y = giro; m.castShadow = false; mundo.escena.add(m);
+  placas.set(nombre, { c, tex });
+}
+function pintarPlacas() {
+  placas.forEach(({ c, tex }, nombre) => {
+    const x = c.getContext("2d"), w = c.width, h = c.height, e = ganadora(nombre), n = votosDe(nombre).length;
+    x.fillStyle = "#FBF6EA"; x.fillRect(0, 0, w, h);
+    x.fillStyle = e ? e.c : "#cfc8b8"; x.fillRect(0, h - 34, w, 34);
+    x.fillStyle = NAVY; x.textAlign = "center"; x.textBaseline = "middle";
+    let tam = 62; x.font = `700 ${tam}px Georgia, serif`;
+    while (x.measureText(nombre).width > w - 36 && tam > 34) { tam -= 2; x.font = `700 ${tam}px Georgia, serif`; }
+    x.fillText(nombre, w / 2, 62);
+    x.font = "600 30px 'Segoe UI', Arial, sans-serif"; x.fillStyle = "#5B6573";
+    x.fillText(n ? `${n} ${n === 1 ? "voto" : "votos"}${e ? ": " + e.n.toLowerCase() : ""}` : "Aún sin votos", w / 2, 116);
+    tex.needsUpdate = true;
+  });
+}
+function pintarTodo() { pintarPlano(); pintarLupa(); pintarRegistro(); if (mundo) { pintarPisos(); pintarPlacas(); } }
+
+/* el lote: una terraza de concreto sobre la orilla, con su reja */
+function construirLote() {
+  const { M, escena } = mundo;
+  const concreto = M("#CFC9BD"), muro = M("#B9B2A4");
+  const losa = new THREE.Mesh(new THREE.BoxGeometry(LOTE.x1 - LOTE.x0, 7, LOTE.z1 - LOTE.z0), [muro, muro, concreto, muro, muro, muro]);
+  losa.position.set((LOTE.x0 + LOTE.x1) / 2, Y0 - 3.5, (LOTE.z0 + LOTE.z1) / 2); losa.receiveShadow = true; escena.add(losa);
+  const anden = new THREE.Mesh(new THREE.BoxGeometry(LOTE.x1 - LOTE.x0, 3, ANDEN.z1 - ANDEN.z0), [muro, muro, concreto, muro, muro, muro]);
+  anden.position.set((LOTE.x0 + LOTE.x1) / 2, ANDEN.alto - 1.5, (ANDEN.z0 + ANDEN.z1) / 2); anden.receiveShadow = true; escena.add(anden);
+  ZONAS.forEach(pisoDeZona);
+  // la reja: muro bajo blanco con zócalo azul rey y barrotes, como la del colegio
+  const blanco = M("#F4F3EE"), azul = M(AZUL_REY, { roughness: 0.7 }), barrote = M("#2a2f3a", { metalness: 0.5, roughness: 0.5 });
+  const lados = [   // [x0, z0, x1, z1]; la portada queda libre en el frente
+    [-20.3, 9.0, -2.5, 9.0], [2.5, 9.0, 24.3, 9.0], [-20.3, -11.5, -20.3, 9.0], [24.3, -11.5, 24.3, 9.0], [-20.3, -11.5, BLOQUE.x0, -11.5], [BLOQUE.x1, -11.5, 24.3, -11.5]
+  ];
+  const posBarrotes = [];
+  lados.forEach(([x0, z0, x1, z1]) => {
+    const largo = Math.hypot(x1 - x0, z1 - z0), enX = Math.abs(x1 - x0) > 0.01, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    caja(enX ? largo : 0.24, 0.55, enX ? 0.24 : largo, blanco, cx, Y0 + 0.275, cz);
+    caja(enX ? largo + 0.02 : 0.26, 0.16, enX ? 0.26 : largo + 0.02, azul, cx, Y0 + 0.08, cz);
+    caja(enX ? largo : 0.06, 0.06, enX ? 0.06 : largo, barrote, cx, Y0 + 2.1, cz);
+    for (let d = 0; d <= largo; d += 2.6) caja(0.3, 2.3, 0.3, blanco, x0 + (x1 - x0) * d / largo, Y0 + 1.15, z0 + (z1 - z0) * d / largo);
+    for (let d = 0.15; d < largo; d += 0.16) posBarrotes.push([x0 + (x1 - x0) * d / largo, z0 + (z1 - z0) * d / largo]);
+    muroDeChoque(Math.min(x0, x1) - 0.15, Math.max(x0, x1) + 0.15, Math.min(z0, z1) - 0.15, Math.max(z0, z1) + 0.15);
+  });
+  const barras = new THREE.InstancedMesh(new THREE.BoxGeometry(0.035, 1.55, 0.035), barrote, posBarrotes.length), o = new THREE.Object3D();
+  posBarrotes.forEach(([x, z], i) => { o.position.set(x, Y0 + 1.33, z); o.updateMatrix(); barras.setMatrixAt(i, o.matrix); });
+  barras.castShadow = true; escena.add(barras);
+}
+
+/* la portada: dos pilares azul rey y un frontón con forma de pentágono, la figura de la entrada */
+function construirPortada() {
+  const { M, malla, escena } = mundo, azul = M(AZUL_REY, { roughness: 0.65 }), blanco = M("#F4F3EE");
+  [-1, 1].forEach(s => { caja(0.6, 3.3, 0.6, azul, s * 2.2, Y0 + 1.65, 9.0); circulos.push([s * 2.2, 9.0, 0.45]); caja(0.72, 0.14, 0.72, blanco, s * 2.2, Y0 + 3.36, 9.0); });
+  // el frontón: un rectángulo con su techo de dos aguas, cinco lados
+  const forma = new THREE.Shape(); forma.moveTo(-2.5, 0); forma.lineTo(2.5, 0); forma.lineTo(2.5, 0.9); forma.lineTo(0, 1.9); forma.lineTo(-2.5, 0.9); forma.closePath();
+  const hueco = new THREE.Path(); hueco.moveTo(-2.2, 0.18); hueco.lineTo(2.2, 0.18); hueco.lineTo(2.2, 0.78); hueco.lineTo(0, 1.6); hueco.lineTo(-2.2, 0.78); hueco.closePath(); forma.holes.push(hueco);
+  const marco = malla(new THREE.ExtrudeGeometry(forma, { depth: 0.22, bevelEnabled: false }), azul, 0, Y0 + 3.43, 8.89, escena);
+  const nombre = texturaLetrero(1024, 160, (x, w, h) => {
+    x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, w, h); x.fillStyle = AZUL_REY; x.textAlign = "center"; x.textBaseline = "middle";
+    x.font = "800 92px 'Segoe UI', Arial, sans-serif"; x.fillText("I. E. JUAN XXIII", w / 2, h / 2 + 4);
+  });
+  [9.13, 8.87].forEach((z, k) => { const p = malla(new THREE.PlaneGeometry(4.3, 0.62), conLuz(nombre, 0.3), 0, Y0 + 3.92, z, escena); p.castShadow = false; if (k) p.rotation.y = Math.PI; });
+  const tri = texturaLetrero(512, 200, (x, w, h) => { x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, w, h); x.fillStyle = "#1B3A6B"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "italic 600 52px Georgia, serif"; x.fillText("Montería", w / 2, h / 2 + 30); });
+  const triGeo = new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(-2.2, 0), new THREE.Vector2(2.2, 0), new THREE.Vector2(0, 0.82)]));
+  // uv del triángulo: de su caja
+  const uv = triGeo.attributes.uv, pos = triGeo.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getX(i) + 2.2) / 4.4, pos.getY(i) / 0.82);
+  [9.12, 8.88].forEach((z, k) => { const t = malla(triGeo, conLuz(tri, 0.25), 0, Y0 + 4.21, z, escena); t.castShadow = false; if (k) t.rotation.y = Math.PI; });
+  // las dos hojas de la reja, abiertas contra el muro de adentro
+  const barrote = M("#2a2f3a", { metalness: 0.5, roughness: 0.5 });
+  [-1, 1].forEach(s => {
+    for (let k = 0; k <= 12; k++) caja(0.035, 2.0, 0.035, barrote, s * (2.1 + k * 0.17), Y0 + 1.15, 8.6);
+    caja(2.1, 0.06, 0.05, barrote, s * 3.1, Y0 + 2.12, 8.6); caja(2.1, 0.06, 0.05, barrote, s * 3.1, Y0 + 0.2, 8.6);
+  });
+  // la bandera de Colombia en su asta
+  cilindro(0.06, 0.08, 7, 8, M("#c4c4c4", { metalness: 0.6, roughness: 0.4 }), 5.6, Y0 + 3.5, 7.4); circulos.push([5.6, 7.4, 0.3]);
+  cilindro(0.5, 0.6, 0.3, 12, M("#B9B2A4"), 5.6, Y0 + 0.15, 7.4);
+  const bandera = new THREE.Group(); bandera.position.set(5.66, Y0 + 6.3, 7.4); escena.add(bandera);
+  [["#FCD116", 0.8, 0.4], ["#003893", 0.4, -0.2], ["#CE1126", 0.4, -0.6]].forEach(([col, h, y]) => { const p = malla(new THREE.PlaneGeometry(2.2, h), M(col, { side: THREE.DoubleSide }), 1.1, y, 0, bandera); p.castShadow = false; });
+  mundo.alAnimar.push(t => { bandera.rotation.y = Math.sin(t * 1.8) * 0.25; });
+}
+
+/* el bloque de aulas: dos pisos, blanco con antepechos azul rey; abajo el salón, la biblioteca y los baños */
+// una pared a lo largo de x con sus huecos: [x0, x1, y0, y1]. Devuelve los tramos sin puerta, para el choque
+function paredConHuecos(z, grosor, x0, x1, alto, huecos, mat, yBase = 0) {
+  const cortes = [...new Set([x0, x1, ...huecos.flatMap(h => [h[0], h[1]])])].filter(v => v >= x0 && v <= x1).sort((a, b) => a - b);
+  for (let i = 0; i < cortes.length - 1; i++) {
+    const a = cortes[i], b = cortes[i + 1], medio = (a + b) / 2;
+    const tapan = huecos.filter(h => medio > h[0] && medio < h[1]).sort((p, q) => p[2] - q[2]);
+    let y = 0;
+    tapan.forEach(h => { if (h[2] > y) bloque(a, b, yBase + y, yBase + h[2], z - grosor / 2, z + grosor / 2, mat); y = Math.max(y, h[3]); });
+    if (y < alto) bloque(a, b, yBase + y, yBase + alto, z - grosor / 2, z + grosor / 2, mat);
+  }
+}
+function construirBloque() {
+  const { M, escena } = mundo, B = BLOQUE, H = B.piso;
+  const blanco = M("#F7F7F2"), blancoHumo = M("#E9E8E1"), azul = M(AZUL_REY, { roughness: 0.7 }), azulHondo = M("#16318C", { roughness: 0.6 });
+  const tubo = M("#FBFBF8", { roughness: 0.5, metalness: 0.2 }), reja = M("#E9ECEF", { roughness: 0.6 }), vidrio = new THREE.MeshStandardMaterial({ color: "#3a4a66", roughness: 0.15, metalness: 0.3 });
+  // pared de atrás, testeros y divisiones entre aulas
+  bloque(B.x0, B.x1, 0, 2 * H + B.losa, B.atras - 0.2, B.atras, blanco);
+  [B.x0, B.x1].forEach(x => bloque(x - 0.1, x + 0.1, 0, 2 * H + B.losa, B.atras, B.fachada, blanco));
+  [-6, 3, 6.5].forEach(x => bloque(x - 0.08, x + 0.08, 0, H, B.atras, B.fachada - 0.1, blancoHumo));
+  muroDeChoque(B.x0 - 0.1, B.x1 + 0.1, B.atras - 0.25, B.atras + 0.05);
+  [B.x0, B.x1].forEach(x => muroDeChoque(x - 0.12, x + 0.12, B.atras, B.fachada));
+  [-6, 3, 6.5].forEach(x => muroDeChoque(x - 0.1, x + 0.1, B.atras, B.fachada));
+  // fachada del primer piso: puertas abiertas y ventanas con reja
+  const PUERTAS = [[-8.6, -7.4], [-2.3, -0.7], [4.2, 5.2], [7.9, 8.9]];
+  const VENTANAS = [[-13.9, -9.4], [-5.4, -2.9], [0.0, 2.5], [3.35, 3.95], [9.15, 9.75]];
+  const huecosAbajo = [...PUERTAS.map(([a, b]) => [a, b, 0, 2.2]), ...VENTANAS.map(([a, b]) => [a, b, 0.95, 2.1])];
+  paredConHuecos(B.fachada, 0.2, B.x0, B.x1, H, huecosAbajo, blanco);
+  bloque(B.x0, B.x1, 0, 0.12, B.fachada - 0.12, B.fachada + 0.12, azul);   // zócalo azul rey
+  let desde = B.x0; PUERTAS.forEach(([a, b]) => { muroDeChoque(desde, a, B.fachada - 0.12, B.fachada + 0.12); desde = b; }); muroDeChoque(desde, B.x1, B.fachada - 0.12, B.fachada + 0.12);
+  VENTANAS.forEach(([a, b]) => {
+    for (let x = a + 0.17; x < b; x += 0.3) bloque(x - 0.018, x + 0.018, 0.95, 2.1, B.fachada + 0.05, B.fachada + 0.09, reja);
+    bloque(a, b, 1.5, 1.54, B.fachada + 0.05, B.fachada + 0.09, reja);
+    bloque(a - 0.05, b + 0.05, 0.9, 0.96, B.fachada, B.fachada + 0.2, blanco);
+  });
+  // las hojas de las puertas, azul rey, abiertas hacia adentro
+  PUERTAS.forEach(([a, b]) => { const ancho = b - a; caja(0.05, 2.1, ancho, azul, a + 0.04, Y0 + 1.05, B.fachada - ancho / 2 - 0.1); });
+  // losa del segundo piso, que también cubre el pasillo
+  bloque(B.x0 - 0.1, B.x1 + 0.1, H, H + B.losa, B.atras - 0.2, B.columnas + 0.25, blancoHumo);
+  // columnas del pasillo, con base azul
+  for (let x = B.x0; x <= B.x1 + 0.01; x += 3.125) {
+    cilindro(0.13, 0.13, 2 * H + B.losa, 12, tubo, x, Y0 + H + 0.1, B.columnas);
+    bloque(x - 0.2, x + 0.2, 0, 0.35, B.columnas - 0.2, B.columnas + 0.2, azulHondo);
+    circulos.push([x, B.columnas, 0.24]);
+  }
+  // segundo piso: fachada con puertas azules y ventanas, antepecho azul rey y baranda
+  paredConHuecos(B.fachada, 0.2, B.x0, B.x1, H, [], blanco, H + B.losa);
+  for (let k = 0; k < 6; k++) {
+    const xp = -13.2 + k * 4.1, xv = xp + 1.7, y = H + B.losa;
+    caja(0.9, 2.05, 0.06, azul, xp, Y0 + y + 1.03, B.fachada + 0.13);
+    caja(2.0, 1.1, 0.05, vidrio, xv, Y0 + y + 1.55, B.fachada + 0.12);
+    for (let b = -3; b <= 3; b++) caja(0.03, 1.1, 0.03, reja, xv + b * 0.3, Y0 + y + 1.55, B.fachada + 0.17);
+    caja(1.25, 0.4, 0.5, azul, xp, Y0 + y + 2.35, B.fachada + 0.35);
+  }
+  for (let k = 0; k < 8; k++) bloque(B.x0 + k * 3.125, B.x0 + (k + 1) * 3.125 - 0.02, H + B.losa, H + B.losa + 1.1, B.columnas - 0.06, B.columnas + 0.06, k % 2 ? azul : M("#2449C2", { roughness: 0.7 }));
+  vara(V(B.x0, H + 1.4, B.columnas), V(B.x1, H + 1.4, B.columnas), 0.035, M("#2b2b2b", { metalness: 0.5, roughness: 0.5 }));
+  // cubierta metálica a un agua, con alero sobre el pasillo
+  const techo = M("#DADFE2", { metalness: 0.5, roughness: 0.45 });
+  caja(B.x1 - B.x0 + 0.9, 0.1, B.fachada - B.atras + 2.8 + 0.6, techo, (B.x0 + B.x1) / 2, Y0 + 2 * H + B.losa + 0.45, (B.atras + B.columnas) / 2 + 0.2, { rx: 0.1 });
+  bloque(B.x0 - 0.1, B.x1 + 0.1, 2 * H + B.losa, 2 * H + B.losa + 0.25, B.atras - 0.2, B.atras, blanco);
+  // la escalera al segundo piso, en el testero de la cafetería (se ve, pero el segundo piso no es parte del recorrido)
+  const ESC = { x0: -17.6, x1: -15.15, z0: -6.6, z1: -10.7 }, pasos = 15;
+  for (let k = 0; k < pasos; k++) { const z = ESC.z0 + (ESC.z1 - ESC.z0) * k / pasos; bloque(ESC.x0, ESC.x1, 0, (k + 1) * H / pasos, Math.min(z, z + (ESC.z1 - ESC.z0) / pasos), Math.max(z, z + (ESC.z1 - ESC.z0) / pasos), blancoHumo); }
+  bloque(ESC.x0, ESC.x1, 0, H + 0.02, ESC.z1 - 0.5, ESC.z1, blancoHumo);
+  bloque(ESC.x0 - 0.06, ESC.x0, 0, H + 1.0, ESC.z1 - 0.5, ESC.z0, azul);
+  muroDeChoque(ESC.x0 - 0.1, ESC.x1, ESC.z1 - 0.5, ESC.z0);
+
+  construirSalon(); construirBiblioteca(); construirBanos(); construirPasillo();
+  // luces de adentro: sin ellas, la losa deja las aulas a oscuras
+  [[-10.5, -8.2], [-1.5, -8.2], [4.8, -8.2], [8.2, -8.2]].forEach(([x, z]) => {
+    const luz = new THREE.PointLight("#FFF1D6", mundo.CALIDAD_LIGERA ? 9 : 7, 9, 1.6); luz.position.set(x, Y0 + 2.6, z); escena.add(luz);
+    caja(1.2, 0.04, 0.3, new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#FFF3DA", emissiveIntensity: 1.4 }), x, Y0 + H - 0.03, z);
+  });
+}
+// El salón: tablero, escritorio del docente y pupitres en filas, rectángulos por todas partes
+function construirSalon() {
+  const { M, escena } = mundo;
+  bloque(-14.88, -14.84, 0.95, 2.25, -9.8, -6.8, M("#F4F6F4", { roughness: 0.3 }));
+  bloque(-14.9, -14.82, 0.9, 0.95, -9.85, -6.75, M("#9aa1a8", { metalness: 0.4 }));
+  bloque(-14.9, -14.82, 2.25, 2.3, -9.85, -6.75, M("#9aa1a8", { metalness: 0.4 }));
+  const tablero = texturaLetrero(512, 256, (x, w, h) => {
+    x.fillStyle = "#F4F6F4"; x.fillRect(0, 0, w, h); x.strokeStyle = "#1F8A8A"; x.lineWidth = 6;
+    x.strokeRect(40, 60, 120, 120); x.beginPath(); x.moveTo(220, 180); x.lineTo(290, 60); x.lineTo(360, 180); x.closePath(); x.stroke();
+    x.beginPath(); x.arc(440, 120, 55, 0, TAU); x.stroke();
+    x.fillStyle = "#1B3A6B"; x.font = "600 30px 'Segoe UI', Arial"; x.textAlign = "center"; x.fillText("¿Qué figura ves?", w / 2, 36); x.fillText("4 lados   3 lados   0 lados", w / 2, 230);
+  });
+  const t = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.25), conLuz(tablero, 0.2)); t.position.set(-14.83, Y0 + 1.6, -8.3); t.rotation.y = Math.PI / 2; escena.add(t);
+  // escritorio del docente
+  bloque(-13.9, -12.6, 0, 0.76, -6.9, -6.2, M("#8A6A44")); circulos.push([-13.25, -6.55, 0.6]);
+  // pupitres: tabla de madera, asiento azul rey y patas metálicas
+  const N = 16, tablas = [], asientos = [], patas = [];
+  for (let f = 0; f < 4; f++) for (let c = 0; c < 4; c++) {
+    const x = -11.8 + c * 1.45, z = -10.0 + f * 1.05;
+    tablas.push([x - 0.25, 0.74, z]); asientos.push([x + 0.25, 0.44, z]);
+    [-0.22, 0.22].forEach(d => patas.push([x - 0.25, 0.37, z + d], [x + 0.25, 0.22, z + d * 0.8]));
+    circulos.push([x, z, 0.38]);
+  }
+  const instancias = (geo, mat, lista) => { const im = new THREE.InstancedMesh(geo, mat, lista.length), o = new THREE.Object3D();
+    lista.forEach(([x, y, z], i) => { o.position.set(x, Y0 + y, z); o.updateMatrix(); im.setMatrixAt(i, o.matrix); }); im.castShadow = im.receiveShadow = true; escena.add(im); };
+  instancias(new THREE.BoxGeometry(0.45, 0.035, 0.6), M("#C9A56A"), tablas);
+  instancias(new THREE.BoxGeometry(0.42, 0.04, 0.42), M(AZUL_REY, { roughness: 0.6 }), asientos);
+  instancias(new THREE.BoxGeometry(0.035, 0.44, 0.035), M("#6d737b", { metalness: 0.5, roughness: 0.5 }), patas);
+}
+// La biblioteca: estantes llenos de libros y dos mesas de lectura con forma de hexágono
+function construirBiblioteca() {
+  const { M, escena } = mundo, madera = M("#7A5230"), maderaClara = M("#A9804F");
+  const libros = [], colores = ["#B5532A", "#1F6B5A", "#C99A2E", "#1B3A6B", "#6B3FA0", "#D9701A", "#4A9B2E", "#8E3B46"];
+  const estante = (x0, x1, z, haciaZ) => {
+    bloque(x0, x1, 0, 2.2, z - 0.2, z + 0.2, madera);
+    for (let k = 0; k < 5; k++) {
+      const y = 0.12 + k * 0.42; bloque(x0, x1, y, y + 0.03, z - 0.19, z + 0.21, maderaClara);
+      for (let x = x0 + 0.06; x < x1 - 0.06;) { const ancho = 0.04 + Math.random() * 0.05, alto = 0.24 + Math.random() * 0.12; libros.push([x + ancho / 2, y + 0.03 + alto / 2, z + haciaZ * 0.08, ancho, alto]); x += ancho + 0.006; }
+    }
+    muroDeChoque(x0, x1, z - 0.25, z + 0.25);
+  };
+  estante(-5.6, -3.4, -10.85, 1); estante(-3.1, -0.9, -10.85, 1); estante(-0.6, 1.6, -10.85, 1);
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 0.24), new THREE.MeshStandardMaterial({ roughness: 0.8 }), libros.length), o = new THREE.Object3D(), cc = new THREE.Color();
+  libros.forEach(([x, y, z, ancho, alto], i) => { o.position.set(x, Y0 + y, z); o.scale.set(ancho, alto, 1); o.updateMatrix(); im.setMatrixAt(i, o.matrix); im.setColorAt(i, cc.set(colores[i % colores.length]).multiplyScalar(0.8 + Math.random() * 0.3)); });
+  im.castShadow = true; escena.add(im);
+  [[-3.6, -8.1], [0.5, -8.1]].forEach(([x, z]) => {
+    cilindro(0.95, 0.95, 0.06, 6, M("#C9A56A"), x, Y0 + 0.76, z); cilindro(0.08, 0.12, 0.74, 8, madera, x, Y0 + 0.37, z);
+    for (let k = 0; k < 6; k += 2) { const a = k * Math.PI / 3 + Math.PI / 6; cilindro(0.2, 0.2, 0.45, 6, M(AZUL_REY, { roughness: 0.6 }), x + Math.cos(a) * 1.3, Y0 + 0.225, z + Math.sin(a) * 1.3); }
+    circulos.push([x, z, 1.05]);
+  });
+  // un libro abierto en la mesa
+  bloque(-3.9, -3.3, 0.79, 0.81, -8.3, -7.9, M("#FBF6EA"));
+}
+// Los baños: baldosas cuadradas en piso y paredes, lavamanos y cubículos
+function construirBanos() {
+  const { M, escena } = mundo;
+  const cn = lienzo(256); PISOS.banos.pintar(cn.getContext("2d"), 256);
+  const baldosa = new THREE.MeshStandardMaterial({ map: texturaDe(cn, [9, 3]), roughness: 0.35 });
+  [[3.1, 6.42], [6.58, 9.9]].forEach(([a, b], k) => {
+    bloque(a, b, 0, 1.8, -10.99, -10.96, baldosa);
+    bloque(a, b, 0.8, 0.88, -10.95, -10.45, M("#E8E8E2", { roughness: 0.3 })); muroDeChoque(a, b, -11, -10.4);
+    [0.3, 0.7].forEach(f => { const x = a + (b - a) * f; bloque(x - 0.22, x + 0.22, 0.72, 0.8, -10.9, -10.55, M("#FFFFFF", { roughness: 0.2 })); bloque(x - 0.45, x + 0.45, 1.25, 1.85, -10.95, -10.93, M("#cfe2ea", { roughness: 0.05, metalness: 0.6 })); });
+    // dos cubículos contra la división
+    const lado = k ? b : a, s = k ? -1 : 1;
+    for (let c = 0; c < 2; c++) {
+      const z0 = -9.9 + c * 1.35;
+      bloque(lado + s * 0.02, lado + s * 1.2, 0.15, 1.95, z0 - 0.03, z0, M(k ? "#2E6FA8" : "#C77DAA", { roughness: 0.5 }));
+      bloque(lado + s * 1.17, lado + s * 1.2, 0.15, 1.95, z0, z0 + 1.3, M(k ? "#2E6FA8" : "#C77DAA", { roughness: 0.5 }));
+    }
+    muroDeChoque(Math.min(lado, lado + s * 1.25), Math.max(lado, lado + s * 1.25), -9.95, -7.2);
+  });
+  const letrero = (texto, x) => { const t = texturaLetrero(256, 96, (c, w, h) => { c.fillStyle = "#FFFFFF"; c.fillRect(0, 0, w, h); c.fillStyle = NAVY; c.textAlign = "center"; c.textBaseline = "middle"; c.font = "700 52px 'Segoe UI', Arial"; c.fillText(texto, w / 2, h / 2 + 3); });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.23), conLuz(t, 0.3)); m.position.set(x, Y0 + 2.42, BLOQUE.fachada + 0.12); escena.add(m); };
+  letrero("Niñas", 4.7); letrero("Niños", 8.4);
+}
+// El pasillo: cartelera, bancas y bebedero entre las puertas
+function construirPasillo() {
+  const { M, escena } = mundo, B = BLOQUE;
+  const cartelera = texturaLetrero(512, 256, (x, w, h) => {
+    x.fillStyle = "#B98A52"; x.fillRect(0, 0, w, h); moteado(x, w, h, 1500, 0.08, 0.1);
+    [["#FFF59D", 30, 30, -0.06], ["#B3E5FC", 150, 50, 0.05], ["#FFCCBC", 290, 24, -0.03], ["#C8E6C9", 400, 60, 0.07], ["#FFFFFF", 80, 140, 0.04], ["#E1BEE7", 240, 130, -0.05], ["#FFF59D", 370, 150, 0.02]].forEach(([c, px, py, r]) => {
+      x.save(); x.translate(px + 45, py + 40); x.rotate(r); x.fillStyle = c; x.fillRect(-45, -40, 90, 80); x.fillStyle = "#c62828"; x.beginPath(); x.arc(0, -32, 5, 0, TAU); x.fill();
+      x.fillStyle = "#5b6573"; for (let l = 0; l < 4; l++) x.fillRect(-32, -14 + l * 14, 64 - (l % 2) * 18, 4); x.restore(); });
+  });
+  bloque(-5.5, -3.6, 1.0, 2.0, B.fachada + 0.1, B.fachada + 0.16, M("#7A5230"));
+  const c = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.9), conLuz(cartelera, 0.2)); c.position.set(-4.55, Y0 + 1.5, B.fachada + 0.17); escena.add(c);
+  [[-12.6], [-4.2], [1.9]].forEach(([x]) => { bloque(x - 0.8, x + 0.8, 0.42, 0.47, B.fachada + 0.2, B.fachada + 0.6, M("#8A6A44")); [-0.65, 0.65].forEach(d => bloque(x + d - 0.05, x + d + 0.05, 0, 0.42, B.fachada + 0.25, B.fachada + 0.55, M("#6d737b", { metalness: 0.5 }))); });
+  muroDeChoque(-13.4, -11.8, B.fachada, B.fachada + 0.62); muroDeChoque(-5.0, -3.4, B.fachada, B.fachada + 0.62); muroDeChoque(1.1, 2.7, B.fachada, B.fachada + 0.62);
+  bloque(-14.3, -13.8, 0, 0.95, B.fachada + 0.1, B.fachada + 0.5, M("#D9DDE0", { metalness: 0.5, roughness: 0.3 }));
+}
+
+/* la cafetería: cubierta sobre columnas, el mostrador y mesas redondas, la zona de las curvas */
+function construirCafeteria() {
+  const { M, escena } = mundo, x0 = -19.6, x1 = -12.4, z0 = -2.6, z1 = 5.8, alto = 3.1;
+  const tubo = M("#FBFBF8", { roughness: 0.5, metalness: 0.2 }), azul = M(AZUL_REY, { roughness: 0.65 });
+  [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [x1, (z0 + z1) / 2], [x0, (z0 + z1) / 2]].forEach(([x, z]) => { cilindro(0.12, 0.12, alto, 10, tubo, x, Y0 + alto / 2, z); circulos.push([x, z, 0.2]); });
+  caja(x1 - x0 + 1.2, 0.1, z1 - z0 + 1.2, M("#DADFE2", { metalness: 0.5, roughness: 0.45 }), (x0 + x1) / 2, Y0 + alto + 0.25, (z0 + z1) / 2, { rz: -0.09 });
+  bloque(x1 - 0.05, x1 + 0.08, alto - 0.35, alto + 0.25, z0 - 0.6, z1 + 0.6, azul);
+  const nombre = texturaLetrero(1024, 128, (x, w, h) => { x.fillStyle = AZUL_REY; x.fillRect(0, 0, w, h); x.fillStyle = "#FFFFFF"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "800 84px 'Segoe UI', Arial"; x.fillText("CAFETERÍA", w / 2, h / 2 + 4); });
+  const fascia = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 0.56), conLuz(nombre, 0.3)); fascia.position.set(x1 + 0.09, Y0 + alto - 0.05, (z0 + z1) / 2); fascia.rotation.y = Math.PI / 2; escena.add(fascia);
+  // el mostrador con su vitrina y la pared del fondo con el menú
+  bloque(x0, x0 + 0.15, 0, alto, z0 + 0.3, z1 - 0.3, M("#F7F7F2"));
+  bloque(x0 + 1.05, x0 + 1.75, 0, 1.0, z0 + 1.0, z1 - 1.6, M("#D9701A", { roughness: 0.6 }));
+  bloque(x0 + 1.0, x0 + 1.8, 1.0, 1.05, z0 + 0.95, z1 - 1.55, M("#E8E8E2"));
+  bloque(x0 + 1.15, x0 + 1.65, 1.05, 1.45, z0 + 1.1, z1 - 1.75, new THREE.MeshStandardMaterial({ color: "#cfe8f5", transparent: true, opacity: 0.35, roughness: 0.05 }));
+  muroDeChoque(x0, x0 + 1.85, z0 + 0.9, z1 - 1.5);
+  const menu = texturaLetrero(512, 320, (x, w, h) => { x.fillStyle = "#24343a"; x.fillRect(0, 0, w, h); x.fillStyle = "#FFF3C4"; x.font = "700 46px Georgia"; x.textAlign = "center"; x.fillText("Menú", w / 2, 60);
+    x.font = "500 30px 'Segoe UI', Arial"; x.textAlign = "left"; ["Arepa de huevo", "Empanada", "Jugo de corozo", "Bollo limpio", "Avena fría"].forEach((l, k) => x.fillText(l, 50, 120 + k * 42)); });
+  const pm = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.12), conLuz(menu, 0.3)); pm.position.set(x0 + 0.16, Y0 + 1.95, (z0 + z1) / 2 - 0.4); pm.rotation.y = Math.PI / 2; escena.add(pm);
+  // mesas redondas con sus banquitos redondos
+  [[-16.4, -1.2], [-13.9, 0.3], [-16.4, 2.4], [-13.9, 3.9]].forEach(([x, z]) => {
+    cilindro(0.55, 0.55, 0.05, 28, M("#F4F3EE"), x, Y0 + 0.75, z); cilindro(0.06, 0.06, 0.72, 8, M("#6d737b", { metalness: 0.5 }), x, Y0 + 0.37, z);
+    cilindro(0.3, 0.34, 0.04, 20, M("#6d737b", { metalness: 0.5 }), x, Y0 + 0.02, z);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; cilindro(0.19, 0.19, 0.05, 20, M("#D9533B", { roughness: 0.5 }), x + Math.cos(a) * 0.85, Y0 + 0.46, z + Math.sin(a) * 0.85); cilindro(0.03, 0.03, 0.44, 6, M("#6d737b", { metalness: 0.5 }), x + Math.cos(a) * 0.85, Y0 + 0.22, z + Math.sin(a) * 0.85); }
+    circulos.push([x, z, 0.75]);
+  });
+}
+
+/* la cancha: el coliseo con sus cerchas blancas, la cubierta y los paneles solares */
+function construirCancha() {
+  const { M, escena, malla } = mundo, C = CANCHA, tubo = M("#FBFBF8", { roughness: 0.5, metalness: 0.2 }), azulHondo = M("#16318C", { roughness: 0.6 });
+  const zc = (C.z0 + C.z1) / 2, cerchas = [C.x0, (2 * C.x0 + C.x1) / 3, (C.x0 + 2 * C.x1) / 3, C.x1];
+  cerchas.forEach(x => {
+    [C.z0, C.z1].forEach(z => {
+      cilindro(0.11, 0.11, C.alero, 10, tubo, x, Y0 + C.alero / 2, z);
+      bloque(x - 0.25, x + 0.25, 0, 0.4, z - 0.25, z + 0.25, azulHondo); circulos.push([x, z, 0.3]);
+      vara(V(x, 3.4, z), V(x, C.alero + 0.2, z + Math.sign(zc - z) * 1.4), 0.06, tubo);
+      vara(V(x, C.alero, z), V(x, C.cumbre, zc), 0.08, tubo);
+    });
+    vara(V(x, C.alero - 0.4, C.z0), V(x, C.alero - 0.4, C.z1), 0.05, tubo);
+    for (let k = -4; k <= 4; k++) { const z = zc + k * (C.z1 - C.z0) / 9, yT = C.cumbre - (C.cumbre - C.alero) * Math.abs(z - zc) / ((C.z1 - C.z0) / 2); vara(V(x, C.alero - 0.4, z), V(x, yT, z + (k % 2 ? 0.5 : -0.5)), 0.035, tubo); }
+  });
+  [C.z0, C.z1].forEach(z => vara(V(C.x0, C.alero, z), V(C.x1, C.alero, z), 0.07, tubo));
+  vara(V(C.x0, C.cumbre, zc), V(C.x1, C.cumbre, zc), 0.07, tubo);
+  // las dos aguas de la cubierta, con los paneles solares del colegio
+  const pendiente = Math.atan2(C.cumbre - C.alero, (C.z1 - C.z0) / 2), largo = Math.hypot(C.cumbre - C.alero, (C.z1 - C.z0) / 2) + 0.7;
+  [-1, 1].forEach(s => {
+    const agua = new THREE.Group(); agua.position.set((C.x0 + C.x1) / 2, Y0 + (C.alero + C.cumbre) / 2 + 0.1, zc + s * (C.z1 - C.z0) / 4); agua.rotation.x = s * pendiente; escena.add(agua);
+    malla(new THREE.BoxGeometry(C.x1 - C.x0 + 1.0, 0.07, largo), M("#F1F1EA", { roughness: 0.55, metalness: 0.25 }), 0, 0, 0, agua);
+    for (let k = 0; k < 6; k++) for (const pz of [-0.9, 0.9]) {
+      malla(new THREE.BoxGeometry(1.7, 0.05, 1.3), M("#15254A", { metalness: 0.6, roughness: 0.2 }), -4.6 + k * 1.85, 0.07, pz, agua);
+      malla(new THREE.BoxGeometry(1.7, 0.058, 0.03), M("#C9CED2", { metalness: 0.6, roughness: 0.4 }), -4.6 + k * 1.85, 0.07, pz, agua);
+    }
+  });
+  // arcos de microfútbol y el tablero de baloncesto
+  [[C.x0 + 0.55, 1], [C.x1 - 0.55, -1]].forEach(([x, s]) => {
+    vara(V(x, 0, zc - 1.5), V(x, 2.0, zc - 1.5), 0.05, tubo); vara(V(x, 0, zc + 1.5), V(x, 2.0, zc + 1.5), 0.05, tubo); vara(V(x, 2.0, zc - 1.5), V(x, 2.0, zc + 1.5), 0.05, tubo);
+    vara(V(x, 2.0, zc - 1.5), V(x - s * 0.8, 0, zc - 1.5), 0.03, tubo); vara(V(x, 2.0, zc + 1.5), V(x - s * 0.8, 0, zc + 1.5), 0.03, tubo);
+    circulos.push([x, zc - 1.5, 0.12], [x, zc + 1.5, 0.12]);
+  });
+  vara(V((C.x0 + C.x1) / 2, 0, C.z0 + 0.15), V((C.x0 + C.x1) / 2, 3.2, C.z0 + 0.15), 0.06, tubo);
+  bloque((C.x0 + C.x1) / 2 - 0.9, (C.x0 + C.x1) / 2 + 0.9, 2.9, 3.95, C.z0 + 0.2, C.z0 + 0.26, M("#F4F4F0", { roughness: 0.4 }));
+  const aro = malla(new THREE.TorusGeometry(0.23, 0.02, 6, 18), M("#E8641E"), (C.x0 + C.x1) / 2, Y0 + 3.05, C.z0 + 0.55, escena); aro.rotation.x = Math.PI / 2;
+  circulos.push([(C.x0 + C.x1) / 2, C.z0 + 0.15, 0.15]);
+  // el nombre del colegio en la viga del frente, mirando hacia la portada
+  const nombre = texturaLetrero(1024, 160, (x, w, h) => { x.fillStyle = AZUL_REY; x.fillRect(0, 0, w, h); x.fillStyle = "#FFFFFF"; x.font = "800 92px 'Segoe UI', Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("I. E. JUAN XXIII", w / 2, h / 2 + 4); });
+  const n = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 0.78), conLuz(nombre, 0.3)); n.position.set((C.x0 + C.x1) / 2, Y0 + C.alero - 0.15, C.z1 + 0.14); escena.add(n);
+  // gradería de dos peldaños a lo largo del lado de atrás
+  bloque(C.x0 + 1.5, C.x1 - 1.5, 0, 0.4, C.z0 - 0.95, C.z0 - 0.35, M("#D8D2C4")); bloque(C.x0 + 1.5, C.x1 - 1.5, 0, 0.8, C.z0 - 1.5, C.z0 - 0.95, M("#D8D2C4"));
+  muroDeChoque(C.x0 + 1.5, C.x1 - 1.5, C.z0 - 1.55, C.z0 - 0.3);
+}
+
+/* el patio central: la ceiba en su jardinera redonda */
+function construirPatio() {
+  const { M, escena, malla } = mundo, { x, z } = PATIO_CEIBA;
+  const anillo = malla(new THREE.CylinderGeometry(1.8, 1.8, 0.5, 40, 1, true), M("#F4F3EE", { side: THREE.DoubleSide }), x, Y0 + 0.25, z, escena);
+  malla(new THREE.TorusGeometry(1.8, 0.1, 8, 48), M(AZUL_REY, { roughness: 0.6 }), x, Y0 + 0.5, z, escena).rotation.x = Math.PI / 2;
+  malla(new THREE.CircleGeometry(1.75, 40), M("#5b4a36"), x, Y0 + 0.42, z, escena).rotation.x = -Math.PI / 2;
+  malla(new THREE.CylinderGeometry(0.32, 0.5, 4.2, 12), M("#7C6A56"), x, Y0 + 2.4, z, escena);
+  const copa = new THREE.MeshStandardMaterial({ color: "#5F8A3C", map: mundo.texHojas, bumpMap: mundo.texHojas, bumpScale: 1.4, roughness: 0.85 });
+  [[0, 5.2, 0, 2.6], [1.5, 4.7, 0.6, 1.8], [-1.4, 4.8, -0.5, 1.9], [0.3, 4.6, -1.5, 1.7]].forEach(([dx, y, dz, r]) => { const s = malla(new THREE.SphereGeometry(r, 16, 12), copa, x + dx, Y0 + y, z + dz, escena); s.scale.y = 0.62; });
+  circulos.push([x, z, 1.95]);
+  anillo.castShadow = true;
+  // bancas en curva alrededor de la jardinera
+  for (let k = 0; k < 3; k++) { const a = 0.5 + k * 2.1; caja(1.3, 0.06, 0.4, M("#8A6A44"), x + Math.cos(a) * 2.6, Y0 + 0.45, z + Math.sin(a) * 2.6, { ry: -a + Math.PI / 2 }); circulos.push([x + Math.cos(a) * 2.6, z + Math.sin(a) * 2.6, 0.45]); }
+}
+
+/* el plano del patio, junto a la entrada: una cartelera azul con el mapa de color */
+function construirPlano() {
+  const { M, escena, malla } = mundo, P = PLANO_3D;
+  const g = new THREE.Group(); g.position.set(P.x, Y0, P.z); g.rotation.y = P.giro; escena.add(g);
+  const azul = M(AZUL_REY, { roughness: 0.6 });
+  [-1, 1].forEach(s => malla(new THREE.BoxGeometry(0.12, P.centro + P.alto / 2 + 0.2, 0.12), azul, s * (P.ancho / 2 + 0.06), (P.centro + P.alto / 2 + 0.2) / 2, 0, g));
+  texPlano = new THREE.CanvasTexture(lienzoPlano); texPlano.colorSpace = THREE.SRGBColorSpace; texPlano.anisotropy = 8;
+  malla(new THREE.BoxGeometry(P.ancho + 0.1, P.alto + 0.1, 0.06), azul, 0, P.centro, -0.02, g);
+  const cara = malla(new THREE.PlaneGeometry(P.ancho, P.alto), new THREE.MeshStandardMaterial({ map: texPlano, roughness: 0.8, emissive: "#ffffff", emissiveMap: texPlano, emissiveIntensity: 0.38 }), 0, P.centro, 0.015, g);
+  cara.castShadow = false;
+  malla(new THREE.BoxGeometry(P.ancho + 0.5, 0.06, 0.5), azul, 0, P.centro + P.alto / 2 + 0.2, 0.12, g).rotation.x = 0.15;
+  const n = new THREE.Vector3(Math.sin(P.giro), 0, Math.cos(P.giro)), t = new THREE.Vector3(Math.cos(P.giro), 0, -Math.sin(P.giro));
+  for (let k = -2; k <= 2; k++) circulos.push([P.x + t.x * k * 0.65, P.z + t.z * k * 0.65, 0.22]);
+  return { normal: n };
+}
+
+function construirEstacion() {
+  construirLote(); construirPortada(); construirBloque(); construirCafeteria(); construirCancha(); construirPatio();
+  const plano = construirPlano();
+  // las placas de las zonas, a la vista de quien llega a cada una
+  placaDeZona("Entrada principal", 2.9, 1.9, 7.9, 0, { poste: true });
+  placaDeZona("Cancha", CANCHA.x0 - 0.5, 1.9, 6.4, -Math.PI / 2, { poste: true });
+  placaDeZona("Patio central", PATIO_CEIBA.x + 2.4, 1.9, PATIO_CEIBA.z + 2.6, 0.5, { poste: true });
+  placaDeZona("Cafetería", -12.27, 2.25, -1.4, Math.PI / 2);
+  placaDeZona("Baños", 6.5, 2.72, BLOQUE.fachada + 0.13, 0);
+  placaDeZona("Biblioteca", -1.5, 2.72, BLOQUE.fachada + 0.13, 0);
+  placaDeZona("Salón de clase", -8.0, 2.72, BLOQUE.fachada + 0.13, 0);
+  placaDeZona("Pasillo", -10.8, 2.62, (BLOQUE.fachada + BLOQUE.columnas) / 2, 0);
+  juntarLotes();
+  portal = crearPortal(mundo, { x: PORTAL.x, z: PORTAL.z, giro: Math.atan2(-PORTAL.x, -PORTAL.z), color: "#8BD46A" });
+  totemDeParada(mundo, { x: -3.6, z: 17.2, giro: 0.35, grado: "6°", parada: 1, nombre: ["Operación", "Colegio Oculto"], lema: ["Forma y emoción"],
+    frase: ["Vota en cada", "zona del", "colegio"], acento: "#8BD46A", hondo: "#2F6E1C" });
+  rincon = crearRincon(mundo, OPCIONES_RINCON);
+  LUGARES.push(...rincon.lugares);
+  // Mati, el mismo del mapa en 3D: es el estudiante
+  guias = personajes(mundo);
+  R_MATI = guias.crearPersonaje("mati"); R_MATI.raiz.visible = false;
+  mundo.alAnimar.push((tiempo, dt) => {
+    if (!recorrido || !recorrido.activo) guias.animarPersonaje(R_MATI, tiempo, dt, 0);
+    // el destello del piso recién votado se apaga en un segundo y medio
+    let cambio = false;
+    destellos.forEach((v, k) => { const nuevo = Math.max(0, v - dt * 0.6); if (nuevo === 0) destellos.delete(k); else destellos.set(k, nuevo); cambio = true; });
+    if (cambio) matPisos.forEach((mats, nombre) => mats.forEach(m => { m.emissiveIntensity = m.userData.base + (destellos.get(nombre) || 0) * (0.6 + 0.4 * Math.sin(tiempo * 14)); }));
+  });
+  return { plano };
+}
+
+/* ---------- el rincón del juego y el atril: 3d/rincon.js ---------- */
+// en el libro del atril va un plano pequeño del colegio, con sus zonas de colores
+function planoDelAtril(x, cx, cy) {
+  const cols = ["#4A9B2E", "#2E6FA8", "#E8B800", "#D9701A", "#6B3FA0", "#4A9B2E"];
+  x.translate(cx - 170, cy - 120); x.lineWidth = 4; x.strokeStyle = NAVY;
+  [[0, 0, 110, 70], [110, 0, 110, 70], [220, 0, 120, 70], [0, 90, 90, 150], [100, 90, 140, 150], [250, 90, 90, 150]].forEach(([a, b, w, h], k) => { x.fillStyle = cols[k]; x.globalAlpha = 0.8; x.fillRect(a, b, w, h); x.globalAlpha = 1; x.strokeRect(a, b, w, h); });
+  x.fillStyle = "#5A8F40"; x.beginPath(); x.arc(170, 165, 26, 0, TAU); x.fill();
+}
+const OPCIONES_RINCON = {
+  juego: { ...JUEGO, titulo: "Radar de figuras", destino: DESTINO_JUEGO, tarjeta: "tu tarjeta de agente" },
+  guia: { ...ATRIL, destino: DESTINO_GUIA, grado: "6°", nombre: "Operación Colegio Oculto", acento: "#4A9B2E", hondo: "#2F6E1C", dibujo: planoDelAtril },
+  vistas: {
+    mostrar: vista => mostrarPanel(vista),
+    recorrer: inicio => irARecorrido(inicio),
+    avisar: texto => avisar(texto),
+    ocultarGlobo: () => { $("globo").hidden = true; },
+    cruzar: (destino, opciones) => cruzarPortal(destino, opciones)
+  }
+};
+
+/* ---------- las vistas de la estación ---------- */
+let vista = "llegada";
+function mostrarPanel(nueva) {
+  vista = nueva;
+  $("planoPantalla").hidden = true;
+  if (recorrido && nueva !== "recorrido") recorrido.desactivar();
+  if (R_MATI && nueva !== "recorrido") R_MATI.raiz.visible = false;
+  $("panelVoto").hidden = nueva !== "voto";
+  $("panelPlano").hidden = nueva !== "plano";
+  $("panelRecorrido").hidden = nueva !== "recorrido";
+  if (rincon) rincon.mostrar(nueva);
+  cerrarHojas();
+}
+// el plano se ve de frente, entero en el espacio que deja libre el panel de la lupa
+let normalPlano = null;
+const DISTANCIA_MAX_PLANO = 5;
+function encuadrarPlano(ms = 900) {
+  const P = PLANO_3D, centro = new THREE.Vector3(P.x, Y0 + P.centro, P.z);
+  const libre = 1 - Math.min(0.66, ($("panelPlano").getBoundingClientRect().height + 20) / innerHeight);
+  const arriba = Math.min(0.12, (document.querySelector(".hud").getBoundingClientRect().bottom + 6) / innerHeight);
+  const visible = Math.max(0.2, libre - arriba);
+  const tanMedio = Math.tan(THREE.MathUtils.degToRad(mundo.camara.fov / 2)), aspecto = innerWidth / innerHeight;
+  // con tope: más lejos quedaría detrás de la reja; en el celular el plano se ve además plano en la pantalla
+  const distancia = Math.min(DISTANCIA_MAX_PLANO, Math.max(1.6, (P.alto + 0.25) / (visible * 2 * tanMedio), (P.ancho + 0.3) / (2 * tanMedio * aspecto)));
+  const ojo = centro.clone().addScaledVector(normalPlano, distancia);
+  // la mirada baja lo justo para que el plano quede en el medio de la franja libre
+  const correrVista = distancia * tanMedio * (1 - libre - arriba);
+  return mundo.viajar(ojo, centro.clone().setY(centro.y - correrVista), ms);
+}
+// la copia del plano ocupa el espacio libre entre la barra de arriba y el panel de la lupa
+function ponerPlanoEnPantalla() {
+  const c = $("planoPantalla"), arriba = document.querySelector(".hud").getBoundingClientRect().bottom + 10;
+  const libre = innerHeight - arriba - $("panelPlano").getBoundingClientRect().height - 32;
+  c.style.top = arriba + "px"; c.style.width = Math.max(200, Math.min(innerWidth - 24, libre * 1024 / 660, 900)) + "px";
+  c.hidden = false;
+}
+const enPantallaAngosta = () => innerWidth < innerHeight * 1.15;
+async function irAPlano() {
+  mostrarPanel("plano"); pintarTodo();
+  if (usarLigera || enPantallaAngosta()) ponerPlanoEnPantalla();
+  if (usarLigera) { $("ligera").hidden = false; return; }
+  mundo.soltarEncuadre();
+  await encuadrarPlano();
+}
+addEventListener("resize", () => {
+  if (vista !== "plano") return;
+  if (usarLigera || enPantallaAngosta()) ponerPlanoEnPantalla(); else $("planoPantalla").hidden = true;
+  if (mundo) encuadrarPlano(0);
+});
+
+/* ---------- mundo libre: el estudiante camina como Mati ---------- */
+const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
+const PISTA_CAMINAR = (ES_TACTIL
+  ? "Eres Mati. Mueve la palanca para caminar y arrastra la pantalla para mirar."
+  : "Eres Mati. Camina con W, A, S, D o las flechas y mantén el clic para mirar; con E votas donde estás.")
+  + " Recorre el colegio con tu equipo: en cada zona fíjate qué figura predomina y cómo se sienten ahí, y vota. El plano del patio, junto a la entrada, se pinta con los votos de todo el curso.";
+// lo que hay cerca decide el botón principal, como los portales del mapa
+let cerca = null;
+const LUGARES = [
+  { id: "plano", x: PLANO_3D.x + Math.sin(PLANO_3D.giro) * 1.2, z: PLANO_3D.z + Math.cos(PLANO_3D.giro) * 1.2, radio: 1.7, texto: () => "Ver el mapa del curso", accion: () => irAPlano() },
+  { id: "portal", x: PORTAL.x, z: PORTAL.z, radio: 1.6, texto: () => "Volver a la ronda", accion: () => cruzarPortal("index.html#g6") }
+  // el portal del juego y el atril se agregan al construir el rincón
+];
+const textoDe = l => typeof l.texto === "function" ? l.texto() : l.texto;
+function lugarEn(x, z) {
+  for (const l of LUGARES) if ((!l.cuando || l.cuando()) && Math.hypot(x - l.x, z - l.z) < l.radio) return l;
+  const zona = zonaEn(x, z);
+  return zona ? { id: "zona-" + zona.n, texto: () => `Votar en ${zona.art}`, accion: () => abrirVoto(zona) } : null;
+}
+function actualizarCerca(x, z, forzar = false) {
+  const nuevo = lugarEn(x, z);
+  if (!forzar && (nuevo === cerca || (nuevo && cerca && nuevo.id === cerca.id))) return;
+  cerca = nuevo;
+  $("btnAccion").textContent = cerca ? textoDe(cerca) + (ES_TACTIL ? "" : " (E)") : "Ir al plano";
+}
+$("btnAccion").onclick = () => { $("globo").hidden = true; if (cerca) cerca.accion(); else irAPlano(); };
+addEventListener("keydown", e => {
+  if (e.code !== "KeyE" || !recorrido || !recorrido.activo || !cerca || e.target.closest("input, textarea")) return;
+  e.preventDefault(); $("globo").hidden = true; cerca.accion();
+});
+let ultimaPos = { x: PORTAL.x, z: PORTAL.z - 2.3 };
+function moverMati({ x, y, z, rumbo, vel, tercera, dt }) {
+  ultimaPos = { x, z };
+  actualizarCerca(x, z);
+  R_MATI.raiz.visible = tercera;
+  R_MATI.raiz.position.set(x, y, z);
+  let giro = rumbo - R_MATI.raiz.rotation.y; giro = Math.atan2(Math.sin(giro), Math.cos(giro));
+  R_MATI.raiz.rotation.y += giro * Math.min(1, dt * 9);
+  guias.animarPersonaje(R_MATI, mundo.reloj.t, dt, vel);
+}
+$("btnVista").onclick = () => {
+  const atras = !recorrido.tercera; recorrido.verDesdeAtras(atras);
+  $("btnVista").setAttribute("aria-pressed", String(atras)); $("btnVista").textContent = atras ? "Ver con mis ojos" : "Ver a Mati";
+};
+$("btnSalto").hidden = !ES_TACTIL;
+$("btnSalto").onclick = () => recorrido.saltar();
+async function irARecorrido(inicio) {
+  if (!recorrido) return;
+  mostrarPanel("recorrido");
+  cerca = undefined; actualizarCerca(inicio ? inicio.x : ultimaPos.x, inicio ? inicio.z : ultimaPos.z, true);
+  // desde una vista de cámara (el plano), se vuelve a quedar de pie frente a ella
+  if (!inicio && recorrido) inicio = { ...ultimaPos, yaw: ultimaYaw(), ms: 600 };
+  await recorrido.activar(inicio);
+}
+function ultimaYaw() {
+  const d = new THREE.Vector3(); mundo.camara.getWorldDirection(d); return Math.atan2(-d.x, -d.z);
+}
+document.querySelectorAll("[data-recorrer]").forEach(b => b.onclick = () => {
+  $("globo").hidden = true;
+  if (usarLigera) return;
+  const P = PLANO_3D, x = P.x + Math.sin(P.giro) * 2.2, z = P.z + Math.cos(P.giro) * 2.2;
+  irARecorrido({ x, z, yaw: rumboHacia(P.x - x, P.z - z) + Math.PI, ms: 700 });
+});
+
+/* ---------- el portal del juego, el atril y el cruce de portales (3d/rincon.js) ---------- */
+const cruzarPortal = (destino, opciones = {}) => cruce.cruzar(destino, { puerta: portal, ...opciones });
+document.querySelector(".hud .volver").addEventListener("click", e => { e.preventDefault(); cruzarPortal(e.currentTarget.getAttribute("href")); });
+
+/* ---------- arranque ---------- */
+votos = leerVotos();
+const habiaVotos = votos.length > 0;
+const antesDeCruzar = () => { $("globo").hidden = true; cerrarHojas(); mostrarPanel("cruce"); if (recorrido) recorrido.desactivar(); };
+if (usarLigera) {
+  rincon = crearRincon(null, OPCIONES_RINCON);
+  cruce = crearCruce({ mundo: null, antes: antesDeCruzar });
+  $("mundo").hidden = true;
+  // en la vista ligera no hay colegio que caminar: la zona se elige con botones
+  document.querySelectorAll("[data-recorrer]").forEach(b => { b.hidden = true; });
+  $("btnVotarLigera").hidden = false; $("btnVotarLigera").onclick = () => abrirVoto(null);
+  $("btnCancelarVoto").textContent = "Volver al plano";
+  $("velo").classList.remove("on");
+  if (!hayWebGL()) avisar("Este equipo no pudo abrir el 3D: estás en la vista ligera, con el mismo plano y los mismos votos.");
+  irAPlano();
+  decirMati(habiaVotos ? `El curso lleva ${votos.length} votos. Registra el de tu equipo con «Registrar un voto».` : "Cada equipo vota por una zona del colegio: qué figura predomina y cómo se sienten ahí. El plano se pinta con los votos de todos.", { segundos: 9 });
+} else {
+  mundo = crearMundo($("mundo"), { slot: 0 });
+  // el colegio y su plazoleta de llegada quedan sin árboles encima
+  const zonaLibre = (x, z) => x > LOTE.x0 - 3 && x < LOTE.x1 + 3 && z > LOTE.z0 - 4 && z < 21;   // el colegio y la plazoleta de llegada
+  ({ troncos } = construirRonda(mundo, { zonaLibre }));
+  ({ plano: { normal: normalPlano } } = construirEstacion());
+  pintarTodo();
+  cruce = crearCruce({ mundo, antes: antesDeCruzar, alVolver: () => { rincon.apagar(); irARecorrido(); } });
+  recorrido = crearRecorrido(mundo, {
+    limites: { xMin: -60, xMax: 60, zMin: -40, zMax: 60 },
+    permitido: (x, z) => z > mundo.rioLocal(x) + 7.5,   // se puede llegar a la playa, pero no meterse al río
+    piso: (x, z) => {
+      if (enLote(x, z)) return Y0;
+      if (x > LOTE.x0 && x < LOTE.x1 && z >= ANDEN.z0 && z < ANDEN.z1) return ANDEN.alto;
+      const enLaLosa = rincon.piso(x, z); if (enLaLosa !== null) return enLaLosa;
+      return mundo.alturaLocal(x, z);
+    },
+    alMoverse: moverMati,
+    obstaculos,
+    circulos: [...troncos, ...circulos, [PORTAL.x, PORTAL.z, 0.8], ...rincon.circulos]
+  });
+  // se sale por donde se entró: el portal del mapa, el del juego o el atril de la guía
+  const desde = new URLSearchParams(location.search).get("desde");
+  const { puerta, paso } = rincon.puertaDeLlegada(desde, portal);
+  mundo.colocar(puerta.centro.clone().addScaledVector(puerta.normal, -0.6), puerta.centro.clone().addScaledVector(puerta.normal, 4));
+  const salida = puerta.centro.clone().addScaledVector(puerta.normal, paso);
+  requestAnimationFrame(() => requestAnimationFrame(async () => {
+    $("velo").classList.remove("on");
+    await irARecorrido({ x: salida.x, z: salida.z, yaw: Math.atan2(-puerta.normal.x, -puerta.normal.z), ms: 1500 });
+    if (!desde) decirMati(habiaVotos ? `El curso lleva ${votos.length} ${votos.length === 1 ? "voto" : "votos"} en el plano. ` + PISTA_CAMINAR : PISTA_CAMINAR, { segundos: 14 });
+  }));
+}
+window.__estacion = { get mundo() { return mundo; }, get recorrido() { return recorrido; }, get votos() { return votos; }, irAPlano, abrirVoto, zonaEn, ZONAS };   // para las pruebas automáticas
+window.__listo = true;
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 // fuerza la descarga de los 19 de entrada, para no pesar el primer uso). Con internet
 // siempre se descarga la version mas reciente; sin internet se usa la copia guardada.
 
-const CACHE_NAME = "livima-v69";
+const CACHE_NAME = "livima-v70";
 
 const APP_SHELL = [
   "./",
@@ -20,6 +20,9 @@ const APP_SHELL = [
 // estrategia de cache-primero-luego-actualiza.
 const SIMULADORES = [
   "01-mapa-de-color-colegio-oculto.html",
+  "01-colegio-oculto-3d.html",
+  "01-colegio-oculto-juego.html",
+  "01-colegio-oculto-guia.html",
   "02-lienzo-simetria-espejos-vivos.html",
   "02-espejos-vivos-3d.html",
   "02-espejos-vivos-juego.html",
