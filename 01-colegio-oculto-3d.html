@@ -427,6 +427,8 @@ const zonaEn = (x, z) => ZONAS.find(zn => zn.rects.some(r => enRect(x, z, r))) |
 const obstaculos = [], circulos = [];
 // El segundo piso se pisa solo si los pies ya van arriba: debajo están el salón, la biblioteca y los baños.
 // Se sube por una escalera detrás de la cancha, que llega a un descanso en la punta del pasillo de arriba.
+const PARED_INFORMATICA = { pintura: "#C7D3DA", zocalo: "#5F7A8C" }, PARED_AULA = { pintura: "#E0CFAE", zocalo: "#9A7550" }, ALTO_ZOCALO = 0.95;
+const LUZ_ARRIBA = 0.6;   // arriba hay cielo raso bajo: con la luz de abajo las paredes se queman
 const ALTO_PISO2 = 3.2;                                           // piso + losa del bloque
 const ESCALERA = { x0: 11.2, x1: 16.0, z0: -7.6, z1: -5.6 };      // abajo en x1, arriba en x0
 const DESCANSO = { x0: 10.0, x1: 11.2, z0: -7.6, z1: -3.05 };
@@ -674,6 +676,18 @@ function construirBloque() {
   });
   bloque(-2.08, -1.92, ARRIBA, ARRIBA + H, B.atras, B.fachada - 0.1, blancoHumo);
   bloque(B.x0, B.x1, ARRIBA + H, ARRIBA + H + 0.08, B.atras, B.fachada, blancoHumo);   // cielo raso: entre los muros y la cubierta queda un hueco
+  // por dentro, cada sala tiene su pintura mate con un zócalo más oscuro: el blanco de afuera, bajo las lámparas, encandila
+  const huecosArriba = [...PUERTAS2.map(([a, b]) => [a, b, 0, 2.2]), ...VENTANAS2.map(([a, b]) => [a, b, 0.95, 2.1])];
+  [[B.x0 + 0.1, -2.08, PARED_INFORMATICA], [-1.92, B.x1 - 0.1, PARED_AULA]].forEach(([x0, x1, { pintura, zocalo }]) => {
+    const mate = M(pintura, { roughness: 0.95 }), bajo = M(zocalo, { roughness: 0.9 }), zFrente = B.fachada - 0.1;
+    const pared = (a, b, c, d) => { bloque(a, b, ARRIBA, ARRIBA + ALTO_ZOCALO, c, d, bajo); bloque(a, b, ARRIBA + ALTO_ZOCALO, ARRIBA + H, c, d, mate); };
+    pared(x0, x1, B.atras, B.atras + 0.02);                         // el fondo
+    pared(x0, x0 + 0.02, B.atras, zFrente); pared(x1 - 0.02, x1, B.atras, zFrente);   // los dos costados
+    // el frente, con sus puertas y ventanas: el zócalo llega hasta el antepecho
+    const huecos = huecosArriba.filter(([a, b]) => b > x0 && a < x1);
+    paredConHuecos(zFrente - 0.01, 0.02, x0, x1, H, huecos, mate, ARRIBA);
+    paredConHuecos(zFrente - 0.025, 0.01, x0, x1, ALTO_ZOCALO, huecos, bajo, ARRIBA);
+  });
   enCapa(arriba, () => {
     let desde = B.x0; PUERTAS2.forEach(([a, b]) => { muroDeChoque(desde, a, B.fachada - 0.12, B.fachada + 0.12); desde = b; }); muroDeChoque(desde, B.x1, B.fachada - 0.12, B.fachada + 0.12);
     muroDeChoque(-2.1, -1.9, B.atras, B.fachada);
@@ -711,7 +725,7 @@ function construirBloque() {
   enCapa(arriba, () => { construirInformatica(); construirAulaMultiple(); });
   // luces de adentro: sin ellas, la losa deja las aulas a oscuras
   [[-10.5, -8.2, 0], [-1.5, -8.2, 0], [4.8, -8.2, 0], [8.2, -8.2, 0], [-8.5, -8.2, ARRIBA], [4.0, -8.2, ARRIBA]].forEach(([x, z, y]) => {
-    const luz = new THREE.PointLight("#FFF1D6", mundo.CALIDAD_LIGERA ? 9 : 7, 9, 1.6); luz.position.set(x, Y0 + y + 2.6, z); escena.add(luz);
+    const luz = new THREE.PointLight("#FFF1D6", (mundo.CALIDAD_LIGERA ? 9 : 7) * (y ? LUZ_ARRIBA : 1), 9, 1.6); luz.position.set(x, Y0 + y + 2.6, z); escena.add(luz);
     caja(1.2, 0.04, 0.3, new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#FFF3DA", emissiveIntensity: 1.4 }), x, Y0 + y + (y ? 2.95 : H - 0.03), z);
   });
 }
@@ -786,11 +800,11 @@ function construirInformatica() {
   instancias(new THREE.CylinderGeometry(0.03, 0.03, 0.44, 6), M("#6d737b", { metalness: 0.5 }), puestos.map(([x, , s]) => [x, 0.22, s]));
   // proyección en la pared del lado de la cafetería
   const proyeccion = texturaLetrero(1024, 512, (x, w, h) => {
-    x.fillStyle = "#F7F7F2"; x.fillRect(0, 0, w, h); x.fillStyle = NAVY; x.font = "700 64px Georgia, serif"; x.textAlign = "center"; x.fillText("Sala de informática", w / 2, 110);
+    x.fillStyle = "#EDEBE4"; x.fillRect(0, 0, w, h); x.fillStyle = NAVY; x.font = "700 64px Georgia, serif"; x.textAlign = "center"; x.fillText("Sala de informática", w / 2, 110);
     x.font = "500 40px 'Segoe UI', Arial"; x.fillStyle = "#5B6573"; x.fillText("Aquí se juegan los portales de LIVIMA", w / 2, 190);
     ["#4A9B2E", "#1F8A8A", "#6B3FA0"].forEach((c, k) => { x.fillStyle = c; x.fillRect(170 + k * 250, 260, 190, 150); x.fillStyle = "#FFFFFF"; x.font = "800 60px 'Segoe UI', Arial"; x.fillText(["6°", "8°", "10°"][k], 265 + k * 250, 355); });
   });
-  const p = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), conLuz(proyeccion, 0.35)); p.position.set(-14.86, Y0 + A + 1.75, -8.3); p.rotation.y = Math.PI / 2; escena.add(p);
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), conLuz(proyeccion, 0.18)); p.position.set(-14.86, Y0 + A + 1.75, -8.3); p.rotation.y = Math.PI / 2; escena.add(p);
   bloque(-14.4, -13.5, A, A + 0.76, -6.9, -6.1, M("#8A6A44")); muroDeChoque(-14.45, -13.45, -6.95, -6.05);
 }
 // El aula múltiple: sillas en arco frente a una pantalla, y los afiches de las expediciones de 6° en la pared
@@ -820,12 +834,12 @@ function construirAulaMultiple() {
   // afiches de las paradas de 6° en la pared del fondo
   const nombres = ["Colegio Oculto", "Espejos Vivos", "Baldosas de mi Tierra", "Tejedor de Pintas", "Detector de Simetrías", "Bosque Infinito"];
   const afiches = texturaLetrero(1536, 256, (x, w, h) => {
-    x.fillStyle = "#F7F7F2"; x.fillRect(0, 0, w, h);
+    x.fillStyle = PARED_AULA.pintura; x.fillRect(0, 0, w, h);
     nombres.forEach((n, k) => { const x0 = 16 + k * 252; x.fillStyle = ["#4A9B2E", "#2E6FA8", "#C99A2E", "#B5532A", "#1F8A8A", "#6B3FA0"][k]; x.fillRect(x0, 16, 236, 224);
       x.fillStyle = "#FFFFFF"; x.font = "800 64px 'Segoe UI', Arial"; x.textAlign = "center"; x.fillText(String(k + 1), x0 + 118, 100);
       x.font = "600 26px 'Segoe UI', Arial"; const p = n.split(" "); const mitad = Math.ceil(p.length / 2); [p.slice(0, mitad).join(" "), p.slice(mitad).join(" ")].forEach((l, i) => x.fillText(l, x0 + 118, 160 + i * 32)); });
   });
-  const pared = new THREE.Mesh(new THREE.PlaneGeometry(9.0, 1.5), conLuz(afiches, 0.3)); pared.position.set(4.0, Y0 + A + 1.7, -10.97); escena.add(pared);
+  const pared = new THREE.Mesh(new THREE.PlaneGeometry(9.0, 1.5), conLuz(afiches, 0.12)); pared.position.set(4.0, Y0 + A + 1.7, -10.97); escena.add(pared);
 }
 
 // La biblioteca: estantes llenos de libros y dos mesas de lectura con forma de hexágono

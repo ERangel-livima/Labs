@@ -2634,7 +2634,7 @@ function iniciar(){
     else { const q=guia.R.raiz.position; andar.pos.set(q.x,0,q.z+1.5); andar.yaw=Math.PI/2; }   // arranca junto al guía, mirando río abajo, hacia las paradas
     andar.pos.y=sueloAndar(andar.pos.x,andar.pos.z); andar.pitch=-0.04; andar.rumbo=andar.yaw; andar.cerca=-1; andar.alt=0; andar.vy=0; andar.on=true;
     vuelo=null; seleccionar(-1); pulsadas.clear(); controls.enabled=false;
-    $("pista").innerHTML='<span class="raton">Camina con W, A, S, D o las flechas, salta con la barra espaciadora y mantén el clic para mirar alrededor. Acércate a un portal y pulsa E para entrar.</span><span class="tactil">Mueve la palanca para caminar y arrastra la pantalla para mirar. Acércate a un portal para entrar.</span>';
+    $("pista").innerHTML='<span class="raton">Camina con W, A, S, D o las flechas, salta con la barra espaciadora y mueve el ratón para mirar alrededor. Acércate a un portal y pulsa E para entrar.</span><span class="tactil">Mueve la palanca para caminar y arrastra la pantalla para mirar. Acércate a un portal para entrar.</span>';
     $("pista").classList.remove("fuera"); setTimeout(()=>$("pista").classList.add("fuera"),8000);
     pintarAndar(); ajustar(); guardarAndar();
   }
@@ -2672,6 +2672,19 @@ function iniciar(){
   });
   const soltarMiraAndar=e=>{ if(miraAndar && e.pointerId===miraAndar.id) miraAndar=null; };
   cv.addEventListener("pointerup",soltarMiraAndar); cv.addEventListener("pointercancel",soltarMiraAndar);
+  // con el ratón basta moverlo para mirar, igual que en las estaciones. Arriba (la barra) y abajo (los botones)
+  // solo gira de lado, para que ir hacia un botón no incline la vista; con el cursor quieto en un borde se sigue girando
+  const MIRA_LIBRE=0.0032, BORDE_GIRO=0.07, GIRO_BORDE=1.6, SALTO_MAXIMO_RATON=60;
+  let cursorAndar=null;
+  cv.addEventListener("pointermove",e=>{
+    if(!andar.on || cruzando || e.pointerType!=="mouse" || miraAndar) return;
+    const r=cv.getBoundingClientRect(); cursorAndar={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};
+    const dx=Math.max(-SALTO_MAXIMO_RATON,Math.min(SALTO_MAXIMO_RATON,e.movementX||0)), dy=Math.max(-SALTO_MAXIMO_RATON,Math.min(SALTO_MAXIMO_RATON,e.movementY||0));
+    andar.yaw-=dx*MIRA_LIBRE;
+    if(cursorAndar.y>0.12 && cursorAndar.y<0.8) andar.pitch=Math.max(-1.05,Math.min(1.05,andar.pitch-dy*MIRA_LIBRE*0.7));
+    if(dx||dy) $("pista").classList.add("fuera");
+  });
+  cv.addEventListener("pointerleave",()=>{ cursorAndar=null; });
   // palanca táctil
   { const pal=$("palanca"), perilla=pal.firstElementChild; let idPal=null;
     const mover=e=>{ const r=pal.getBoundingClientRect(), R=r.width/2; let x=(e.clientX-r.left-R)/R, y=(e.clientY-r.top-R)/R; const L=Math.hypot(x,y); if(L>1){ x/=L; y/=L; }
@@ -2684,6 +2697,10 @@ function iniciar(){
   function pasoAndar(t,dt){
     // giro con Q y E (E solo gira cuando no hay un portal cerca)
     andar.yaw+=((pulsadas.has("giraIzq")?1:0)-(pulsadas.has("giraDer")?1:0))*1.9*dt;
+    if(cursorAndar && !miraAndar && !cruzando){
+      if(cursorAndar.x<BORDE_GIRO) andar.yaw+=GIRO_BORDE*(1-cursorAndar.x/BORDE_GIRO)*dt;
+      else if(cursorAndar.x>1-BORDE_GIRO) andar.yaw-=GIRO_BORDE*((cursorAndar.x-(1-BORDE_GIRO))/BORDE_GIRO)*dt;
+    }
     andar.pitch=Math.max(-1.05,Math.min(1.05,andar.pitch+((pulsadas.has("sube")?1:0)-(pulsadas.has("baja")?1:0))*0.9*dt));
     let lado=(pulsadas.has("der")?1:0)-(pulsadas.has("izq")?1:0)+andar.palX, frente=(pulsadas.has("adelante")?1:0)-(pulsadas.has("atras")?1:0)-andar.palY;
     const fuerza=Math.hypot(lado,frente); if(fuerza>1){ lado/=fuerza; frente/=fuerza; }
