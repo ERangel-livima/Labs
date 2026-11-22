@@ -425,6 +425,24 @@ const enRect = (x, z, [a, b, c, d]) => x >= a && x <= b && z >= c && z <= d;
 const enLote = (x, z) => x > LOTE.x0 && x < LOTE.x1 && z > LOTE.z0 && z < LOTE.z1;
 const zonaEn = (x, z) => ZONAS.find(zn => zn.rects.some(r => enRect(x, z, r))) || null;
 const obstaculos = [], circulos = [];
+// El segundo piso se pisa solo si los pies ya van arriba: debajo están el salón, la biblioteca y los baños.
+// Se sube por una escalera detrás de la cancha, que llega a un descanso en la punta del pasillo de arriba.
+const ALTO_PISO2 = 3.2;                                           // piso + losa del bloque
+const ESCALERA = { x0: 11.2, x1: 16.0, z0: -7.6, z1: -5.6 };      // abajo en x1, arriba en x0
+const DESCANSO = { x0: 10.0, x1: 11.2, z0: -7.6, z1: -3.05 };
+let alturaPies = 0, avisoSegundoPiso = false;
+const arriba = () => alturaPies > Y0 + 1.6, abajo = () => !arriba();
+const enSegundoPiso = (x, z) => (x >= -15 && x <= 10 && z >= -11.2 && z <= -3.2) || enRect(x, z, [DESCANSO.x0, DESCANSO.x1, DESCANSO.z0, DESCANSO.z1]);
+function alturaEscalera(x, z) {
+  if (x < ESCALERA.x0 || x > ESCALERA.x1 || z < ESCALERA.z0 || z > ESCALERA.z1) return null;
+  return Y0 + ALTO_PISO2 * (ESCALERA.x1 - x) / (ESCALERA.x1 - ESCALERA.x0);
+}
+// lo que se construye dentro de enCapa() solo estorba en ese piso
+function enCapa(activo, construir) {
+  const o = obstaculos.length, c = circulos.length; construir();
+  for (let k = o; k < obstaculos.length; k++) obstaculos[k].activo = activo;
+  for (let k = c; k < circulos.length; k++) circulos[k][3] = activo;
+}
 const muroDeChoque = (x0, x1, z0, z1) => obstaculos.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, ancho: Math.abs(x1 - x0), fondo: Math.abs(z1 - z0) });
 
 // Las piezas quietas se juntan por material en una sola malla: el colegio tiene cientos y el celular lo agradece
@@ -619,14 +637,14 @@ function construirBloque() {
   [-6, 3, 6.5].forEach(x => bloque(x - 0.08, x + 0.08, 0, H, B.atras, B.fachada - 0.1, blancoHumo));
   muroDeChoque(B.x0 - 0.1, B.x1 + 0.1, B.atras - 0.25, B.atras + 0.05);
   [B.x0, B.x1].forEach(x => muroDeChoque(x - 0.12, x + 0.12, B.atras, B.fachada));
-  [-6, 3, 6.5].forEach(x => muroDeChoque(x - 0.1, x + 0.1, B.atras, B.fachada));
+  enCapa(abajo, () => [-6, 3, 6.5].forEach(x => muroDeChoque(x - 0.1, x + 0.1, B.atras, B.fachada)));
   // fachada del primer piso: puertas abiertas y ventanas con reja
   const PUERTAS = [[-8.6, -7.4], [-2.3, -0.7], [4.2, 5.2], [7.9, 8.9]];
   const VENTANAS = [[-13.9, -9.4], [-5.4, -2.9], [0.0, 2.5], [3.35, 3.95], [9.15, 9.75]];
   const huecosAbajo = [...PUERTAS.map(([a, b]) => [a, b, 0, 2.2]), ...VENTANAS.map(([a, b]) => [a, b, 0.95, 2.1])];
   paredConHuecos(B.fachada, 0.2, B.x0, B.x1, H, huecosAbajo, blanco);
   bloque(B.x0, B.x1, 0, 0.12, B.fachada - 0.12, B.fachada + 0.12, azul);   // zócalo azul rey
-  let desde = B.x0; PUERTAS.forEach(([a, b]) => { muroDeChoque(desde, a, B.fachada - 0.12, B.fachada + 0.12); desde = b; }); muroDeChoque(desde, B.x1, B.fachada - 0.12, B.fachada + 0.12);
+  enCapa(abajo, () => { let desde = B.x0; PUERTAS.forEach(([a, b]) => { muroDeChoque(desde, a, B.fachada - 0.12, B.fachada + 0.12); desde = b; }); muroDeChoque(desde, B.x1, B.fachada - 0.12, B.fachada + 0.12); });
   VENTANAS.forEach(([a, b]) => {
     for (let x = a + 0.17; x < b; x += 0.3) bloque(x - 0.018, x + 0.018, 0.95, 2.1, B.fachada + 0.05, B.fachada + 0.09, reja);
     bloque(a, b, 1.5, 1.54, B.fachada + 0.05, B.fachada + 0.09, reja);
@@ -642,33 +660,59 @@ function construirBloque() {
     bloque(x - 0.2, x + 0.2, 0, 0.35, B.columnas - 0.2, B.columnas + 0.2, azulHondo);
     circulos.push([x, B.columnas, 0.24]);
   }
-  // segundo piso: fachada con puertas azules y ventanas, antepecho azul rey y baranda
-  paredConHuecos(B.fachada, 0.2, B.x0, B.x1, H, [], blanco, H + B.losa);
-  for (let k = 0; k < 6; k++) {
-    const xp = -13.2 + k * 4.1, xv = xp + 1.7, y = H + B.losa;
-    caja(0.9, 2.05, 0.06, azul, xp, Y0 + y + 1.03, B.fachada + 0.13);
-    caja(2.0, 1.1, 0.05, vidrio, xv, Y0 + y + 1.55, B.fachada + 0.12);
-    for (let b = -3; b <= 3; b++) caja(0.03, 1.1, 0.03, reja, xv + b * 0.3, Y0 + y + 1.55, B.fachada + 0.17);
-    caja(1.25, 0.4, 0.5, azul, xp, Y0 + y + 2.35, B.fachada + 0.35);
-  }
+  // segundo piso: la sala de informática y el aula múltiple, con sus puertas abiertas al pasillo de arriba
+  const ARRIBA = H + B.losa, PUERTAS2 = [[-8.6, -7.4], [2.9, 4.5]], VENTANAS2 = [[-14.0, -9.4], [-6.6, -2.6], [-1.4, 2.4], [5.4, 9.4]];
+  paredConHuecos(B.fachada, 0.2, B.x0, B.x1, H, [...PUERTAS2.map(([a, b]) => [a, b, 0, 2.2]), ...VENTANAS2.map(([a, b]) => [a, b, 0.95, 2.1])], blanco, ARRIBA);
+  VENTANAS2.forEach(([a, b]) => {
+    for (let x = a + 0.17; x < b; x += 0.3) bloque(x - 0.018, x + 0.018, ARRIBA + 0.95, ARRIBA + 2.1, B.fachada + 0.05, B.fachada + 0.09, reja);
+    bloque(a, b, ARRIBA + 1.5, ARRIBA + 1.54, B.fachada + 0.05, B.fachada + 0.09, reja);
+    bloque(a - 0.05, b + 0.05, ARRIBA + 0.9, ARRIBA + 0.96, B.fachada, B.fachada + 0.2, blanco);
+  });
+  PUERTAS2.forEach(([a, b]) => {
+    const ancho = b - a; caja(0.05, 2.1, ancho, azul, a + 0.04, Y0 + ARRIBA + 1.05, B.fachada - ancho / 2 - 0.1);
+    caja(ancho + 0.3, 0.4, 0.5, azul, (a + b) / 2, Y0 + ARRIBA + 2.45, B.fachada + 0.35);
+  });
+  bloque(-2.08, -1.92, ARRIBA, ARRIBA + H, B.atras, B.fachada - 0.1, blancoHumo);
+  bloque(B.x0, B.x1, ARRIBA + H, ARRIBA + H + 0.08, B.atras, B.fachada, blancoHumo);   // cielo raso: entre los muros y la cubierta queda un hueco
+  enCapa(arriba, () => {
+    let desde = B.x0; PUERTAS2.forEach(([a, b]) => { muroDeChoque(desde, a, B.fachada - 0.12, B.fachada + 0.12); desde = b; }); muroDeChoque(desde, B.x1, B.fachada - 0.12, B.fachada + 0.12);
+    muroDeChoque(-2.1, -1.9, B.atras, B.fachada);
+    muroDeChoque(B.x0 - 0.1, DESCANSO.x1 + 0.1, B.columnas - 0.12, B.columnas + 0.12);   // el antepecho del pasillo y del descanso
+    muroDeChoque(B.x0 - 0.3, B.x0 - 0.05, B.fachada, B.columnas);                      // la punta del pasillo, del lado de la cafetería
+    muroDeChoque(DESCANSO.x1, DESCANSO.x1 + 0.15, ESCALERA.z1, B.columnas);            // el borde del descanso hacia la cancha
+    muroDeChoque(DESCANSO.x0, DESCANSO.x1, DESCANSO.z0 - 0.15, DESCANSO.z0);
+  });
   for (let k = 0; k < 8; k++) bloque(B.x0 + k * 3.125, B.x0 + (k + 1) * 3.125 - 0.02, H + B.losa, H + B.losa + 1.1, B.columnas - 0.06, B.columnas + 0.06, k % 2 ? azul : M("#2449C2", { roughness: 0.7 }));
-  vara(V(B.x0, H + 1.4, B.columnas), V(B.x1, H + 1.4, B.columnas), 0.035, M("#2b2b2b", { metalness: 0.5, roughness: 0.5 }));
+  bloque(B.x1, DESCANSO.x1, H + B.losa, H + B.losa + 1.1, B.columnas - 0.06, B.columnas + 0.06, azul);
+  bloque(DESCANSO.x1 - 0.12, DESCANSO.x1, H + B.losa, H + B.losa + 1.1, ESCALERA.z1, B.columnas, azul);
+  vara(V(B.x0, H + 1.4, B.columnas), V(DESCANSO.x1, H + 1.4, B.columnas), 0.035, M("#2b2b2b", { metalness: 0.5, roughness: 0.5 }));
   // cubierta metálica a un agua, con alero sobre el pasillo
   const techo = M("#DADFE2", { metalness: 0.5, roughness: 0.45 });
   caja(B.x1 - B.x0 + 0.9, 0.1, B.fachada - B.atras + 2.8 + 0.6, techo, (B.x0 + B.x1) / 2, Y0 + 2 * H + B.losa + 0.45, (B.atras + B.columnas) / 2 + 0.2, { rx: 0.1 });
   bloque(B.x0 - 0.1, B.x1 + 0.1, 2 * H + B.losa, 2 * H + B.losa + 0.25, B.atras - 0.2, B.atras, blanco);
-  // la escalera al segundo piso, en el testero de la cafetería (se ve, pero el segundo piso no es parte del recorrido)
-  const ESC = { x0: -17.6, x1: -15.15, z0: -6.6, z1: -10.7 }, pasos = 15;
-  for (let k = 0; k < pasos; k++) { const z = ESC.z0 + (ESC.z1 - ESC.z0) * k / pasos; bloque(ESC.x0, ESC.x1, 0, (k + 1) * H / pasos, Math.min(z, z + (ESC.z1 - ESC.z0) / pasos), Math.max(z, z + (ESC.z1 - ESC.z0) / pasos), blancoHumo); }
-  bloque(ESC.x0, ESC.x1, 0, H + 0.02, ESC.z1 - 0.5, ESC.z1, blancoHumo);
-  bloque(ESC.x0 - 0.06, ESC.x0, 0, H + 1.0, ESC.z1 - 0.5, ESC.z0, azul);
-  muroDeChoque(ESC.x0 - 0.1, ESC.x1, ESC.z1 - 0.5, ESC.z0);
+  // la escalera: sube hacia el oeste, desde detrás de la cancha hasta el descanso de la punta del pasillo de arriba
+  const E = ESCALERA, PASOS = 15, largo = (E.x1 - E.x0) / PASOS;
+  for (let k = 0; k < PASOS; k++) bloque(E.x1 - (k + 1) * largo, E.x1 - k * largo, 0, (k + 1) * ALTO_PISO2 / PASOS, E.z0, E.z1, blancoHumo);
+  bloque(DESCANSO.x0, DESCANSO.x1, H, H + B.losa, DESCANSO.z0, DESCANSO.z1, blancoHumo);
+  [[DESCANSO.x1 - 0.12, DESCANSO.z0 + 0.12]].forEach(([x, z]) => { cilindro(0.12, 0.12, H, 10, tubo, x, Y0 + H / 2, z); circulos.push([x, z, 0.2]); });
+  [E.z0, E.z1].forEach(z => {
+    const lado = Math.sign(z - (E.z0 + E.z1) / 2) * 0.06;
+    vara(V(E.x1, 1.0, z + lado), V(E.x0, ALTO_PISO2 + 1.0, z + lado), 0.035, M("#2b2b2b", { metalness: 0.5, roughness: 0.5 }));
+    for (let k = 0; k <= 4; k++) { const x = E.x1 - k * (E.x1 - E.x0) / 4; vara(V(x, ALTO_PISO2 * k / 4, z + lado), V(x, ALTO_PISO2 * k / 4 + 1.0, z + lado), 0.03, azul); }
+  });
+  // barandas: no se sale de la escalera por los lados, en ningún piso
+  muroDeChoque(E.x0, E.x1, E.z0 - 0.15, E.z0); muroDeChoque(E.x0, E.x1, E.z1, E.z1 + 0.15);
+  const flecha = texturaLetrero(512, 160, (x, w, h) => { x.fillStyle = AZUL_REY; x.fillRect(0, 0, w, h); x.fillStyle = "#FFFFFF"; x.textAlign = "center"; x.textBaseline = "middle";
+    x.font = "700 56px 'Segoe UI', Arial"; x.fillText("Segundo piso", w / 2 - 30, h / 2 + 2); x.beginPath(); x.moveTo(w - 70, 50); x.lineTo(w - 30, 80); x.lineTo(w - 70, 110); x.closePath(); x.fill(); });
+  cilindro(0.04, 0.05, 1.7, 8, M("#6d737b", { metalness: 0.5 }), E.x1 + 0.6, Y0 + 0.85, E.z1 + 0.2); circulos.push([E.x1 + 0.6, E.z1 + 0.2, 0.15]);
+  const letreroEscalera = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.34), conLuz(flecha, 0.35)); letreroEscalera.position.set(E.x1 + 0.6, Y0 + 1.85, E.z1 + 0.2); letreroEscalera.rotation.y = Math.PI / 2 + Math.PI; escena.add(letreroEscalera);
 
-  construirSalon(); construirBiblioteca(); construirBanos(); construirPasillo();
+  enCapa(abajo, () => { construirSalon(); construirBiblioteca(); construirBanos(); construirPasillo(); });
+  enCapa(arriba, () => { construirInformatica(); construirAulaMultiple(); });
   // luces de adentro: sin ellas, la losa deja las aulas a oscuras
-  [[-10.5, -8.2], [-1.5, -8.2], [4.8, -8.2], [8.2, -8.2]].forEach(([x, z]) => {
-    const luz = new THREE.PointLight("#FFF1D6", mundo.CALIDAD_LIGERA ? 9 : 7, 9, 1.6); luz.position.set(x, Y0 + 2.6, z); escena.add(luz);
-    caja(1.2, 0.04, 0.3, new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#FFF3DA", emissiveIntensity: 1.4 }), x, Y0 + H - 0.03, z);
+  [[-10.5, -8.2, 0], [-1.5, -8.2, 0], [4.8, -8.2, 0], [8.2, -8.2, 0], [-8.5, -8.2, ARRIBA], [4.0, -8.2, ARRIBA]].forEach(([x, z, y]) => {
+    const luz = new THREE.PointLight("#FFF1D6", mundo.CALIDAD_LIGERA ? 9 : 7, 9, 1.6); luz.position.set(x, Y0 + y + 2.6, z); escena.add(luz);
+    caja(1.2, 0.04, 0.3, new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#FFF3DA", emissiveIntensity: 1.4 }), x, Y0 + y + (y ? 2.95 : H - 0.03), z);
   });
 }
 // El salón: tablero, escritorio del docente y pupitres en filas, rectángulos por todas partes
@@ -692,14 +736,98 @@ function construirSalon() {
     const x = -11.8 + c * 1.45, z = -10.0 + f * 1.05;
     tablas.push([x - 0.25, 0.74, z]); asientos.push([x + 0.25, 0.44, z]);
     [-0.22, 0.22].forEach(d => patas.push([x - 0.25, 0.37, z + d], [x + 0.25, 0.22, z + d * 0.8]));
-    circulos.push([x, z, 0.38]);
-  }
+  }   // los pupitres no estorban: Mati pasa entre ellos sin quedarse atascado
   const instancias = (geo, mat, lista) => { const im = new THREE.InstancedMesh(geo, mat, lista.length), o = new THREE.Object3D();
     lista.forEach(([x, y, z], i) => { o.position.set(x, Y0 + y, z); o.updateMatrix(); im.setMatrixAt(i, o.matrix); }); im.castShadow = im.receiveShadow = true; escena.add(im); };
   instancias(new THREE.BoxGeometry(0.45, 0.035, 0.6), M("#C9A56A"), tablas);
   instancias(new THREE.BoxGeometry(0.42, 0.04, 0.42), M(AZUL_REY, { roughness: 0.6 }), asientos);
   instancias(new THREE.BoxGeometry(0.035, 0.44, 0.035), M("#6d737b", { metalness: 0.5, roughness: 0.5 }), patas);
 }
+// pisos de las aulas de arriba: el mismo dibujo de los pisos de abajo
+function pisoArriba(tipo, [a, b, c, d]) {
+  const cn = lienzo(256); PISOS[tipo].pintar(cn.getContext("2d"), 256);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(b - a, d - c), new THREE.MeshStandardMaterial({ map: texturaDe(cn, [(b - a) / PISOS[tipo].metros, (d - c) / PISOS[tipo].metros]), roughness: 0.8 }));
+  m.rotation.x = -Math.PI / 2; m.position.set((a + b) / 2, Y0 + ALTO_PISO2 + 0.012, (c + d) / 2); m.receiveShadow = true; mundo.escena.add(m);
+}
+function letreroDePuerta(texto, x) {
+  const t = texturaLetrero(512, 96, (c, w, h) => { c.fillStyle = "#FFFFFF"; c.fillRect(0, 0, w, h); c.fillStyle = NAVY; c.textAlign = "center"; c.textBaseline = "middle"; c.font = "700 46px 'Segoe UI', Arial"; c.fillText(texto, w / 2, h / 2 + 3); });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.28), conLuz(t, 0.3)); m.position.set(x, Y0 + ALTO_PISO2 + 2.45, BLOQUE.fachada + 0.61); mundo.escena.add(m);
+}
+function instancias(geo, mat, lista) {
+  const im = new THREE.InstancedMesh(geo, mat, lista.length), o = new THREE.Object3D();
+  lista.forEach(([x, y, z, ry = 0], i) => { o.position.set(x, Y0 + ALTO_PISO2 + y, z); o.rotation.set(0, ry, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+  im.castShadow = im.receiveShadow = true; mundo.escena.add(im); return im;
+}
+// La sala de informática: dos filas de mesas con computadores, y un proyector en la pared del fondo
+function construirInformatica() {
+  const { M, escena } = mundo, A = ALTO_PISO2;
+  pisoArriba("salon", [-14.9, -2.1, -11, -5.6]);
+  pisoArriba("pasillo", [-15, 11.2, -5.4, -3.4]);
+  letreroDePuerta("Sala de informática", -8.0);
+  const pantalla = texturaLetrero(256, 160, (x, w, h) => {
+    const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, "#1B3A6B"); g.addColorStop(1, "#1F8A8A"); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.strokeStyle = "#8BD46A"; x.lineWidth = 6; x.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; x[k ? "lineTo" : "moveTo"](w / 2 + Math.cos(a) * 40, 66 + Math.sin(a) * 40); } x.closePath(); x.stroke();
+    x.fillStyle = "#FFFFFF"; x.font = "700 30px 'Segoe UI', Arial"; x.textAlign = "center"; x.fillText("LIVIMA", w / 2, 140);
+  });
+  const filas = [{ z: -10.65, sentado: -9.95 }, { z: -7.8, sentado: -7.1 }], puestos = [];
+  filas.forEach(({ z, sentado }) => {
+    bloque(-13.9, -3.0, 0.72 + A, 0.76 + A, z - 0.3, z + 0.3, M("#C9A56A"));
+    [-13.7, -8.45, -3.2].forEach(x => bloque(x - 0.03, x + 0.03, A, 0.72 + A, z - 0.25, z + 0.25, M("#6d737b", { metalness: 0.5 })));
+    muroDeChoque(-13.95, -2.95, z - 0.32, z + 0.32);
+    for (let k = 0; k < 6; k++) puestos.push([-13.1 + k * 1.75, z, sentado]);
+  });
+  instancias(new THREE.BoxGeometry(0.56, 0.36, 0.04), M("#22262c", { roughness: 0.4 }), puestos.map(([x, z]) => [x, 0.98, z - 0.12]));
+  instancias(new THREE.PlaneGeometry(0.52, 0.32), new THREE.MeshStandardMaterial({ map: pantalla, emissive: "#ffffff", emissiveMap: pantalla, emissiveIntensity: 0.9 }), puestos.map(([x, z]) => [x, 0.98, z - 0.095]));
+  instancias(new THREE.BoxGeometry(0.06, 0.2, 0.06), M("#22262c"), puestos.map(([x, z]) => [x, 0.84, z - 0.14]));
+  instancias(new THREE.BoxGeometry(0.42, 0.02, 0.14), M("#3a3f47"), puestos.map(([x, z]) => [x, 0.77, z + 0.12]));
+  // sillas: Mati pasa entre ellas
+  instancias(new THREE.BoxGeometry(0.44, 0.05, 0.42), M(AZUL_REY, { roughness: 0.6 }), puestos.map(([x, , s]) => [x, 0.46, s]));
+  instancias(new THREE.BoxGeometry(0.44, 0.42, 0.04), M(AZUL_REY, { roughness: 0.6 }), puestos.map(([x, , s]) => [x, 0.7, s + 0.2]));
+  instancias(new THREE.CylinderGeometry(0.03, 0.03, 0.44, 6), M("#6d737b", { metalness: 0.5 }), puestos.map(([x, , s]) => [x, 0.22, s]));
+  // proyección en la pared del lado de la cafetería
+  const proyeccion = texturaLetrero(1024, 512, (x, w, h) => {
+    x.fillStyle = "#F7F7F2"; x.fillRect(0, 0, w, h); x.fillStyle = NAVY; x.font = "700 64px Georgia, serif"; x.textAlign = "center"; x.fillText("Sala de informática", w / 2, 110);
+    x.font = "500 40px 'Segoe UI', Arial"; x.fillStyle = "#5B6573"; x.fillText("Aquí se juegan los portales de LIVIMA", w / 2, 190);
+    ["#4A9B2E", "#1F8A8A", "#6B3FA0"].forEach((c, k) => { x.fillStyle = c; x.fillRect(170 + k * 250, 260, 190, 150); x.fillStyle = "#FFFFFF"; x.font = "800 60px 'Segoe UI', Arial"; x.fillText(["6°", "8°", "10°"][k], 265 + k * 250, 355); });
+  });
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), conLuz(proyeccion, 0.35)); p.position.set(-14.86, Y0 + A + 1.75, -8.3); p.rotation.y = Math.PI / 2; escena.add(p);
+  bloque(-14.4, -13.5, A, A + 0.76, -6.9, -6.1, M("#8A6A44")); muroDeChoque(-14.45, -13.45, -6.95, -6.05);
+}
+// El aula múltiple: sillas en arco frente a una pantalla, y los afiches de las expediciones de 6° en la pared
+function construirAulaMultiple() {
+  const { M, escena } = mundo, A = ALTO_PISO2;
+  pisoArriba("biblio", [-1.9, 9.9, -11, -5.6]);
+  letreroDePuerta("Aula múltiple", 3.7);
+  const sillas = [], centro = { x: 9.6, z: -8.3 };
+  [3.0, 4.2, 5.4].forEach((r, fila) => {
+    for (let k = 0; k < 6 + fila; k++) {
+      const a = Math.PI + (k - (5 + fila) / 2) * (0.62 / (1 + fila * 0.4));
+      const x = centro.x + Math.cos(a) * r, z = centro.z + Math.sin(a) * r;
+      if (z < -10.7 || z > -5.9) continue;
+      sillas.push([x, z, Math.atan2(centro.x - x, centro.z - z)]);
+    }
+  });
+  instancias(new THREE.BoxGeometry(0.44, 0.05, 0.42), M("#D9533B", { roughness: 0.5 }), sillas.map(([x, z, ry]) => [x, 0.46, z, ry]));
+  const respaldos = sillas.map(([x, z, ry]) => [x - Math.sin(ry) * 0.2, 0.7, z - Math.cos(ry) * 0.2, ry]);
+  instancias(new THREE.BoxGeometry(0.44, 0.42, 0.04), M("#D9533B", { roughness: 0.5 }), respaldos);
+  instancias(new THREE.CylinderGeometry(0.03, 0.03, 0.44, 6), M("#6d737b", { metalness: 0.5 }), sillas.map(([x, z]) => [x, 0.22, z]));
+  const expo = texturaLetrero(1024, 512, (x, w, h) => {
+    x.fillStyle = "#0B1A33"; x.fillRect(0, 0, w, h); x.fillStyle = "#FFFFFF"; x.font = "800 92px 'Segoe UI', Arial"; x.textAlign = "center"; x.fillText("ExpoLIVIMA", w / 2, 150);
+    x.fillStyle = "#8BD46A"; x.font = "600 42px 'Segoe UI', Arial"; x.fillText("Expedicionarios LIVIMA", w / 2, 230);
+    ["#4A9B2E", "#1F8A8A", "#6B3FA0"].forEach((c, k) => { x.fillStyle = c; x.fillRect(150 + k * 260, 300, 200, 140); x.fillStyle = "#FFFFFF"; x.font = "800 56px 'Segoe UI', Arial"; x.fillText(["6°", "8°", "10°"][k], 250 + k * 260, 390); });
+  });
+  const pantalla = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), conLuz(expo, 0.5)); pantalla.position.set(9.86, Y0 + A + 1.75, -8.3); pantalla.rotation.y = -Math.PI / 2; escena.add(pantalla);
+  // afiches de las paradas de 6° en la pared del fondo
+  const nombres = ["Colegio Oculto", "Espejos Vivos", "Baldosas de mi Tierra", "Tejedor de Pintas", "Detector de Simetrías", "Bosque Infinito"];
+  const afiches = texturaLetrero(1536, 256, (x, w, h) => {
+    x.fillStyle = "#F7F7F2"; x.fillRect(0, 0, w, h);
+    nombres.forEach((n, k) => { const x0 = 16 + k * 252; x.fillStyle = ["#4A9B2E", "#2E6FA8", "#C99A2E", "#B5532A", "#1F8A8A", "#6B3FA0"][k]; x.fillRect(x0, 16, 236, 224);
+      x.fillStyle = "#FFFFFF"; x.font = "800 64px 'Segoe UI', Arial"; x.textAlign = "center"; x.fillText(String(k + 1), x0 + 118, 100);
+      x.font = "600 26px 'Segoe UI', Arial"; const p = n.split(" "); const mitad = Math.ceil(p.length / 2); [p.slice(0, mitad).join(" "), p.slice(mitad).join(" ")].forEach((l, i) => x.fillText(l, x0 + 118, 160 + i * 32)); });
+  });
+  const pared = new THREE.Mesh(new THREE.PlaneGeometry(9.0, 1.5), conLuz(afiches, 0.3)); pared.position.set(4.0, Y0 + A + 1.7, -10.97); escena.add(pared);
+}
+
 // La biblioteca: estantes llenos de libros y dos mesas de lectura con forma de hexágono
 function construirBiblioteca() {
   const { M, escena } = mundo, madera = M("#7A5230"), maderaClara = M("#A9804F");
@@ -970,7 +1098,7 @@ const ES_TACTIL = matchMedia("(pointer: coarse)").matches;
 const PASO_EXTRA_TERCERA = 1.8;   // la cámara va 3,4 m detrás de Mati
 const PISTA_CAMINAR = (ES_TACTIL
   ? "Eres Mati. Mueve la palanca para caminar y arrastra la pantalla para mirar."
-  : "Eres Mati. Camina con W, A, S, D o las flechas y mantén el clic para mirar; con E votas donde estás.")
+  : "Eres Mati. Camina con W, A, S, D o las flechas y mueve el ratón para mirar; con E votas donde estás.")
   + " Recorre el colegio con tu equipo: en cada zona fíjate qué figura predomina y cómo se sienten ahí, y vota. El plano del patio, junto a la entrada, se pinta con los votos de todo el curso.";
 // lo que hay cerca decide el botón principal, como los portales del mapa
 let cerca = null;
@@ -982,7 +1110,7 @@ const LUGARES = [
 const textoDe = l => typeof l.texto === "function" ? l.texto() : l.texto;
 function lugarEn(x, z) {
   for (const l of LUGARES) if ((!l.cuando || l.cuando()) && Math.hypot(x - l.x, z - l.z) < l.radio) return l;
-  const zona = zonaEn(x, z);
+  const zona = arriba() ? null : zonaEn(x, z);   // las zonas del mapa son las del primer piso
   return zona ? { id: "zona-" + zona.n, texto: () => `Votar en ${zona.art}`, accion: () => abrirVoto(zona) } : null;
 }
 function actualizarCerca(x, z, forzar = false) {
@@ -996,9 +1124,10 @@ addEventListener("keydown", e => {
   if (e.code !== "KeyE" || !recorrido || !recorrido.activo || !cerca || e.target.closest("input, textarea")) return;
   e.preventDefault(); $("globo").hidden = true; cerca.accion();
 });
-let ultimaPos = { x: PORTAL.x, z: PORTAL.z - 2.3 };
+let ultimaPos = { x: PORTAL.x, z: PORTAL.z - 2.3, y: 0 };
 function moverMati({ x, y, z, rumbo, vel, tercera, dt }) {
-  ultimaPos = { x, z };
+  ultimaPos = { x, z, y }; alturaPies = y;
+  if (arriba() && !avisoSegundoPiso) { avisoSegundoPiso = true; decirMati("Estás en el segundo piso: la sala de informática y el aula múltiple. Las zonas para votar están en el primer piso.", { segundos: 8 }); }
   actualizarCerca(x, z);
   R_MATI.raiz.visible = tercera;
   R_MATI.raiz.position.set(x, y, z);
@@ -1062,7 +1191,9 @@ if (usarLigera) {
   recorrido = crearRecorrido(mundo, {
     limites: { xMin: -60, xMax: 60, zMin: -40, zMax: 60 },
     permitido: (x, z) => z > mundo.rioLocal(x) + 7.5,   // se puede llegar a la playa, pero no meterse al río
-    piso: (x, z) => {
+    piso: (x, z, y = 0) => {
+      const escalon = alturaEscalera(x, z); if (escalon !== null) return escalon;
+      if (y > Y0 + 1.6 && enSegundoPiso(x, z)) return Y0 + ALTO_PISO2;
       if (enLote(x, z)) return Y0;
       if (x > LOTE.x0 && x < LOTE.x1 && z >= ANDEN.z0 && z < ANDEN.z1) return ANDEN.alto;
       const enLaLosa = rincon.piso(x, z); if (enLaLosa !== null) return enLaLosa;
