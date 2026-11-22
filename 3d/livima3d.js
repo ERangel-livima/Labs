@@ -734,10 +734,12 @@ export function personajes(mundo, { escala = 0.88 } = {}) {
 
 // Mundo libre, como el modo caminar del mapa: el estudiante es el guía del grado.
 // Se llega viendo al guía desde atrás; con verDesdeAtras(false) se pasa a primera persona.
-// Computador: W A S D o flechas para caminar, barra espaciadora para saltar, arrastrar con el ratón para mirar.
+// Computador: W A S D o flechas para caminar, barra espaciadora para saltar; basta mover el ratón para mirar,
+// y con el cursor en el borde izquierdo o derecho de la pantalla se sigue girando. Arrastrar también sirve.
 // Celular: la palanca de la esquina para caminar y arrastrar el dedo en la pantalla para mirar.
-// obstaculos: cajas {x, z, ancho, fondo, activo?}; circulos: [x, z, radio]; permitido(x, z): false donde no se pisa (el río).
-// piso(x, z): altura del suelo en ese punto. alMoverse(estado): se llama en cada cuadro con la posición de los pies.
+// obstaculos: cajas {x, z, ancho, fondo, activo?}; circulos: [x, z, radio, activo?]; permitido(x, z): false donde no se pisa (el río).
+// piso(x, z, y): altura del suelo en ese punto, sabiendo a qué altura van los pies (para los edificios de dos pisos).
+// alMoverse(estado): se llama en cada cuadro con la posición de los pies.
 const VELOCIDAD_PASO = 3.9;          // metros por segundo (1,5 veces el paso inicial de 2,6)
 const ALTURA_OJOS = 1.45;            // estatura de un estudiante de sexto
 const RADIO_CUERPO = 0.3;
@@ -745,6 +747,9 @@ const SENSIBILIDAD_MIRADA = 0.005;
 const PITCH_MAXIMO = 1.0;            // unos 57 grados hacia arriba o hacia abajo
 const IMPULSO_SALTO = 4.4, GRAVEDAD = 13;
 const DISTANCIA_TERCERA = 3.4;       // qué tan atrás va la cámara cuando se ve al guía
+const SENSIBILIDAD_LIBRE = 0.0032;   // mirar con solo mover el ratón, sin hacer clic
+const BORDE_GIRO = 0.07, GIRO_BORDE = 1.6;   // franja de los lados (fracción del ancho) y giro en ella, radianes por segundo
+const SALTO_MAXIMO_RATON = 60;       // un movimiento brusco del cursor (al volver de otra ventana) no da media vuelta
 
 export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [], permitido = () => true, piso = () => 0, alMoverse } = {}) {
   const { camara, renderer } = mundo;
@@ -788,6 +793,20 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
   const soltarArrastre = () => { arrastre = null; if (activo) lienzo.style.cursor = "grab"; };
   lienzo.addEventListener("pointerup", soltarArrastre); lienzo.addEventListener("pointercancel", soltarArrastre);
 
+  // con el ratón basta moverlo para mirar. Arriba (la barra) y abajo (los botones) solo gira de lado,
+  // para que ir hacia un botón no incline la vista
+  let cursor = null;
+  lienzo.addEventListener("pointermove", e => {
+    if (!activo || e.pointerType !== "mouse" || arrastre) return;
+    const r = lienzo.getBoundingClientRect();
+    cursor = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+    const dx = THREE.MathUtils.clamp(e.movementX || 0, -SALTO_MAXIMO_RATON, SALTO_MAXIMO_RATON);
+    const dy = THREE.MathUtils.clamp(e.movementY || 0, -SALTO_MAXIMO_RATON, SALTO_MAXIMO_RATON);
+    yaw -= dx * SENSIBILIDAD_LIBRE;
+    if (cursor.y > 0.12 && cursor.y < 0.8) pitch = THREE.MathUtils.clamp(pitch - dy * SENSIBILIDAD_LIBRE * 0.7, -PITCH_MAXIMO, PITCH_MAXIMO);
+  });
+  lienzo.addEventListener("pointerleave", () => { cursor = null; });
+
   const TECLAS_JUEGO = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
   addEventListener("keydown", e => {
     if (!activo || e.target.closest("input, textarea, select")) return;
@@ -802,7 +821,8 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
   function saltar() { if (activo && alt === 0) vy = IMPULSO_SALTO; }
 
   function chocar(x, z, previo) {
-    for (const [cx, cz, r] of circulos) {
+    for (const [cx, cz, r, activoC] of circulos) {
+      if (activoC && !activoC()) continue;
       const dx = x - cx, dz = z - cz, d = Math.hypot(dx, dz), minimo = r + RADIO_CUERPO;
       if (d < minimo && d > 0) { x = cx + dx / d * minimo; z = cz + dz / d * minimo; }
     }
@@ -827,7 +847,7 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
     ojos.set(pies.x, pies.y + alt + ALTURA_OJOS, pies.z);
     if (tercera) {
       const pos = ojos.clone().addScaledVector(direccion, -DISTANCIA_TERCERA); pos.y += 0.7;
-      const suelo = piso(pos.x, pos.z) + 0.4; if (pos.y < suelo) pos.y = suelo;
+      const suelo = piso(pos.x, pos.z, pies.y) + 0.4; if (pos.y < suelo) pos.y = suelo;
       objetivo.copy(ojos).addScaledVector(direccion, 2.5);
       mundo.colocar(pos, objetivo);
     } else {
@@ -848,6 +868,11 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
     if (teclas.has("KeyA")) lado -= 1;
     if (teclas.has("ArrowLeft")) yaw += 1.8 * dt;
     if (teclas.has("ArrowRight")) yaw -= 1.8 * dt;
+    // el cursor quieto en un borde de la pantalla sigue girando hacia ese lado
+    if (cursor && !arrastre) {
+      if (cursor.x < BORDE_GIRO) yaw += GIRO_BORDE * (1 - cursor.x / BORDE_GIRO) * dt;
+      else if (cursor.x > 1 - BORDE_GIRO) yaw -= GIRO_BORDE * ((cursor.x - (1 - BORDE_GIRO)) / BORDE_GIRO) * dt;
+    }
     adelante -= joystick.y; lado += joystick.x;
     const largo = Math.hypot(adelante, lado);
     if (largo > 1) { adelante /= largo; lado /= largo; }
@@ -856,7 +881,7 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
     let z = z0 + (-Math.cos(yaw) * adelante - Math.sin(yaw) * lado) * VELOCIDAD_PASO * dt;
     [x, z] = chocar(x, z, [x0, z0]);
     // el piso cambia suave al subir a la plataforma, como un escalón
-    const sueloAqui = piso(x, z);
+    const sueloAqui = piso(x, z, pies.y);
     pies.y += (sueloAqui - pies.y) * Math.min(1, dt * 12);
     pies.x = x; pies.z = z;
     if (alt > 0 || vy > 0) { vy -= GRAVEDAD * dt; alt += vy * dt; if (alt <= 0) { alt = 0; vy = 0; } }
@@ -876,14 +901,15 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
       if (activo) return;
       mundo.soltarEncuadre();
       let x, z;
-      if (inicio) { ({ x, z } = inicio); yaw = inicio.yaw; }
+      let yRef = 0;
+      if (inicio) { ({ x, z } = inicio); yaw = inicio.yaw; if (inicio.y != null) yRef = inicio.y; }
       else {
         const dir = new THREE.Vector3().subVectors(mundo.mira, camara.position).normalize();
         yaw = Math.atan2(-dir.x, -dir.z);
         [x, z] = chocar(camara.position.x, camara.position.z);
       }
       pitch = -0.05; alt = 0; vy = 0; rumbo = yaw + Math.PI;
-      pies.set(x, piso(x, z), z);
+      pies.set(x, piso(x, z, yRef), z);
       direccion.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
       ojos.set(x, pies.y + ALTURA_OJOS, z);
       const destino = tercera ? ojos.clone().addScaledVector(direccion, -DISTANCIA_TERCERA).add(new THREE.Vector3(0, 0.7, 0)) : ojos.clone();
@@ -894,7 +920,7 @@ export function crearRecorrido(mundo, { limites, obstaculos = [], circulos = [],
       requestAnimationFrame(paso);
     },
     desactivar() {
-      activo = false; teclas.clear(); soltarPerilla(); arrastre = null;
+      activo = false; teclas.clear(); soltarPerilla(); arrastre = null; cursor = null;
       base.style.display = "none"; lienzo.style.cursor = "";
     },
     verDesdeAtras(valor) { tercera = valor; },
